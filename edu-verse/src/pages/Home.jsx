@@ -1,0 +1,111 @@
+import React, { useEffect, useState } from 'react';
+import axios from 'axios';
+
+const Home = () => {
+  const [userName, setUserName] = useState('');
+  const [apuntes, setApuntes] = useState([]);
+  const [busqueda, setBusqueda] = useState('');
+
+  const cargarApuntes = async () => {
+    try {
+      const res = await axios.get('http://localhost:4000/apuntes');
+      if (Array.isArray(res.data)) {
+        setApuntes(res.data);
+      }
+    } catch (err) {
+      console.error("Error al traer apuntes:", err);
+    }
+  };
+
+  const handleSearch = async (e) => {
+    if (e) e.preventDefault();
+    try {
+      // Usamos una validación para no enviar 'undefined'
+      const query = busqueda ? busqueda : '';
+      const res = await axios.get(`http://localhost:4000/apuntes/buscar?q=${query}`);
+      setApuntes(res.data);
+    } catch (err) {
+      console.error("Error al buscar:", err);
+    }
+  };
+
+  useEffect(() => {
+    const storedName = localStorage.getItem('usuario');
+    if (storedName) setUserName(storedName);
+    cargarApuntes();
+  }, []);
+
+  return (
+    <div className="max-w-7xl mx-auto px-6 py-4">
+      {/* Ajustamos el tamaño del header para que no ocupe toda la pantalla */}
+      <header className="mb-8 text-center py-6 bg-blue-50 rounded-3xl">
+        <h1 className="text-3xl font-extrabold text-gray-900">
+          Hola, <span className="text-blue-600">{userName || 'Estudiante'}</span> 👋
+        </h1>
+        <p className="text-gray-600 mt-1">Bienvenido a Edu-Verse</p>
+      </header>
+
+      {/* Buscador - Ahora visible más arriba */}
+      <section className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-8">
+        <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
+          <div className="flex-1 relative">
+            <span className="absolute left-4 top-3 text-gray-400 text-xl">🔍</span>
+            <input 
+              type="text" 
+              placeholder="Busca materias o temas..." 
+              className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:ring-2 focus:ring-blue-400 outline-none"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+          </div>
+          <button 
+            type="submit"
+            className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-blue-700 shadow-md"
+          >
+            Buscar
+          </button>
+          <button 
+            type="button"
+            onClick={() => { setBusqueda(''); cargarApuntes(); }}
+            className="text-sm text-gray-400 hover:text-blue-600 px-2"
+          >
+            Limpiar
+          </button>
+        </form>
+      </section>
+
+      <section>
+        <h3 className="text-xl font-bold text-gray-800 mb-6 border-b pb-2">Apuntes Recientes</h3>
+        
+        {apuntes.length === 0 ? (
+          <div className="text-center py-10 bg-gray-50 rounded-3xl border-2 border-dashed">
+            <p className="text-gray-500">No hay apuntes disponibles.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {apuntes.map((apunte) => (
+              <div key={apunte.apunte_id} className="bg-white p-5 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-all">
+                <div className="w-full h-24 bg-blue-100 rounded-xl mb-4 flex items-center justify-center text-3xl">📄</div>
+                <h4 className="font-bold text-gray-900 truncate">{apunte.titulo}</h4>
+                <p className="text-sm text-gray-500 italic">{apunte.materia}</p>
+                <div className="mt-4 pt-4 border-t flex justify-between items-center">
+                  <span className="text-xs font-bold text-blue-600">Por: {apunte.autor}</span>
+                  <a 
+                    href={`http://localhost:4000${apunte.archivo_url}`} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-xs bg-gray-800 text-white px-3 py-2 rounded-lg font-bold"
+                  >
+                    Ver PDF
+                  </a>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+};
+
+export default Home;
