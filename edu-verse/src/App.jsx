@@ -16,20 +16,13 @@ function App() {
         
         <Routes>
           {/* Página principal (Home) */}
-          <Route path="/" element={
-            <main className="max-w-7xl mx-auto p-10 text-center mt-20">
-              <h1 className="text-5xl font-extrabold text-gray-900 mb-4">
-                Bienvenido a <span className="text-blue-600">Edu-Verse</span>
-              </h1>
-              <p className="text-xl text-gray-600">La comunidad de apuntes más grande.</p>
-            </main>
-          } />
+          <Route path="/" element={<Home />} />
 
           {/* Ruta para el Registro */}
 
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} /> 
-          <Route path="/" element={<Home />} />
+          <Route path="/Home" element={<Home />} />
           <Route path="/perfil" element={<Profile />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/apuntes" element={<Apuntes />} />
