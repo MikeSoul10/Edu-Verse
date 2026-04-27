@@ -165,3 +165,30 @@ const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => {
   console.log(`🚀 Servidor de Edu-Verse corriendo en el puerto ${PORT}`);
 });
+
+// --- NUEVA RUTA PARA DETALLE DE APUNTE ---
+app.get('/apuntes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    // Usamos pool.query porque esa es tu variable definida arriba
+    const consulta = `
+      SELECT apuntes.*, usuarios.nombre AS autor 
+      FROM apuntes 
+      JOIN usuarios ON apuntes.usuario_id = usuarios.usuario_id 
+      WHERE apuntes.apunte_id = $1
+    `;
+    
+    const resultado = await pool.query(consulta, [id]);
+
+    if (resultado.rows.length === 0) {
+      return res.status(404).json("Apunte no encontrado");
+    }
+
+    // Enviamos solo el objeto del apunte
+    res.json(resultado.rows[0]);
+  } catch (err) {
+    console.error("Error al obtener detalle:", err.message);
+    res.status(500).send("Error en el servidor");
+  }
+});
