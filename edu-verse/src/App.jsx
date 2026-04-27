@@ -5,6 +5,7 @@ import Login from './pages/Login'; // <--- Importa el nuevo componente
 import Home from './pages/Home';
 import Profile from './pages/Profile';
 import Upload from './pages/Upload';
+import Apuntes from './pages/Apuntes';
 
 
 function App() {
@@ -31,7 +32,7 @@ function App() {
           <Route path="/" element={<Home />} />
           <Route path="/perfil" element={<Profile />} />
           <Route path="/upload" element={<Upload />} />
-
+          <Route path="/apuntes" element={<Apuntes />} />
         </Routes>
       </div>
     </Router>
