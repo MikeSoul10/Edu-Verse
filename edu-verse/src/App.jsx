@@ -8,6 +8,7 @@ import Upload from './pages/Upload';
 import Apuntes from './pages/Apuntes';
 import DetalleApunte from './pages/DetalleApunte';
 import MyNotes from './pages/MyNotes';
+import Favorites from './pages/Favorites';
 import { Toaster } from 'react-hot-toast';
 
 
@@ -32,6 +33,7 @@ function App() {
           <Route path="/apuntes" element={<Apuntes />} />
           <Route path="/apunte/:id" element={<DetalleApunte />} />
           <Route path="/mis-apuntes" element={<MyNotes />} />
+          <Route path="/favoritos" element={<Favorites />} />
         </Routes>
       </div>
     </Router>

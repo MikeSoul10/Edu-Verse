@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom'; // Importante para la navegación
+import toast from 'react-hot-toast';
 
 const Home = () => {
   const [userName, setUserName] = useState('');
@@ -17,7 +18,25 @@ const Home = () => {
       console.error("Error al traer apuntes:", err);
     }
   };
+const guardarFavorito = async (apunteId) => {
+  const usuarioId = localStorage.getItem('usuario_id');
+  if (!usuarioId) return toast.error("Debes iniciar sesión");
 
+  try {
+    const res = await axios.post('http://localhost:4000/favoritos', {
+      usuario_id: usuarioId,
+      apunte_id: apunteId
+    });
+    toast.success(res.data.message); // "Añadido a favoritos ⭐"
+  } catch (err) {
+    // Si el error viene del backend (como el 400 de duplicado)
+    if (err.response && err.response.data) {
+      toast.error(err.response.data.message); // "Ya tienes este apunte en favoritos"
+    } else {
+      toast.error("Error al conectar con el servidor");
+    }
+  }
+};
   const handleSearch = async (e) => {
     if (e) e.preventDefault();
     try {
@@ -90,6 +109,7 @@ const Home = () => {
       <Link to="/apuntes" className="text-sm text-blue-600 font-semibold hover:underline">Ver más</Link>
     </div>
     
+    
     {apuntes.length === 0 ? (
       <div className="text-center py-10 bg-gray-50 rounded-3xl border-2 border-dashed">
         <p className="text-gray-500">No hay apuntes disponibles.</p>
@@ -104,9 +124,19 @@ const Home = () => {
               <h4 className="font-bold text-gray-900 truncate group-hover:text-blue-600 transition-colors">{apunte.titulo}</h4>
               <p className="text-sm text-gray-500 italic">{apunte.materia}</p>
             </Link>
-
             <div className="mt-4 pt-4 border-t flex justify-between items-center">
               <span className="text-xs font-bold text-blue-600">Por: {apunte.autor}</span>
+              <div className="flex justify-between items-center ">
+                {/* BOTÓN DE FAVORITO CORREGIDO */}
+                <button 
+                  onClick={() => guardarFavorito(apunte.apunte_id)}
+                  className="text-2xl hover:scale-125 transition-transform"
+                  title="Guardar en favoritos"
+                >
+                  🔖 
+                </button>
+              </div>
+
               <div className="flex gap-2">
                 {/* Botón para ir a calificar/comentar */}
                 <Link 
