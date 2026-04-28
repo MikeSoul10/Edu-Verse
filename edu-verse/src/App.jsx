@@ -7,12 +7,14 @@ import Profile from './pages/Profile';
 import Upload from './pages/Upload';
 import Apuntes from './pages/Apuntes';
 import DetalleApunte from './pages/DetalleApunte';
+import { Toaster } from 'react-hot-toast';
 
 
 function App() {
   return (
     <Router>
       <div className="min-h-screen bg-gray-50">
+        <Toaster position="top-right" reverseOrder={false} /> {/* <--- Agregar esto */}
         <Navbar />
         
         <Routes>

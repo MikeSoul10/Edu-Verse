@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 const Upload = () => {
   const [file, setFile] = useState(null);
@@ -26,19 +27,27 @@ const Upload = () => {
     data.append('descripcion', formData.descripcion);
     data.append('usuario_id', localStorage.getItem('usuario_id'));
 
-    try {
-      await axios.post('http://localhost:4000/apuntes/upload', data, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-      alert("¡Apunte compartido con éxito! 🚀");
-      navigate('/');
-    } catch (err) {
-      alert("Error al subir el archivo");
-      console.error(err);
-    } finally {
-      setCargando(false);
-    }
-  };
+ try {
+  await axios.post('http://localhost:4000/apuntes/upload', data, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  });
+  
+  // SUSTITUIR EL alert POR ESTO:
+  toast.success('¡Apunte compartido con éxito! 🚀', {
+    duration: 4000,
+    style: {
+      borderRadius: '15px',
+      background: '#333',
+      color: '#fff',
+    },
+  });
+
+  navigate('/');
+} catch (err) {
+  toast.error('Hubo un error al subir el archivo'); // <--- Notificación de error
+  console.error(err);
+}
+  }
 
   return (
     <div className="max-w-3xl mx-auto mt-10 p-8 bg-white rounded-3xl shadow-sm border border-gray-100">
