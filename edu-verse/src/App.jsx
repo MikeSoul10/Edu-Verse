@@ -6,6 +6,7 @@ import Home from './pages/Home';
 import Profile from './pages/Profile';
 import Upload from './pages/Upload';
 import Apuntes from './pages/Apuntes';
+import DetalleApunte from './pages/DetalleApunte';
 
 
 function App() {
@@ -26,6 +27,7 @@ function App() {
           <Route path="/perfil" element={<Profile />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/apuntes" element={<Apuntes />} />
+          <Route path="/apunte/:id" element={<DetalleApunte />} />
         </Routes>
       </div>
     </Router>
