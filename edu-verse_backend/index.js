@@ -192,3 +192,31 @@ app.get('/apuntes/:id', async (req, res) => {
     res.status(500).send("Error en el servidor");
   }
 });
+
+// OBTENER APUNTES DE UN USUARIO ESPECÍFICO
+app.get('/apuntes/mis-apuntes/:usuario_id', async (req, res) => {
+  try {
+    const { usuario_id } = req.params;
+    const misApuntes = await pool.query(
+      "SELECT * FROM apuntes WHERE usuario_id = $1 ORDER BY fecha_subida DESC",
+      [usuario_id]
+    );
+    res.json(misApuntes.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Error al obtener tus apuntes");
+  }
+});
+
+// ELIMINAR UN APUNTE
+app.delete('/apuntes/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    // Aquí podrías agregar una validación extra para ver si el archivo existe físicamente y borrarlo también
+    await pool.query("DELETE FROM apuntes WHERE apunte_id = $1", [id]);
+    res.json("Apunte eliminado con éxito");
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Error al eliminar el apunte");
+  }
+});
