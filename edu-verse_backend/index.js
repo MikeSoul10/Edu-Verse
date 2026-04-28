@@ -220,3 +220,57 @@ app.delete('/apuntes/:id', async (req, res) => {
     res.status(500).send("Error al eliminar el apunte");
   }
 });
+
+// GUARDAR UN APUNTE COMO FAVORITO
+app.post('/favoritos', async (req, res) => {
+  try {
+    const { usuario_id, apunte_id } = req.body;
+    await pool.query(
+      "INSERT INTO favoritos (usuario_id, apunte_id) VALUES ($1, $2)",
+      [usuario_id, apunte_id]
+    );
+    res.json({ message: "Añadido a favoritos ⭐" });
+  } catch (err) {
+    // Si el error es por duplicado (código 23505)
+    if (err.code === '23505') {
+      return res.status(400).json({ message: "Ya tienes este apunte en favoritos" });
+    }
+    console.error(err.message);
+    res.status(500).send("Error al guardar favorito");
+  }
+});
+
+// OBTENER TODOS LOS FAVORITOS DE UN USUARIO
+app.get('/favoritos/:usuario_id', async (req, res) => {
+  try {
+    const { usuario_id } = req.params;
+    const misFavoritos = await pool.query(
+      `SELECT apuntes.*, usuarios.nombre AS autor 
+       FROM favoritos 
+       JOIN apuntes ON favoritos.apunte_id = apuntes.apunte_id 
+       JOIN usuarios ON apuntes.usuario_id = usuarios.usuario_id
+       WHERE favoritos.usuario_id = $1`,
+      [usuario_id]
+    );
+    res.json(misFavoritos.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Error al obtener favoritos");
+  }
+});
+// ELIMINAR DE FAVORITOS
+app.delete('/favoritos', async (req, res) => {
+  try {
+    const { usuario_id, apunte_id } = req.body;
+    
+    await pool.query(
+      "DELETE FROM favoritos WHERE usuario_id = $1 AND apunte_id = $2",
+      [usuario_id, apunte_id]
+    );
+    
+    res.json({ message: "Eliminado de favoritos 🗑️" });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Error al eliminar de favoritos");
+  }
+});
