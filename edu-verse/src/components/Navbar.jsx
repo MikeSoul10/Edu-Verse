@@ -37,7 +37,7 @@ const Navbar = () => {
                 {usuarioLogueado}
               </span>
             </Link>
-            
+            <Link to="/mis-apuntes" title="Mis Apuntes"  className="bg-blue-600 text-white px-5 py-2 rounded-full font-semibold hover:bg-blue-700 transition-all text-sm shadow-md">📁 Mis Apuntes</Link>
             {/* Botón de Salida */}
             <button 
               onClick={handleLogout}
@@ -45,6 +45,7 @@ const Navbar = () => {
             >
               Salir
             </button>
+            
           </div>
         ) : (
           /* --- VISTA CUANDO NO HAY SESIÓN --- */

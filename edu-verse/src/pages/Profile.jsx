@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 
 const Profile = () => {
   const [datos, setDatos] = useState({ nombre: '', email: '' });
@@ -50,7 +51,7 @@ const Profile = () => {
       alert("¡Perfil actualizado con éxito! ✨");
       
       // Actualizamos el localStorage para que el Navbar cambie el nombre al instante
-      localStorage.setItem('usuario', datos.nombre);
+      localStorage.setItem('usuario_id', res.data.usuario.id);
       
       // Opcional: recargar la página para ver cambios
       window.location.reload(); 
@@ -114,7 +115,20 @@ const Profile = () => {
           </button>
         </div>
       </form>
+      <div className="mt-8 bg-blue-50 p-6 rounded-3xl border border-blue-100 flex justify-between items-center">
+  <div>
+    <h3 className="text-lg font-bold text-blue-900">Gestión de Contenido</h3>
+    <p className="text-sm text-blue-700">Revisa, edita o elimina los apuntes que has compartido.</p>
+  </div>
+  <Link 
+    to="/mis-apuntes" 
+    className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
+  >
+    Mis Apuntes
+  </Link>
+</div>
     </div>
+    
   );
 };
 
