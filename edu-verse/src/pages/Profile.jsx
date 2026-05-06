@@ -1,62 +1,90 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { useNavigate } from 'react-router-dom';
-import { Link } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
+import { toast } from 'react-hot-toast';
 
 const Profile = () => {
-  const [datos, setDatos] = useState({ nombre: '', email: '' });
-  const [cargando, setCargando] = useState(true);
-  const navigate = useNavigate();
+  const [datos, setDatos] = useState({
+    nombre: '',
+    email: '',
+    foto_url: ''
+  });
 
-  // 1. OBTENER EL ID DEL USUARIO LOGUEADO
+  const [cargando, setCargando] = useState(true);
+  const [nuevaFoto, setNuevaFoto] = useState(null);
+  const [preview, setPreview] = useState(null);
+
+  const navigate = useNavigate();
   const usuarioId = localStorage.getItem('usuario_id');
 
-  // 2. CARGAR DATOS AL MONTAR EL COMPONENTE
   useEffect(() => {
     const obtenerPerfil = async () => {
       if (!usuarioId) {
-        navigate('/login'); // Si no hay ID, lo mandamos al login
+        navigate('/login');
         return;
       }
-
       try {
         const res = await axios.get(`http://localhost:4000/auth/perfil/${usuarioId}`);
         setDatos({
           nombre: res.data.nombre,
-          email: res.data.email
+          email: res.data.email,
+          foto_url: res.data.foto_url
         });
         setCargando(false);
       } catch (err) {
         console.error("Error al cargar perfil:", err);
-        alert("No se pudo cargar la información del perfil.");
+        toast.error("No se pudo cargar el perfil");
         setCargando(false);
       }
     };
-
     obtenerPerfil();
   }, [usuarioId, navigate]);
 
-  // 3. FUNCIÓN PARA ACTUALIZAR
-  const handleUpdate = async (e) => {
-    e.preventDefault();
-    
-    // Validación rápida antes de enviar
-    if (datos.nombre.trim().length < 3) {
-      return alert("El nombre es muy corto.");
+  const handleFotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      setNuevaFoto(file);
+      const url = URL.createObjectURL(file);
+      setPreview(url);
     }
+  };
+
+  const subirFoto = async () => {
+    if (!nuevaFoto) return toast.warning("Selecciona una imagen");
+
+    const formData = new FormData();
+    formData.append('foto', nuevaFoto);
 
     try {
-      const res = await axios.put(`http://localhost:4000/auth/perfil/update/${usuarioId}`, datos);
-      
-      alert("¡Perfil actualizado con éxito! ✨");
-      
-      // Actualizamos el localStorage para que el Navbar cambie el nombre al instante
-      localStorage.setItem('usuario_id', res.data.usuario.id);
-      
-      // Opcional: recargar la página para ver cambios
-      window.location.reload(); 
+      const res = await axios.put(
+        `http://localhost:4000/usuarios/foto/${usuarioId}`,
+        formData
+      );
+      toast.success("Foto actualizada");
+      localStorage.setItem('foto_url', res.data.url);
+      setDatos(prev => ({ ...prev, foto_url: res.data.url }));
+      setPreview(null);
+      setNuevaFoto(null);
     } catch (err) {
-      alert(err.response?.data || "Error al actualizar los datos");
+      console.error(err);
+      toast.error("Error al subir la foto");
+    }
+  };
+
+  const handleUpdate = async (e) => {
+    e.preventDefault();
+    if (datos.nombre.trim().length < 3) {
+      return toast.warning("Nombre muy corto");
+    }
+    try {
+      const res = await axios.put(
+        `http://localhost:4000/auth/perfil/update/${usuarioId}`,
+        datos
+      );
+      toast.success("Perfil actualizado");
+      localStorage.setItem('usuario', res.data.nombre);
+    } catch (err) {
+      toast.error(err.response?.data || "Error al actualizar");
     }
   };
 
@@ -70,65 +98,105 @@ const Profile = () => {
 
   return (
     <div className="max-w-2xl mx-auto mt-10 p-8 bg-white rounded-3xl shadow-sm border border-gray-100">
-      <div className="flex items-center space-x-4 mb-8">
-        <div className="bg-blue-100 p-4 rounded-2xl">
-          <span className="text-3xl">👤</span>
-        </div>
-        <div>
-          <h2 className="text-2xl font-black text-gray-800">Mi Perfil</h2>
-          <p className="text-gray-500 text-sm">Gestiona tu información personal en Edu-Verse</p>
-        </div>
-      </div>
       
-      <form onSubmit={handleUpdate} className="space-y-6">
-        <div>
-          <label className="block text-sm font-bold text-gray-700 mb-2">Nombre para mostrar</label>
-          <input 
-            type="text" 
-            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none focus:ring-2 focus:ring-blue-400 transition-all font-medium"
-            value={datos.nombre}
-            placeholder="Tu nombre"
-            onChange={(e) => setDatos({...datos, nombre: e.target.value})}
-            required
+      {/* SECCIÓN DE FOTO DE PERFIL OPTIMIZADA */}
+      <div className="flex flex-col items-center mb-10">
+        <div className="relative group">
+          {/* Contenedor de la Imagen */}
+          <div className="w-32 h-32 rounded-full overflow-hidden border-4 border-white shadow-xl ring-2 ring-blue-500">
+            <img
+              src={
+                preview ||
+                (datos.foto_url
+                  ? `http://localhost:4000${datos.foto_url}`
+                  : `https://ui-avatars.com/api/?name=${datos.nombre}&background=0D8ABC&color=fff`)
+              }
+              className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+              alt="Perfil"
+              onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${datos.nombre}&background=ccc`; }}
+            />
+          </div>
+
+          {/* Botón Flotante (Icono de cámara) */}
+          <label 
+            htmlFor="foto-upload" 
+            className="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full cursor-pointer shadow-lg transition-all transform hover:scale-110 border-2 border-white"
+            title="Cambiar foto"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M4 5a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V7a2 2 0 00-2-2h-1.586a1 1 0 01-.707-.293l-1.172-1.172A1 1 0 009.586 3H10.414a1 1 0 00-.707.293L8.535 4.707A1 1 0 017.828 5H4zm3 8a3 3 0 106 0 3 3 0 00-6 0z" clipRule="evenodd" />
+            </svg>
+          </label>
+
+          {/* Input escondido */}
+          <input
+            id="foto-upload"
+            type="file"
+            onChange={handleFotoChange}
+            accept="image/*"
+            className="hidden"
           />
-        </div>
-        
-        <div>
-          <label className="block text-sm font-bold text-gray-700 mb-2">Correo Institucional</label>
-          <input 
-            type="email" 
-            className="w-full p-4 bg-gray-100 border border-gray-200 rounded-xl text-gray-400 cursor-not-allowed font-medium"
-            value={datos.email}
-            disabled 
-          />
-          <p className="text-xs text-gray-400 mt-2 ml-1 italic">
-            * El correo institucional no puede ser modificado por seguridad.
-          </p>
         </div>
 
-        <div className="pt-4">
-          <button 
-            type="submit"
-            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-lg hover:bg-blue-700 hover:shadow-lg shadow-blue-100 transform active:scale-95 transition-all"
-          >
-            Guardar Cambios
-          </button>
+        {/* Botón de confirmación (solo aparece si hay foto nueva) */}
+        {nuevaFoto && (
+          <div className="mt-4 flex flex-col items-center animate-bounce">
+            <button
+              onClick={subirFoto}
+              className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-full text-xs font-bold shadow-md transition-all"
+            >
+              Confirmar Nueva Foto
+            </button>
+            <span className="text-[10px] text-gray-400 mt-1">{nuevaFoto.name}</span>
+          </div>
+        )}
+      </div>
+
+      {/* FORMULARIO */}
+      <form onSubmit={handleUpdate} className="space-y-6">
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-2">Nombre</label>
+          <input
+            type="text"
+            value={datos.nombre}
+            onChange={(e) => setDatos({ ...datos, nombre: e.target.value })}
+            className="w-full p-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition-all"
+          />
         </div>
+
+        <div>
+          <label className="block text-sm font-bold text-gray-700 mb-2">Email</label>
+          <input
+            type="email"
+            value={datos.email}
+            disabled
+            className="w-full p-4 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed"
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="w-full bg-gray-900 hover:bg-black text-white py-4 rounded-xl font-bold transition-colors shadow-lg"
+        >
+          Actualizar Datos Personales
+        </button>
       </form>
-      <div className="mt-8 bg-blue-50 p-6 rounded-3xl border border-blue-100 flex justify-between items-center">
-  <div>
-    <h3 className="text-lg font-bold text-blue-900">Gestión de Contenido</h3>
-    <p className="text-sm text-blue-700">Revisa, edita o elimina los apuntes que has compartido.</p>
-  </div>
-  <Link 
-    to="/mis-apuntes" 
-    className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-200"
-  >
-    Mis Apuntes
-  </Link>
-</div>
+
+      {/* GESTIÓN DE CONTENIDO */}
+      <div className="mt-10 bg-blue-50 p-6 rounded-3xl flex justify-between items-center border border-blue-100">
+        <div>
+          <h3 className="font-bold text-blue-900 text-lg">Mis Apuntes</h3>
+          <p className="text-sm text-blue-700">Administra el material que has compartido.</p>
+        </div>
+        <Link
+          to="/mis-apuntes"
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-md"
+        >
+          Ver Todo
+        </Link>
+      </div>
+
     </div>
-    
   );
 };
 
