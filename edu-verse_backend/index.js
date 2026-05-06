@@ -15,16 +15,18 @@ app.use(express.json());
 app.use('/uploads', express.static('uploads'));
 
 // --- 2. CONFIGURACIÓN DE MULTER ---
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    cb(null, 'uploads/'); 
-  },
-  filename: (req, file, cb) => {
-    cb(null, Date.now() + '-' + file.originalname);
-  }
+const storageApuntes = multer.diskStorage({
+  destination: (req, file, cb) => { cb(null, 'uploads/'); },
+  filename: (req, file, cb) => { cb(null, Date.now() + '-' + file.originalname); }
 });
-const upload = multer({ storage: storage });
+const upload = multer({ storage: storageApuntes });
 
+// Almacenamiento para Fotos de Perfil
+const storagePerfil = multer.diskStorage({
+  destination: (req, file, cb) => { cb(null, 'uploads/perfiles/'); },
+  filename: (req, file, cb) => { cb(null, Date.now() + '-' + file.originalname); }
+});
+const uploadPerfil = multer({ storage: storagePerfil });
 // --- 3. RUTAS GENERALES ---
 app.get('/', (req, res) => {
   res.send("¡El servidor de Edu-Verse está vivo! 🚀");
@@ -78,10 +80,16 @@ app.post('/auth/login', async (req, res) => {
 });
 
 // --- 5. RUTAS DE PERFIL ---
+
 app.get('/auth/perfil/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const usuario = await pool.query("SELECT nombre, email FROM usuarios WHERE usuario_id = $1", [id]);
+    // Agregamos foto_url a la consulta
+    const usuario = await pool.query(
+      "SELECT nombre, email, foto_url FROM usuarios WHERE usuario_id = $1", 
+      [id]
+    );
+    
     if (usuario.rows.length === 0) return res.status(404).json("No encontrado");
     res.json(usuario.rows[0]);
   } catch (err) {
@@ -272,5 +280,23 @@ app.delete('/favoritos', async (req, res) => {
   } catch (err) {
     console.error(err.message);
     res.status(500).send("Error al eliminar de favoritos");
+  }
+});
+
+// RUTA PARA ACTUALIZAR FOTO DE PERFIL
+app.put('/usuarios/foto/:id', uploadPerfil.single('foto'), async (req, res) => {
+  try {
+    const { id } = req.params;
+    const urlFoto = `/uploads/perfiles/${req.file.filename}`;
+    
+    await pool.query(
+      "UPDATE usuarios SET foto_url = $1 WHERE usuario_id = $2",
+      [urlFoto, id]
+    );
+    
+    res.json({ message: "Foto actualizada", url: urlFoto });
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send("Error al subir la foto");
   }
 });
