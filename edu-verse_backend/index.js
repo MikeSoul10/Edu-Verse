@@ -4,6 +4,7 @@ const bcrypt = require('bcrypt');
 const pool = require('./db');
 const multer = require('multer'); // Movido arriba con los demás imports
 const path = require('path');
+const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
@@ -13,6 +14,22 @@ app.use(cors());
 app.use(express.json());
 // Servir archivos estáticos (debe estar antes de las rutas)
 app.use('/uploads', express.static('uploads'));
+
+const verificarToken = (req, res, next) => {
+    const token = req.header('Authorization')?.split(' ')[1]; // Extrae el token del Header: "Bearer TOKEN"
+
+    if (!token) {
+        return res.status(401).json({ mensaje: "Acceso denegado. No hay token." });
+    }
+
+    try {
+        const verificado = jwt.verify(token, process.env.JWT_SECRET || 'clave_secreta_provisional');
+        req.usuario = verificado; // Guarda los datos del usuario en la petición
+        next(); // Continúa a la siguiente función
+    } catch (err) {
+        res.status(400).json({ mensaje: "Token no válido." });
+    }
+};
 
 // --- 2. CONFIGURACIÓN DE MULTER ---
 const storageApuntes = multer.diskStorage({
@@ -62,21 +79,30 @@ app.post('/auth/signup', async (req, res) => {
 });
 
 app.post('/auth/login', async (req, res) => {
-  try {
-    const { email, password } = req.body;
-    const usuario = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email]);
-    if (usuario.rows.length === 0) return res.status(401).json("Credenciales incorrectas");
+    try {
+        const { email, password } = req.body;
+        const usuario = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email]);
+        
+        if (usuario.rows.length === 0) return res.status(401).json("Credenciales incorrectas");
 
-    const validPassword = await bcrypt.compare(password, usuario.rows[0].password_hash);
-    if (!validPassword) return res.status(401).json("Credenciales incorrectas");
+        const validPassword = await bcrypt.compare(password, usuario.rows[0].password_hash);
+        if (!validPassword) return res.status(401).json("Credenciales incorrectas");
 
-    res.json({
-      mensaje: "¡Éxito!",
-      usuario: { id: usuario.rows[0].usuario_id, nombre: usuario.rows[0].nombre }
-    });
-  } catch (err) {
-    res.status(500).send("Error en el servidor");
-  }
+        // --- CREAR TOKEN ---
+        const token = jwt.sign(
+            { id: usuario.rows[0].usuario_id, nombre: usuario.rows[0].nombre },
+            process.env.JWT_SECRET || 'clave_secreta_provisional',
+            { expiresIn: '24h' } // El token expira en un día
+        );
+
+        res.json({
+            mensaje: "¡Éxito!",
+            token, // Enviamos el token al frontend
+            usuario: { id: usuario.rows[0].usuario_id, nombre: usuario.rows[0].nombre }
+        });
+    } catch (err) {
+        res.status(500).send("Error en el servidor");
+    }
 });
 
 // --- 5. RUTAS DE PERFIL ---
@@ -114,7 +140,8 @@ app.put('/auth/perfil/update/:id', async (req, res) => {
 });
 
 // --- 6. RUTAS DE APUNTES ---
-app.post('/apuntes/upload', upload.single('archivo'), async (req, res) => {
+app.post('/apuntes/upload', verificarToken, upload.single('archivo'), async (req, res) => {
+    const usuario_id = req.usuario.id;
   try {
     const { titulo, materia, descripcion, usuario_id } = req.body;
     if (!req.file) return res.status(400).json("No hay archivo");
@@ -267,7 +294,8 @@ app.get('/favoritos/:usuario_id', async (req, res) => {
   }
 });
 // ELIMINAR DE FAVORITOS
-app.delete('/favoritos', async (req, res) => {
+app.delete('/favoritos', verificarToken, async (req, res) => {
+    const usuario_id = req.usuario.id;
   try {
     const { usuario_id, apunte_id } = req.body;
     
@@ -299,4 +327,50 @@ app.put('/usuarios/foto/:id', uploadPerfil.single('foto'), async (req, res) => {
     console.error(err.message);
     res.status(500).send("Error al subir la foto");
   }
+});
+
+// --- RUTAS DE COMUNIDAD ---
+
+// 1. Obtener detalles de un apunte con su promedio de rating
+app.get('/apuntes/detalle/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const apunte = await pool.query(
+            `SELECT apuntes.*, usuarios.nombre AS autor,
+            (SELECT AVG(estrellas) FROM valoraciones WHERE apunte_id = $1) as promedio_rating,
+            (SELECT COUNT(*) FROM valoraciones WHERE apunte_id = $1) as total_votos
+            FROM apuntes 
+            JOIN usuarios ON apuntes.usuario_id = usuarios.usuario_id
+            WHERE apuntes.apunte_id = $1`, [id]
+        );
+        res.json(apunte.rows[0]);
+    } catch (err) {
+        res.status(500).send("Error al obtener detalle");
+    }
+});
+
+// 2. Comentarios: Obtener y Postear
+app.get('/comentarios/:apunte_id', async (req, res) => {
+    const { apunte_id } = req.params;
+    const result = await pool.query(
+        "SELECT comentarios.*, usuarios.nombre FROM comentarios JOIN usuarios ON comentarios.usuario_id = usuarios.usuario_id WHERE apunte_id = $1 ORDER BY fecha_creacion DESC",
+        [apunte_id]
+    );
+    res.json(result.rows);
+});
+
+app.post('/comentarios', async (req, res) => {
+    const { apunte_id, usuario_id, texto } = req.body;
+    await pool.query("INSERT INTO comentarios (apunte_id, usuario_id, texto) VALUES ($1, $2, $3)", [apunte_id, usuario_id, texto]);
+    res.json("Comentario añadido");
+});
+
+// 3. Valoraciones: Registrar o actualizar
+app.post('/valoraciones', async (req, res) => {
+    const { apunte_id, usuario_id, estrellas } = req.body;
+    await pool.query(
+        "INSERT INTO valoraciones (apunte_id, usuario_id, estrellas) VALUES ($1, $2, $3) ON CONFLICT (apunte_id, usuario_id) DO UPDATE SET estrellas = EXCLUDED.estrellas",
+        [apunte_id, usuario_id, estrellas]
+    );
+    res.json("Valoración guardada");
 });
