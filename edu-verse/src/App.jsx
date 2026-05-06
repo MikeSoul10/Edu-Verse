@@ -10,6 +10,7 @@ import DetalleApunte from './pages/DetalleApunte';
 import MyNotes from './pages/MyNotes';
 import Favorites from './pages/Favorites';
 import ProtectedRoute from './pages/ProtectedRoute';
+import NotFound from './pages/NotFound';
 import { Toaster } from 'react-hot-toast';
 
 
@@ -42,6 +43,7 @@ function App() {
         </ProtectedRoute>
     } 
 />
+ <Route path="*" element={<NotFound />} />
         </Routes>
       </div>
     </Router>
