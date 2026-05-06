@@ -9,6 +9,7 @@ import Apuntes from './pages/Apuntes';
 import DetalleApunte from './pages/DetalleApunte';
 import MyNotes from './pages/MyNotes';
 import Favorites from './pages/Favorites';
+import ProtectedRoute from './pages/ProtectedRoute';
 import { Toaster } from 'react-hot-toast';
 
 
@@ -30,10 +31,17 @@ function App() {
           <Route path="/Home" element={<Home />} />
           <Route path="/perfil" element={<Profile />} />
           <Route path="/upload" element={<Upload />} />
-          <Route path="/apuntes" element={<Apuntes />} />
           <Route path="/apunte/:id" element={<DetalleApunte />} />
           <Route path="/mis-apuntes" element={<MyNotes />} />
           <Route path="/favoritos" element={<Favorites />} />
+          <Route 
+    path="/apuntes" 
+    element={
+        <ProtectedRoute>
+            <Apuntes />
+        </ProtectedRoute>
+    } 
+/>
         </Routes>
       </div>
     </Router>

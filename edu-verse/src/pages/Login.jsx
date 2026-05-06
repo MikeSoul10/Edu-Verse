@@ -1,34 +1,57 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom'; // <--- Verifica que 'useNavigate' esté aquí
+import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
+import { toast } from 'react-hot-toast'; // Asegúrate de tenerlo instalado
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
-  const navigate = useNavigate(); // <--- Si falta esta línea, falla todo
+  const navigate = useNavigate();
 
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    // Mostramos un toast de carga
+    const loadingToast = toast.loading('Iniciando sesión...');
 
-const handleSubmit = async (e) => {
-  e.preventDefault();
-  try {
-    const response = await axios.post('http://localhost:4000/auth/login', formData);
-    
-    // GUARDAR AMBAS COSAS ES LA CLAVE
-    localStorage.setItem('usuario', response.data.usuario.nombre);
-    localStorage.setItem('usuario_id', response.data.usuario.id); // <--- ESTA LÍNEA TE FALTA
-    
-    alert(`¡Hola de nuevo, ${response.data.usuario.nombre}!`);
-    navigate('/'); 
-    window.location.reload(); // Para que el Navbar se actualice
-    
-  } catch (err) {
-    alert(err.response?.data || "Error al iniciar sesión");
-  }
-};
+    try {
+      const response = await axios.post('http://localhost:4000/auth/login', formData);
+      
+      // 1. Extraemos los datos de la respuesta (usando 'response' que es tu variable)
+      const { token, usuario } = response.data;
+
+      // 2. Guardamos en el localStorage
+      localStorage.setItem('token', token);
+      localStorage.setItem('usuario', usuario.nombre);
+      localStorage.setItem('usuario_id', usuario.id);
+      
+      // OPCIONAL: Si ya tenemos la foto en el login, la guardamos
+      if(usuario.foto_url) localStorage.setItem('foto_url', usuario.foto_url);
+
+      // 3. Éxito!
+      toast.success(`¡Bienvenido de nuevo, ${usuario.nombre}!`, {
+        id: loadingToast, // Reemplaza el toast de carga
+        icon: '🚀',
+      });
+
+      // Redirección suave
+      setTimeout(() => {
+        navigate('/');
+        window.location.reload(); // Solo si necesitas refrescar el Navbar
+      }, 1000);
+
+    } catch (err) {
+      // 4. Manejo de errores
+      const errorMsg = err.response?.data || "Credenciales incorrectas";
+      toast.error(errorMsg, {
+        id: loadingToast,
+      });
+    }
+  };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center p-6">
-      <div className="bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
-        <h2 className="text-3xl font-extrabold text-gray-900 text-center mb-2">
+    <div className="min-h-[80vh] flex items-center justify-center p-6 animate-fade-in">
+      <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md border border-gray-100 transform transition-all">
+        <h2 className="text-3xl font-black text-gray-900 text-center mb-2">
           ¡Hola de nuevo!
         </h2>
         <p className="text-gray-500 text-center mb-8">
@@ -37,10 +60,10 @@ const handleSubmit = async (e) => {
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">Correo Institucional</label>
+            <label className="block text-sm font-bold text-gray-700 mb-1 ml-1">Correo Institucional</label>
             <input 
               type="email" 
-              className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+              className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-transparent focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
               placeholder="tu@correo.edu"
               onChange={(e) => setFormData({...formData, email: e.target.value})}
               required
@@ -48,13 +71,13 @@ const handleSubmit = async (e) => {
           </div>
 
           <div>
-            <div className="flex justify-between mb-1">
-              <label className="text-sm font-semibold text-gray-700">Contraseña</label>
-              <a href="#" className="text-xs text-blue-600 hover:underline">¿La olvidaste?</a>
+            <div className="flex justify-between mb-1 ml-1">
+              <label className="text-sm font-bold text-gray-700">Contraseña</label>
+              <a href="#" className="text-xs text-blue-600 font-bold hover:underline">¿La olvidaste?</a>
             </div>
             <input 
               type="password" 
-              className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
+              className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-transparent focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
               placeholder="••••••••"
               onChange={(e) => setFormData({...formData, password: e.target.value})}
               required
@@ -63,14 +86,14 @@ const handleSubmit = async (e) => {
 
           <button 
             type="submit"
-            className="w-full bg-blue-600 text-white py-3 rounded-xl font-bold text-lg hover:bg-blue-700 hover:shadow-lg transform hover:-translate-y-0.5 transition-all mt-4"
+            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-blue-700 hover:shadow-xl active:scale-95 transform transition-all mt-4"
           >
-            Entrar
+            Entrar a mi cuenta
           </button>
         </form>
 
-        <p className="text-center text-sm text-gray-600 mt-6">
-          ¿No tienes cuenta? <Link to="/signup" className="text-blue-600 font-bold hover:underline">Regístrate gratis</Link>
+        <p className="text-center text-sm text-gray-600 mt-8">
+          ¿No tienes cuenta? <Link to="/signup" className="text-blue-600 font-black hover:underline">Regístrate gratis</Link>
         </p>
       </div>
     </div>
