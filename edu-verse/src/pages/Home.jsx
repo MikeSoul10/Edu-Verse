@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { API_URL } from '../config';
 
 const Home = () => {
   const [userName, setUserName] = useState('');
@@ -13,7 +14,7 @@ const Home = () => {
   const cargarApuntes = async () => {
     setCargando(true);
     try {
-      const res = await axios.get('http://localhost:4000/apuntes');
+      const res = await axios.get(`${API_URL}/apuntes`);
       if (Array.isArray(res.data)) {
         setApuntes(res.data);
       }
@@ -30,7 +31,7 @@ const Home = () => {
     if (!usuarioId) return toast.error("Debes iniciar sesión");
 
     try {
-      const res = await axios.post('http://localhost:4000/favoritos', {
+      const res = await axios.post(`${API_URL}/favoritos`, {
         usuario_id: usuarioId,
         apunte_id: apunteId
       });
@@ -50,7 +51,7 @@ const Home = () => {
     setCargando(true);
     try {
       const query = busqueda ? busqueda : '';
-      const res = await axios.get(`http://localhost:4000/apuntes/buscar?q=${query}`);
+      const res = await axios.get(`${API_URL}/apuntes/buscar?q=${query}`);
       setApuntes(res.data);
     } catch (err) {
       console.error("Error al buscar:", err);

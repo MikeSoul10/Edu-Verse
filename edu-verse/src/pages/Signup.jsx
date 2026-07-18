@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios'
+import { API_URL } from '../config';
 
 const Signup = () => {
   const [formData, setFormData] = useState({
@@ -32,7 +33,7 @@ const Signup = () => {
   // --- 2. ENVÍO DE DATOS AL BACKEND ---
   try {
     // Apuntamos a la ruta exacta del Backend
-    const response = await axios.post('http://localhost:4000/auth/signup', formData);
+    const response = await axios.post(`${API_URL}/auth/signup`, formData);
     
     console.log("Respuesta del servidor:", response.data);
     

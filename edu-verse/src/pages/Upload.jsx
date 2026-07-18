@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
+import { API_URL } from '../config';
 
 const Upload = () => {
   const [file, setFile] = useState(null);
@@ -28,7 +29,7 @@ const Upload = () => {
     data.append('usuario_id', localStorage.getItem('usuario_id'));
 
  try {
-  await axios.post('http://localhost:4000/apuntes/upload', data, {
+  await axios.post(`${API_URL}/apuntes/upload`, data, {
     headers: { 'Content-Type': 'multipart/form-data' }
   });
   

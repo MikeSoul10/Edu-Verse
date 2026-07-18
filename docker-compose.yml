@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: Miem091002
+      POSTGRES_DB: Edu-verseDB
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./backup.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./edu-verse_backend
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      DB_USER: postgres
+      DB_HOST: postgres
+      DB_NAME: Edu-verseDB
+      DB_PASSWORD: Miem091002
+      DB_PORT: 5432
+      PORT: 4000
+      JWT_SECRET: ${JWT_SECRET:-clave_secreta_provisional}
+    volumes:
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build: ./edu-verse
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  uploads:

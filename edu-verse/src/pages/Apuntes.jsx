@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom'; // Importante para la navegación interna
+import { API_URL } from '../config';
 
 const Apuntes = () => {
   const [listaApuntes, setListaApuntes] = useState([]);
@@ -8,7 +9,7 @@ const Apuntes = () => {
 
   const obtenerApuntes = async () => {
     try {
-      const res = await axios.get('http://localhost:4000/apuntes');
+      const res = await axios.get(`${API_URL}/apuntes`);
       if (Array.isArray(res.data)) {
         setListaApuntes(res.data);
       }
@@ -64,7 +65,7 @@ const Apuntes = () => {
 
                   {/* Enlace directo al PDF mantenido para conveniencia */}
                   <a 
-                    href={`http://localhost:4000${item.archivo_url}`} 
+                    href={`${API_URL}${item.archivo_url}`}
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="w-full text-center bg-gray-800 text-white py-2 rounded-lg text-xs font-bold hover:bg-black transition-colors"

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { API_URL } from '../config';
 
 const MyNotes = () => {
   const [misApuntes, setMisApuntes] = useState([]);
@@ -8,7 +9,7 @@ const MyNotes = () => {
 
   const cargarMisApuntes = async () => {
     try {
-      const res = await axios.get(`http://localhost:4000/apuntes/mis-apuntes/${usuarioId}`);
+      const res = await axios.get(`${API_URL}/apuntes/mis-apuntes/${usuarioId}`);
       setMisApuntes(res.data);
     } catch (err) {
       console.error("Error cargando tus apuntes", err);
@@ -18,7 +19,7 @@ const MyNotes = () => {
   const eliminarApunte = async (id) => {
     if (window.confirm("¿Estás seguro de que quieres eliminar este apunte?")) {
       try {
-        await axios.delete(`http://localhost:4000/apuntes/${id}`);
+        await axios.delete(`${API_URL}/apuntes/${id}`);
         toast.success("Apunte eliminado correctamente");
         cargarMisApuntes(); // Recargamos la lista
       } catch (err) {
@@ -49,7 +50,7 @@ const MyNotes = () => {
               </div>
               <div className="flex gap-3">
                 <a 
-                  href={`http://localhost:4000${apunte.archivo_url}`} 
+                  href={`${API_URL}${apunte.archivo_url}`}
                   target="_blank" 
                   className="bg-blue-50 text-blue-600 px-4 py-2 rounded-xl text-sm font-bold hover:bg-blue-100"
                 >

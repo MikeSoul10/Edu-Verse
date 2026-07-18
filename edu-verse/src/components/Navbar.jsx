@@ -1,5 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_URL } from '../config';
 
 const Navbar = () => {
   const navigate = useNavigate();
@@ -52,8 +53,8 @@ const Navbar = () => {
               <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-sm ring-1 ring-blue-100">
                 <img 
                   src={
-                    fotoPerfil 
-                      ? `http://localhost:4000${fotoPerfil}` 
+                    fotoPerfil
+                      ? `${API_URL}${fotoPerfil}`
                       : `https://ui-avatars.com/api/?name=${usuarioLogueado}&background=0D8ABC&color=fff`
                   } 
                   className="w-full h-full object-cover"

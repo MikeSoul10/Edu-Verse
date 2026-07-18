@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { API_URL } from '../config';
 
 const DetalleApunte = () => {
   const { id } = useParams();
@@ -17,11 +18,11 @@ const DetalleApunte = () => {
   const cargarDatos = async () => {
     try {
       // Traemos el detalle del apunte (que incluye promedio de estrellas)
-      const resApunte = await axios.get(`http://localhost:4000/apuntes/detalle/${id}`);
+      const resApunte = await axios.get(`${API_URL}/apuntes/detalle/${id}`);
       setApunte(resApunte.data);
 
       // Traemos los comentarios reales de la tabla 'comentarios'
-      const resComentarios = await axios.get(`http://localhost:4000/comentarios/${id}`);
+      const resComentarios = await axios.get(`${API_URL}/comentarios/${id}`);
       setComentarios(resComentarios.data);
     } catch (err) {
       console.error("Error al cargar datos:", err);
@@ -42,14 +43,14 @@ const DetalleApunte = () => {
 
     try {
       // Enviamos el comentario
-      await axios.post('http://localhost:4000/comentarios', {
+      await axios.post(`${API_URL}/comentarios`, {
         apunte_id: id,
         usuario_id: usuarioId,
         texto: comentario
       });
 
       // Enviamos la valoración (rating)
-      await axios.post('http://localhost:4000/valoraciones', {
+      await axios.post(`${API_URL}/valoraciones`, {
         apunte_id: id,
         usuario_id: usuarioId,
         estrellas: rating
@@ -91,7 +92,7 @@ const DetalleApunte = () => {
           </div>
           
           <a 
-            href={`http://localhost:4000${apunte.archivo_url}`}
+            href={`${API_URL}${apunte.archivo_url}`}
             target="_blank"
             rel="noopener noreferrer"
             className="bg-blue-600 text-white px-8 py-4 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg shadow-blue-100"

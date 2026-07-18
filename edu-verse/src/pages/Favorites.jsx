@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
+import { API_URL } from '../config';
 
 const Favorites = () => {
   const [favoritos, setFavoritos] = useState([]);
@@ -8,7 +9,7 @@ const Favorites = () => {
 
   const cargarFavoritos = async () => {
     try {
-      const res = await axios.get(`http://localhost:4000/favoritos/${usuarioId}`);
+      const res = await axios.get(`${API_URL}/favoritos/${usuarioId}`);
       setFavoritos(res.data);
     } catch (err) {
       console.error("Error al cargar favoritos", err);
@@ -18,7 +19,7 @@ const Favorites = () => {
   // FUNCIÓN PARA ELIMINAR
   const quitarFavorito = async (apunteId) => {
     try {
-      await axios.delete('http://localhost:4000/favoritos', {
+      await axios.delete(`${API_URL}/favoritos`, {
         data: { usuario_id: usuarioId, apunte_id: apunteId } // En DELETE, el body va en 'data'
       });
       toast.success("Eliminado de tus favoritos");
@@ -50,7 +51,7 @@ const Favorites = () => {
               
               <div className="flex gap-2">
                 <a 
-                  href={`http://localhost:4000${apunte.archivo_url}`} 
+                  href={`${API_URL}${apunte.archivo_url}`}
                   target="_blank" 
                   className="flex-1 text-center bg-gray-900 text-white py-2 rounded-xl text-xs font-bold hover:bg-black transition-colors"
                 >

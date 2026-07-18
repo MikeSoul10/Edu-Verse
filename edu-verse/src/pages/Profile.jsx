@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
+import { API_URL } from '../config';
 
 const Profile = () => {
   const [datos, setDatos] = useState({
@@ -24,7 +25,7 @@ const Profile = () => {
         return;
       }
       try {
-        const res = await axios.get(`http://localhost:4000/auth/perfil/${usuarioId}`);
+        const res = await axios.get(`${API_URL}/auth/perfil/${usuarioId}`);
         setDatos({
           nombre: res.data.nombre,
           email: res.data.email,
@@ -57,7 +58,7 @@ const Profile = () => {
 
     try {
       const res = await axios.put(
-        `http://localhost:4000/usuarios/foto/${usuarioId}`,
+        `${API_URL}/usuarios/foto/${usuarioId}`,
         formData
       );
       toast.success("Foto actualizada");
@@ -78,7 +79,7 @@ const Profile = () => {
     }
     try {
       const res = await axios.put(
-        `http://localhost:4000/auth/perfil/update/${usuarioId}`,
+        `${API_URL}/auth/perfil/update/${usuarioId}`,
         datos
       );
       toast.success("Perfil actualizado");
@@ -108,7 +109,7 @@ const Profile = () => {
               src={
                 preview ||
                 (datos.foto_url
-                  ? `http://localhost:4000${datos.foto_url}`
+                  ? `${API_URL}${datos.foto_url}`
                   : `https://ui-avatars.com/api/?name=${datos.nombre}&background=0D8ABC&color=fff`)
               }
               className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"

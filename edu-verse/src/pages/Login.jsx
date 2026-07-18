@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-hot-toast'; // Asegúrate de tenerlo instalado
+import { API_URL } from '../config';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
@@ -14,7 +15,7 @@ const Login = () => {
     const loadingToast = toast.loading('Iniciando sesión...');
 
     try {
-      const response = await axios.post('http://localhost:4000/auth/login', formData);
+      const response = await axios.post(`${API_URL}/auth/login`, formData);
       
       // 1. Extraemos los datos de la respuesta (usando 'response' que es tu variable)
       const { token, usuario } = response.data;
