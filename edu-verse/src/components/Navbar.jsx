@@ -30,6 +30,9 @@ const Navbar = () => {
           <div className="flex items-center space-x-4">
             
             {/* BOTONES DE SECCIÓN */}
+            <Link to="/biblioteca" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
+              📚 Biblioteca
+            </Link>
             <Link to="/favoritos" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
               ⭐ Favoritos
             </Link>

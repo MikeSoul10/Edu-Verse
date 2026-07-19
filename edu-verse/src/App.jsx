@@ -3,6 +3,7 @@ import Navbar from './components/Navbar';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
 import Home from './pages/Home';
+import Biblioteca from './pages/Biblioteca';
 import Profile from './pages/Profile';
 import Upload from './pages/Upload';
 import Apuntes from './pages/Apuntes';
@@ -30,6 +31,7 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/login" element={<Login />} /> 
           <Route path="/Home" element={<Home />} />
+          <Route path="/biblioteca" element={<Biblioteca />} />
           <Route path="/perfil" element={<Profile />} />
           <Route path="/upload" element={<Upload />} />
           <Route path="/apunte/:id" element={<DetalleApunte />} />
