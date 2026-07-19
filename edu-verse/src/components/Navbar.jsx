@@ -36,6 +36,9 @@ const Navbar = () => {
             <Link to="/favoritos" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
               ⭐ Favoritos
             </Link>
+            <Link to="/gestor-equipos" className="text-gray-600 hover:text-emerald-600 font-medium text-sm transition-colors">
+              👥 Equipos
+            </Link>
             <Link to="/mis-apuntes" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
               📁 Mis Apuntes
             </Link>
