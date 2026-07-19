@@ -37,7 +37,7 @@ Plataforma web para el intercambio de apuntes académicos entre estudiantes univ
 
 ---
 
-## Setup con Docker (Producción)
+## Setup con Docker (Desarrollo con Hot-Reload)
 
 1. Clonar el repositorio:
 
@@ -60,15 +60,22 @@ docker compose up --build
 
 Esto arrancará:
 
-| Servicio  | Puerto | Descripción                     |
-| --------- | ------ | ------------------------------- |
-| postgres  | 5432   | Base de datos PostgreSQL        |
-| backend   | 4000   | API REST con Express            |
-| frontend  | 80     | Frontend servido con Nginx      |
+| Servicio  | Puerto | Descripción                                    |
+| --------- | ------ | ---------------------------------------------- |
+| postgres  | 5432   | Base de datos PostgreSQL                       |
+| backend   | 4000   | API REST con Express (nodemon + hot-reload)    |
+| frontend  | 5173   | Frontend con Vite dev server (HMR habilitado)  |
 
-4. Abrir en el navegador: `http://localhost`
+4. Abrir en el navegador: `http://localhost:5173`
 
 > La base de datos se inicializa automáticamente con el archivo `backup.sql` incluido en el repositorio.
+
+### Cómo funciona el Hot-Reload
+
+- **Backend**: Los cambios en `edu-verse_backend/` se detectan automáticamente gracias a **nodemon**. No es necesario reiniciar el contenedor.
+- **Frontend**: Los cambios en `edu-verse/src/` se reflejan al instante en el navegador gracias al **HMR de Vite**.
+
+> **Nota**: Si necesitas reinstalar dependencias dentro del contenedor, ejecuta `docker compose down -v` y luego `docker compose up --build`.
 
 ---
 
@@ -255,7 +262,8 @@ npm run preview  # Vista previa del build de producción
 ### Backend (`edu-verse_backend/`)
 
 ```bash
-node index.js    # Iniciar servidor
+node index.js      # Iniciar servidor (producción)
+npx nodemon index.js  # Iniciar con hot-reload (desarrollo)
 ```
 
 ---

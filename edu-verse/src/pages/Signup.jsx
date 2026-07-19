@@ -106,7 +106,7 @@ const Signup = () => {
         </form>
 
         <p className="text-center text-sm text-gray-600 mt-6">
-          ¿Ya tienes cuenta? <a href="#" className="text-blue-600 font-bold hover:underline">Inicia sesión</a>
+          ¿Ya tienes cuenta? <a href="login.jsx" className="text-blue-600 font-bold hover:underline">Inicia sesión</a>
         </p>
       </div>
     </div>

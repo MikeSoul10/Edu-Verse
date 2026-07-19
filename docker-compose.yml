@@ -32,15 +32,29 @@ services:
       JWT_SECRET: ${JWT_SECRET:-clave_secreta_provisional}
     volumes:
       - uploads:/app/uploads
+      - ./edu-verse_backend:/app
+      - /app/node_modules
     depends_on:
       postgres:
         condition: service_healthy
 
   frontend:
-    build: ./edu-verse
+    build:
+      context: ./edu-verse
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:4000
     restart: unless-stopped
     ports:
-      - "80:80"
+      - "5173:5173"
+    volumes:
+      - ./edu-verse/src:/app/src
+      - ./edu-verse/index.html:/app/index.html
+      - ./edu-verse/vite.config.js:/app/vite.config.js
+      - ./edu-verse/tailwind.config.js:/app/tailwind.config.js
+      - ./edu-verse/postcss.config.js:/app/postcss.config.js
+      - /app/node_modules
+    command: npm run dev -- --host 0.0.0.0
     depends_on:
       - backend
 
