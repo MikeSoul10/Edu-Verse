@@ -1,8 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const verificarToken = require('../middleware/auth');
+const { sanitize } = require('../middleware/sanitize');
 
-router.post('/crear', async (req, res) => {
+router.post('/crear', verificarToken, async (req, res) => {
   try {
     const { equipo_id, titulo, descripcion, prioridad, fecha_entrega, asignado_a, creado_por } = req.body;
     if (!equipo_id || !titulo) return res.status(400).json('Faltan campos obligatorios');
@@ -10,7 +12,7 @@ router.post('/crear', async (req, res) => {
     const nueva = await pool.query(
       `INSERT INTO tareas (equipo_id, titulo, descripcion, prioridad, fecha_entrega, asignado_a, creado_por)
        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
-      [equipo_id, titulo, descripcion || '', prioridad || 'verde', fecha_entrega || null, asignado_a || null, creado_por]
+      [equipo_id, sanitize(titulo), sanitize(descripcion || ''), prioridad || 'verde', fecha_entrega || null, asignado_a || null, creado_por]
     );
 
     res.status(201).json({ mensaje: 'Tarea creada', tarea: nueva.rows[0] });
@@ -63,7 +65,7 @@ router.put('/:id', async (req, res) => {
   }
 });
 
-router.put('/:id/mover', async (req, res) => {
+router.put('/:id/mover', verificarToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { estado } = req.body;
@@ -81,7 +83,7 @@ router.put('/:id/mover', async (req, res) => {
   }
 });
 
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', verificarToken, async (req, res) => {
   try {
     const { id } = req.params;
     await pool.query('DELETE FROM tareas WHERE tarea_id = $1', [id]);

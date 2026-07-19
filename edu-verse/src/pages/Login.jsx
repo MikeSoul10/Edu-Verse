@@ -1,47 +1,35 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
-import { toast } from 'react-hot-toast'; // Asegúrate de tenerlo instalado
+import { toast } from 'react-hot-toast';
 import { API_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
 
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
   const navigate = useNavigate();
+  const { login } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     
-    // Mostramos un toast de carga
     const loadingToast = toast.loading('Iniciando sesión...');
 
     try {
       const response = await axios.post(`${API_URL}/auth/login`, formData);
       
-      // 1. Extraemos los datos de la respuesta (usando 'response' que es tu variable)
-      const { token, usuario } = response.data;
+      login(response.data);
 
-      // 2. Guardamos en el localStorage
-      localStorage.setItem('token', token);
-      localStorage.setItem('usuario', usuario.nombre);
-      localStorage.setItem('usuario_id', usuario.id);
-      
-      // OPCIONAL: Si ya tenemos la foto en el login, la guardamos
-      if(usuario.foto_url) localStorage.setItem('foto_url', usuario.foto_url);
-
-      // 3. Éxito!
-      toast.success(`¡Bienvenido de nuevo, ${usuario.nombre}!`, {
-        id: loadingToast, // Reemplaza el toast de carga
+      toast.success(`¡Bienvenido de nuevo, ${response.data.usuario.nombre}!`, {
+        id: loadingToast,
         icon: '🚀',
       });
 
-      // Redirección suave
       setTimeout(() => {
         navigate('/');
-        window.location.reload(); // Solo si necesitas refrescar el Navbar
       }, 1000);
 
     } catch (err) {
-      // 4. Manejo de errores
       const errorMsg = err.response?.data || "Credenciales incorrectas";
       toast.error(errorMsg, {
         id: loadingToast,

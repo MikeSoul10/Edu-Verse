@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const verificarToken = require('../middleware/auth');
+const { sanitize } = require('../middleware/sanitize');
 
 router.get('/:equipo_id', async (req, res) => {
   try {
@@ -21,7 +23,7 @@ router.get('/:equipo_id', async (req, res) => {
   }
 });
 
-router.post('/enviar', async (req, res) => {
+router.post('/enviar', verificarToken, async (req, res) => {
   try {
     const { equipo_id, usuario_id, texto } = req.body;
     if (!equipo_id || !usuario_id || !texto) return res.status(400).json('Faltan campos');
@@ -29,7 +31,7 @@ router.post('/enviar', async (req, res) => {
     const nuevo = await pool.query(
       `INSERT INTO mensajes_chat (equipo_id, usuario_id, texto)
        VALUES ($1, $2, $3) RETURNING *`,
-      [equipo_id, usuario_id, texto]
+      [equipo_id, usuario_id, sanitize(texto)]
     );
 
     res.status(201).json(nuevo.rows[0]);

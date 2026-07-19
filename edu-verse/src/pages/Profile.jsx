@@ -3,6 +3,7 @@ import axios from 'axios';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
 
 const Profile = () => {
   const [datos, setDatos] = useState({
@@ -16,7 +17,8 @@ const Profile = () => {
   const [preview, setPreview] = useState(null);
 
   const navigate = useNavigate();
-  const usuarioId = localStorage.getItem('usuario_id');
+  const { user, updateUser } = useAuth();
+  const usuarioId = user?.id;
 
   useEffect(() => {
     const obtenerPerfil = async () => {
@@ -32,8 +34,7 @@ const Profile = () => {
           foto_url: res.data.foto_url
         });
         setCargando(false);
-      } catch (err) {
-        console.error("Error al cargar perfil:", err);
+      } catch {
         toast.error("No se pudo cargar el perfil");
         setCargando(false);
       }
@@ -62,12 +63,11 @@ const Profile = () => {
         formData
       );
       toast.success("Foto actualizada");
-      localStorage.setItem('foto_url', res.data.url);
+      updateUser({ foto: res.data.url });
       setDatos(prev => ({ ...prev, foto_url: res.data.url }));
       setPreview(null);
       setNuevaFoto(null);
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Error al subir la foto");
     }
   };
@@ -83,7 +83,7 @@ const Profile = () => {
         datos
       );
       toast.success("Perfil actualizado");
-      localStorage.setItem('usuario', res.data.nombre);
+      updateUser({ nombre: res.data.nombre });
     } catch (err) {
       toast.error(err.response?.data || "Error al actualizar");
     }

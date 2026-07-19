@@ -4,8 +4,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: Miem091002
-      POSTGRES_DB: Edu-verseDB
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+      POSTGRES_DB: ${DB_NAME}
     ports:
       - "5432:5432"
     volumes:
@@ -25,11 +25,11 @@ services:
     environment:
       DB_USER: postgres
       DB_HOST: postgres
-      DB_NAME: Edu-verseDB
-      DB_PASSWORD: Miem091002
+      DB_NAME: ${DB_NAME}
+      DB_PASSWORD: ${DB_PASSWORD}
       DB_PORT: 5432
       PORT: 4000
-      JWT_SECRET: ${JWT_SECRET:-clave_secreta_provisional}
+      JWT_SECRET: ${JWT_SECRET}
     volumes:
       - uploads:/app/uploads
       - ./edu-verse_backend:/app

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -15,24 +15,21 @@ const DetalleApunte = () => {
   const nombreUsuario = localStorage.getItem('usuario');
 
   // 1. Cargar datos del apunte y sus comentarios desde la DB
-  const cargarDatos = async () => {
+  const cargarDatos = useCallback(async () => {
     try {
-      // Traemos el detalle del apunte (que incluye promedio de estrellas)
       const resApunte = await axios.get(`${API_URL}/apuntes/detalle/${id}`);
       setApunte(resApunte.data);
 
-      // Traemos los comentarios reales de la tabla 'comentarios'
       const resComentarios = await axios.get(`${API_URL}/comentarios/${id}`);
       setComentarios(resComentarios.data);
-    } catch (err) {
-      console.error("Error al cargar datos:", err);
+    } catch {
       toast.error("No se pudo cargar la información");
     }
-  };
+  }, [id]);
 
   useEffect(() => {
     cargarDatos();
-  }, [id]);
+  }, [cargarDatos]);
 
   // 2. Función para enviar comentario y calificación a la DB
   const enviarComentario = async (e) => {
@@ -63,8 +60,7 @@ const DetalleApunte = () => {
       setRating(0);
       cargarDatos(); 
       
-    } catch (err) {
-      console.error(err);
+    } catch {
       toast.error("Error al publicar tu comentario");
     }
   };

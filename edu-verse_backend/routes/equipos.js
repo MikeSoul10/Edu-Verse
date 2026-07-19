@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const pool = require('../db');
+const verificarToken = require('../middleware/auth');
+const { sanitize } = require('../middleware/sanitize');
 
 function generarCodigo() {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -11,10 +13,9 @@ function generarCodigo() {
   return codigo;
 }
 
-router.post('/crear', async (req, res) => {
+router.post('/crear', verificarToken, async (req, res) => {
   try {
     const { nombre, usuario_id } = req.body;
-    console.log('CREAR EQUIPO - Body:', req.body, 'nombre:', nombre, 'usuario_id:', usuario_id);
     if (!nombre || !usuario_id) return res.status(400).json('Faltan campos');
 
     let codigo;
@@ -27,7 +28,7 @@ router.post('/crear', async (req, res) => {
 
     const nuevoEquipo = await pool.query(
       'INSERT INTO equipos (nombre, codigo_invitacion, creado_por) VALUES ($1, $2, $3) RETURNING *',
-      [nombre, codigo, usuario_id]
+      [sanitize(nombre), codigo, usuario_id]
     );
 
     await pool.query(
@@ -42,7 +43,7 @@ router.post('/crear', async (req, res) => {
   }
 });
 
-router.post('/unirse', async (req, res) => {
+router.post('/unirse', verificarToken, async (req, res) => {
   try {
     const { codigo, usuario_id } = req.body;
     if (!codigo || !usuario_id) return res.status(400).json('Faltan campos');

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
@@ -11,19 +11,19 @@ const Biblioteca = () => {
   const [cargando, setCargando] = useState(true);
 
   // 1. Cargar Apuntes con Estado de Carga
-  const cargarApuntes = async () => {
+  const cargarApuntes = useCallback(async () => {
     setCargando(true);
     try {
       const res = await axios.get(`${API_URL}/apuntes`);
       if (Array.isArray(res.data)) {
         setApuntes(res.data);
       }
-    } catch (err) {
-      console.error("Error al traer apuntes:", err);
+    } catch {
+      // error handled silently
     } finally {
       setCargando(false);
     }
-  };
+  }, []);
 
   // 2. Guardar en Favoritos
   const guardarFavorito = async (apunteId) => {
@@ -53,8 +53,8 @@ const Biblioteca = () => {
       const query = busqueda ? busqueda : '';
       const res = await axios.get(`${API_URL}/apuntes/buscar?q=${query}`);
       setApuntes(res.data);
-    } catch (err) {
-      console.error("Error al buscar:", err);
+    } catch {
+      toast.error('Error al buscar');
     } finally {
       setCargando(false);
     }
@@ -77,7 +77,7 @@ const Biblioteca = () => {
     const storedName = localStorage.getItem('usuario');
     if (storedName) setUserName(storedName);
     cargarApuntes();
-  }, []);
+  }, [cargarApuntes]);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-6">
