@@ -279,10 +279,10 @@ COPY public.favoritos (favorito_id, usuario_id, apunte_id, fecha_guardado) FROM 
 --
 
 COPY public.usuarios (usuario_id, nombre, email, password_hash, fecha_registro, foto_url) FROM stdin;
-1	Miguel	test@edu.mx	$2b$10$AhvoT8OLUUkd8FRmuURIa.5sqg0l3RLT.VBCUI8/ntnKOXK4Qkh9a	2026-03-16 23:33:50.865721	default-avatar.png
-3	Cristoff	test3@alumno.edu	$2b$10$7Emk3./LLPiJnhzkdNIuH.VFXSoPmp.Cug6eop9OS3pmSopQms4Oa	2026-04-13 11:26:03.81259	default-avatar.png
-2	Edu	test2@alumno.edu	$2b$10$ZiZeXOhtHVmxSJi48FKJKeQldTNV2HuFNtpYfxZ3o38MneJBRFtNi	2026-03-17 09:46:32.830529	/uploads/perfiles/1778088001198-Arquitectura_Edu-Verse.png
-4	Miguel Espinoza	miguel@alumno.edu	$2b$10$Em1mc92xweb5nOEKS4LKWeibfmkpc8eeg0UQg.8A3qCubRs/16ZYG	2026-05-07 14:55:26.256041	/uploads/perfiles/1778375807955-default-avatar.png
+1	Miguel	test@alumnos.udg.mx	$2b$10$AhvoT8OLUUkd8FRmuURIa.5sqg0l3RLT.VBCUI8/ntnKOXK4Qkh9a	2026-03-16 23:33:50.865721	default-avatar.png
+3	Cristoff	test3@alumnos.udg.mx	$2b$10$7Emk3./LLPiJnhzkdNIuH.VFXSoPmp.Cug6eop9OS3pmSopQms4Oa	2026-04-13 11:26:03.81259	default-avatar.png
+2	Edu	test2@alumnos.udg.mx	$2b$10$ZiZeXOhtHVmxSJi48FKJKeQldTNV2HuFNtpYfxZ3o38MneJBRFtNi	2026-03-17 09:46:32.830529	/uploads/perfiles/1778088001198-Arquitectura_Edu-Verse.png
+4	Miguel Espinoza	miguel@alumnos.udg.mx	$2b$10$Em1mc92xweb5nOEKS4LKWeibfmkpc8eeg0UQg.8A3qCubRs/16ZYG	2026-05-07 14:55:26.256041	/uploads/perfiles/1778375807955-default-avatar.png
 \.
 
 

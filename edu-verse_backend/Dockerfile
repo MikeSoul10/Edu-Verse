@@ -11,4 +11,4 @@ COPY . .
 
 EXPOSE 4000
 
-CMD ["npx", "nodemon", "index.js"]
+CMD ["npx", "nodemon", "--legacy-watch", "index.js"]

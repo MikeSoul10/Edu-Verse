@@ -21,8 +21,8 @@ const Signup = () => {
   }
 
   // Validación de correo institucional 
-  if (!formData.email.endsWith('.edu')) {
-    return alert("⚠️ Edu-Verse solo permite registros con correos institucionales (.edu)");
+  if (!formData.email.endsWith('@alumnos.udg.mx')) {
+    return alert("⚠️ Edu-Verse solo permite registros con correos institucionales (@alumnos.udg.mx)");
   }
 
   // Validación de longitud de contraseña
@@ -80,7 +80,7 @@ const Signup = () => {
             <input 
               type="email" 
               className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all"
-              placeholder="correo@universidad.edu"
+              placeholder="correo@alumnos.udg.mx"
               onChange={(e) => setFormData({...formData, email: e.target.value})}
               required
             />
