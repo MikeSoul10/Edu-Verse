@@ -108,7 +108,7 @@ app.post('/auth/signup', async (req, res) => {
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) return res.status(400).json("Email no válido.");
-    if (!email.toLowerCase().endsWith('.edu')) return res.status(400).json("Solo correos .edu");
+    if (!email.toLowerCase().endsWith('@alumnos.udg.mx')) return res.status(400).json("Solo correos @alumnos.udg.mx");
     if (password.length < 6) return res.status(400).json("Contraseña corta.");
 
     const salt = await bcrypt.genSalt(10);
@@ -178,7 +178,7 @@ app.put('/auth/perfil/update/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, email } = req.body;
-    if (!email.endsWith('.edu')) return res.status(400).json("Debe ser .edu");
+    if (!email.endsWith('@alumnos.udg.mx')) return res.status(400).json("Debe ser @alumnos.udg.mx");
 
     const updateUsuario = await pool.query(
       "UPDATE usuarios SET nombre = $1, email = $2 WHERE usuario_id = $3 RETURNING *",
