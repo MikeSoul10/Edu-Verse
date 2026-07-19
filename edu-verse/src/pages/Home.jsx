@@ -6,8 +6,8 @@ const Home = () => {
 
   useEffect(() => {
     const storedName = localStorage.getItem('usuario');
-    if (storedName) setUserName(storedName);
-  }, []);
+    if (storedName) setUserName(storedName); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [setUserName]);
 
   const modulos = [
     {
@@ -24,10 +24,10 @@ const Home = () => {
       titulo: 'Gestor de Equipos',
       descripcion: 'Organiza tu equipo de estudio, asigna tareas y colabora en tiempo real.',
       icono: '👥',
-      link: null,
-      activo: false,
+      link: '/gestor-equipos',
+      activo: true,
       color: 'from-emerald-500 to-teal-600',
-      hoverColor: '',
+      hoverColor: 'hover:from-emerald-600 hover:to-teal-700',
       bgColor: 'bg-gradient-to-br from-emerald-50 to-teal-50',
     },
     {

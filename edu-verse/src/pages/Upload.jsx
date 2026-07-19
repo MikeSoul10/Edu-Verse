@@ -43,7 +43,7 @@ const Upload = () => {
     },
   });
 
-  navigate('/');
+  navigate('/biblioteca');
 } catch (err) {
   toast.error('Hubo un error al subir el archivo'); // <--- Notificación de error
   console.error(err);

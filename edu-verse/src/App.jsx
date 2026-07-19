@@ -10,6 +10,7 @@ import Apuntes from './pages/Apuntes';
 import DetalleApunte from './pages/DetalleApunte';
 import MyNotes from './pages/MyNotes';
 import Favorites from './pages/Favorites';
+import GestorEquipos from './pages/GestorEquipos';
 import ProtectedRoute from './pages/ProtectedRoute';
 import NotFound from './pages/NotFound';
 import { Toaster } from 'react-hot-toast';
@@ -37,6 +38,11 @@ function App() {
           <Route path="/apunte/:id" element={<DetalleApunte />} />
           <Route path="/mis-apuntes" element={<MyNotes />} />
           <Route path="/favoritos" element={<Favorites />} />
+          <Route path="/gestor-equipos" element={
+            <ProtectedRoute>
+              <GestorEquipos />
+            </ProtectedRoute>
+          } />
           <Route 
     path="/apuntes" 
     element={

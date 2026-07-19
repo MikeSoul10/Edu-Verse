@@ -1,13 +1,57 @@
 const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
 const cors = require('cors');
 const bcrypt = require('bcrypt');
 const pool = require('./db');
-const multer = require('multer'); // Movido arriba con los demás imports
+const multer = require('multer');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+  cors: { origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE'] }
+});
+
+// --- SOCKET.IO ---
+io.on('connection', (socket) => {
+  console.log('🔌 Cliente conectado:', socket.id);
+
+  socket.on('unirse-equipo', (equipoId) => {
+    socket.join(`equipo-${equipoId}`);
+    console.log(`👤 ${socket.id} se unió a equipo-${equipoId}`);
+  });
+
+  socket.on('salir-equipo', (equipoId) => {
+    socket.leave(`equipo-${equipoId}`);
+  });
+
+  socket.on('nueva-tarea', (data) => {
+    io.to(`equipo-${data.equipo_id}`).emit('tarea-creada', data);
+  });
+
+  socket.on('mover-tarea', (data) => {
+    io.to(`equipo-${data.equipo_id}`).emit('tarea-movida', data);
+  });
+
+  socket.on('editar-tarea', (data) => {
+    io.to(`equipo-${data.equipo_id}`).emit('tarea-editada', data);
+  });
+
+  socket.on('eliminar-tarea', (data) => {
+    io.to(`equipo-${data.equipo_id}`).emit('tarea-eliminada', data);
+  });
+
+  socket.on('mensaje-chat', (data) => {
+    io.to(`equipo-${data.equipo_id}`).emit('nuevo-mensaje', data);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Cliente desconectado:', socket.id);
+  });
+});
 
 // --- 1. MIDDLEWARES ---
 app.use(cors());
@@ -32,6 +76,13 @@ const verificarToken = (req, res, next) => {
 };
 
 // --- 2. CONFIGURACIÓN DE MULTER ---
+const equiposRoutes = require('./routes/equipos');
+const tareasRoutes = require('./routes/tareas');
+const chatRoutes = require('./routes/chat');
+
+app.use('/equipos', equiposRoutes);
+app.use('/tareas', tareasRoutes);
+app.use('/chat', chatRoutes);
 const storageApuntes = multer.diskStorage({
   destination: (req, file, cb) => { cb(null, 'uploads/'); },
   filename: (req, file, cb) => { cb(null, Date.now() + '-' + file.originalname); }
@@ -140,8 +191,7 @@ app.put('/auth/perfil/update/:id', async (req, res) => {
 });
 
 // --- 6. RUTAS DE APUNTES ---
-app.post('/apuntes/upload', verificarToken, upload.single('archivo'), async (req, res) => {
-    const usuario_id = req.usuario.id;
+app.post('/apuntes/upload', upload.single('archivo'), async (req, res) => {
   try {
     const { titulo, materia, descripcion, usuario_id } = req.body;
     if (!req.file) return res.status(400).json("No hay archivo");
@@ -197,7 +247,7 @@ app.get('/apuntes/buscar', async (req, res) => {
 
 // --- 7. ENCENDIDO ---
 const PORT = process.env.PORT || 4000;
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`🚀 Servidor de Edu-Verse corriendo en el puerto ${PORT}`);
 });
 
