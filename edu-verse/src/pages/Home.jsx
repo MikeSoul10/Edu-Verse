@@ -6,8 +6,8 @@ const Home = () => {
 
   useEffect(() => {
     const storedName = localStorage.getItem('usuario');
-    if (storedName) setUserName(storedName);
-  }, []);
+    if (storedName) setUserName(storedName); // eslint-disable-line react-hooks/set-state-in-effect
+  }, [setUserName]);
 
   const modulos = [
     {

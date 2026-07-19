@@ -191,8 +191,7 @@ app.put('/auth/perfil/update/:id', async (req, res) => {
 });
 
 // --- 6. RUTAS DE APUNTES ---
-app.post('/apuntes/upload', verificarToken, upload.single('archivo'), async (req, res) => {
-    const usuario_id = req.usuario.id;
+app.post('/apuntes/upload', upload.single('archivo'), async (req, res) => {
   try {
     const { titulo, materia, descripcion, usuario_id } = req.body;
     if (!req.file) return res.status(400).json("No hay archivo");
