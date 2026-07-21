@@ -1,20 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config';
 
 const Favorites = () => {
   const [favoritos, setFavoritos] = useState([]);
+  const [cargando, setCargando] = useState(true);
   const usuarioId = localStorage.getItem('usuario_id');
 
-  const cargarFavoritos = async () => {
+  const cargarFavoritos = useCallback(async () => {
     try {
       const res = await axios.get(`${API_URL}/favoritos/${usuarioId}`);
       setFavoritos(res.data);
-    } catch (err) {
-      console.error("Error al cargar favoritos", err);
+    } catch {
+      toast.error('Error al cargar favoritos');
+    } finally {
+      setCargando(false);
     }
-  };
+  }, [usuarioId]);
 
   // FUNCIÓN PARA ELIMINAR
   const quitarFavorito = async (apunteId) => {
@@ -31,13 +34,18 @@ const Favorites = () => {
 
   useEffect(() => {
     if (usuarioId) cargarFavoritos();
-  }, [usuarioId]);
+  }, [usuarioId, cargarFavoritos]);
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
       <h2 className="text-3xl font-black mb-8 text-gray-900">Mis Favoritos ⭐</h2>
       
-      {favoritos.length === 0 ? (
+      {cargando ? (
+        <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed">
+          <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-400">Cargando favoritos...</p>
+        </div>
+      ) : favoritos.length === 0 ? (
         <div className="text-center py-20 bg-gray-50 rounded-3xl border-2 border-dashed">
           <p className="text-gray-400">Aún no tienes apuntes guardados.</p>
         </div>
@@ -52,7 +60,8 @@ const Favorites = () => {
               <div className="flex gap-2">
                 <a 
                   href={`${API_URL}${apunte.archivo_url}`}
-                  target="_blank" 
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="flex-1 text-center bg-gray-900 text-white py-2 rounded-xl text-xs font-bold hover:bg-black transition-colors"
                 >
                   Abrir PDF

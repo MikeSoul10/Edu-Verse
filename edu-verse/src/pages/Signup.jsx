@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios'
+import { Link, useNavigate } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { API_URL } from '../config';
 
 const Signup = () => {
@@ -8,6 +10,7 @@ const Signup = () => {
     email: '',
     password: ''
   });
+  const navigate = useNavigate();
 
  const handleSubmit = async (e) => {
   e.preventDefault();
@@ -17,17 +20,17 @@ const Signup = () => {
   // Validación de formato de correo (Regex)
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!emailRegex.test(formData.email)) {
-    return alert("❌ Por favor, ingresa un correo electrónico válido.");
+    return toast.error("Por favor, ingresa un correo electrónico válido.");
   }
 
   // Validación de correo institucional 
   if (!formData.email.endsWith('@alumnos.udg.mx')) {
-    return alert("⚠️ Edu-Verse solo permite registros con correos institucionales (@alumnos.udg.mx)");
+    return toast.error("Edu-Verse solo permite registros con correos institucionales (@alumnos.udg.mx)");
   }
 
   // Validación de longitud de contraseña
   if (formData.password.length < 6) {
-    return alert("🔒 La contraseña debe tener al menos 6 caracteres por seguridad.");
+    return toast.error("La contraseña debe tener al menos 6 caracteres por seguridad.");
   }
 
   // --- 2. ENVÍO DE DATOS AL BACKEND ---
@@ -35,20 +38,12 @@ const Signup = () => {
     // Apuntamos a la ruta exacta del Backend
     const response = await axios.post(`${API_URL}/auth/signup`, formData);
     
-    console.log("Respuesta del servidor:", response.data);
-    
-    // Feedback visual de éxito
-    alert(`¡Bienvenido ${response.data.usuario.nombre}! Tu cuenta en Edu-Verse ha sido creada con éxito. ✨`);
-    
-    // Redirección automática al Login después de 2 segundos (Opcional)
-    // navigate('/login');
+    toast.success(`¡Bienvenido ${response.data.usuario.nombre}! Tu cuenta ha sido creada con éxito.`);
+    setTimeout(() => navigate('/login'), 1500);
 
   } catch (err) {
-    console.error("Error al registrar:", err);
-    
-    // Manejo de errores específicos del servidor (ej. "El correo ya existe")
     const mensajeError = err.response?.data || "Hubo un problema al conectar con el servidor";
-    alert(mensajeError);
+    toast.error(mensajeError);
   }
 };
 
@@ -106,7 +101,7 @@ const Signup = () => {
         </form>
 
         <p className="text-center text-sm text-gray-600 mt-6">
-          ¿Ya tienes cuenta? <a href="Login" className="text-blue-600 font-bold hover:underline">Inicia sesión</a>
+          ¿Ya tienes cuenta? <Link to="/login" className="text-blue-600 font-bold hover:underline">Inicia sesión</Link>
         </p>
       </div>
     </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom'; // Importante para la navegación interna
+import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 import { API_URL } from '../config';
 
 const Apuntes = () => {
@@ -13,8 +14,8 @@ const Apuntes = () => {
       if (Array.isArray(res.data)) {
         setListaApuntes(res.data);
       }
-    } catch (err) {
-      console.error("Error al cargar la lista de apuntes:", err);
+    } catch {
+      toast.error('Error al cargar apuntes');
     } finally {
       setCargando(false);
     }

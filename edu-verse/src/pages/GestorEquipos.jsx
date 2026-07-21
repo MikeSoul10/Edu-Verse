@@ -4,8 +4,6 @@ import { io } from 'socket.io-client';
 import { API_URL } from '../config';
 import toast from 'react-hot-toast';
 
-const socket = io(API_URL);
-
 const PRIORIDADES = {
   verde: { label: 'No urgente', color: 'bg-green-500', bg: 'bg-green-50', text: 'text-green-700', border: 'border-green-300' },
   amarillo: { label: 'Urgente', color: 'bg-yellow-400', bg: 'bg-yellow-50', text: 'text-yellow-700', border: 'border-yellow-300' },
@@ -19,6 +17,7 @@ const ESTADOS = {
 };
 
 const GestorEquipos = () => {
+  const socketRef = useRef(null);
   const getUsuarioId = () => {
     let id = localStorage.getItem('usuario_id');
     if (id) return id;
@@ -27,12 +26,11 @@ const GestorEquipos = () => {
       try {
         const payload = JSON.parse(atob(token.split('.')[1]));
         return String(payload.id);
-      } catch(e) { console.error('Error decodificando token:', e); return null; }
+      } catch(e) { return null; }
     }
     return null;
   };
   const usuario = getUsuarioId();
-  console.log('USUARIO ID:', usuario, '| localStorage:', localStorage.getItem('usuario_id'), '| token:', localStorage.getItem('token') ? 'existe' : 'NO EXISTE');
   const usuarioNombre = localStorage.getItem('usuario');
   const [equipos, setEquipos] = useState([]);
   const [equipoActivo, setEquipoActivo] = useState(null);
@@ -61,8 +59,8 @@ const GestorEquipos = () => {
     try {
       const res = await axios.get(`${API_URL}/equipos/mis-equipos/${usuario}`);
       setEquipos(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // handled silently
     }
   }, [usuario]);
 
@@ -70,8 +68,8 @@ const GestorEquipos = () => {
     try {
       const res = await axios.get(`${API_URL}/tareas/equipo/${equipoId}`);
       setTareas(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // handled silently
     }
   }, []);
 
@@ -79,8 +77,8 @@ const GestorEquipos = () => {
     try {
       const res = await axios.get(`${API_URL}/equipos/${equipoId}/miembros`);
       setMiembros(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // handled silently
     }
   }, []);
 
@@ -88,8 +86,8 @@ const GestorEquipos = () => {
     try {
       const res = await axios.get(`${API_URL}/chat/${equipoId}`);
       setMensajes(res.data);
-    } catch (err) {
-      console.error(err);
+    } catch {
+      // handled silently
     }
   }, []);
 
@@ -101,8 +99,14 @@ const GestorEquipos = () => {
   }, [cargarEquipos]);
 
   useEffect(() => {
+    const socket = io(API_URL);
+    socketRef.current = socket;
+
     socket.on('tarea-creada', (data) => {
-      setTareas((prev) => [data.tarea, ...prev]);
+      setTareas((prev) => {
+        if (prev.some((t) => t.tarea_id === data.tarea.tarea_id)) return prev;
+        return [data.tarea, ...prev];
+      });
     });
     socket.on('tarea-movida', (data) => {
       setTareas((prev) =>
@@ -121,11 +125,7 @@ const GestorEquipos = () => {
       setMensajes((prev) => [...prev, data]);
     });
     return () => {
-      socket.off('tarea-creada');
-      socket.off('tarea-movida');
-      socket.off('tarea-editada');
-      socket.off('tarea-eliminada');
-      socket.off('nuevo-mensaje');
+      socket.disconnect();
     };
   }, []);
 
@@ -137,10 +137,10 @@ const GestorEquipos = () => {
 
   const seleccionarEquipo = async (equipo) => {
     if (equipoActivo) {
-      socket.emit('salir-equipo', equipoActivo.equipo_id);
+      socketRef.current.emit('salir-equipo', equipoActivo.equipo_id);
     }
     setEquipoActivo(equipo);
-    socket.emit('unirse-equipo', equipo.equipo_id);
+    socketRef.current.emit('unirse-equipo', equipo.equipo_id);
     await Promise.all([
       cargarTareas(equipo.equipo_id),
       cargarMiembros(equipo.equipo_id),
@@ -152,7 +152,6 @@ const GestorEquipos = () => {
     if (!nombreEquipo.trim()) return;
     try {
       const payload = { nombre: nombreEquipo, usuario_id: usuario };
-      console.log('Enviando:', payload, 'API_URL:', API_URL);
       const res = await axios.post(`${API_URL}/equipos/crear`, payload);
       toast.success('Equipo creado');
       setEquipos((prev) => [res.data.equipo, ...prev]);
@@ -160,7 +159,6 @@ const GestorEquipos = () => {
       setShowCrearEquipo(false);
       seleccionarEquipo(res.data.equipo);
     } catch (err) {
-      console.error('Error crear equipo:', err.response?.data || err.message);
       toast.error(err.response?.data || 'Error al crear equipo');
     }
   };
@@ -194,7 +192,9 @@ const GestorEquipos = () => {
         asignado_a: nuevaTarea.asignado_a || null,
         creado_por: usuario,
       });
-      socket.emit('nueva-tarea', { equipo_id: equipoActivo.equipo_id, tarea: res.data.tarea });
+      const tarea = res.data.tarea;
+      setTareas((prev) => [tarea, ...prev]);
+      socketRef.current.emit('nueva-tarea', { equipo_id: equipoActivo.equipo_id, tarea });
       setNuevaTarea({ titulo: '', descripcion: '', prioridad: 'verde', fecha_entrega: '', asignado_a: '' });
       setShowCrearTarea(false);
       toast.success('Tarea creada');
@@ -206,16 +206,16 @@ const GestorEquipos = () => {
   const moverTarea = async (tareaId, nuevoEstado) => {
     try {
       const res = await axios.put(`${API_URL}/tareas/${tareaId}/mover`, { estado: nuevoEstado });
-      socket.emit('mover-tarea', { equipo_id: equipoActivo.equipo_id, tarea: res.data.tarea });
-    } catch (err) {
-      console.error(err);
+      socketRef.current.emit('mover-tarea', { equipo_id: equipoActivo.equipo_id, tarea: res.data.tarea });
+    } catch {
+      toast.error('Error al mover tarea');
     }
   };
 
   const eliminarTarea = async (tareaId) => {
     try {
       await axios.delete(`${API_URL}/tareas/${tareaId}`);
-      socket.emit('eliminar-tarea', { equipo_id: equipoActivo.equipo_id, tarea_id: tareaId });
+      socketRef.current.emit('eliminar-tarea', { equipo_id: equipoActivo.equipo_id, tarea_id: tareaId });
       toast.success('Tarea eliminada');
     } catch {
       toast.error('Error al eliminar');
@@ -230,7 +230,7 @@ const GestorEquipos = () => {
         usuario_id: usuario,
         texto: nuevoMensaje,
       });
-      socket.emit('mensaje-chat', {
+      socketRef.current.emit('mensaje-chat', {
         equipo_id: equipoActivo.equipo_id,
         usuario_id: usuario,
         autor_nombre: usuarioNombre,
@@ -381,6 +381,7 @@ const GestorEquipos = () => {
               placeholder="Nombre del equipo"
               value={nombreEquipo}
               onChange={(e) => setNombreEquipo(e.target.value)}
+              aria-label="Nombre del equipo"
               className="w-full border rounded-lg px-4 py-2 mb-3 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
             />
             <div className="flex gap-2">
@@ -403,6 +404,7 @@ const GestorEquipos = () => {
               value={codigoUnirse}
               onChange={(e) => setCodigoUnirse(e.target.value.toUpperCase())}
               maxLength={6}
+              aria-label="Código de invitación"
               className="w-full border rounded-lg px-4 py-2 mb-3 text-sm font-mono tracking-widest text-center focus:ring-2 focus:ring-emerald-500 outline-none"
             />
             <div className="flex gap-2">
@@ -454,11 +456,11 @@ const GestorEquipos = () => {
         <div className="p-4 border-b border-gray-100">
           <button
             onClick={() => {
-              socket.emit('salir-equipo', equipoActivo.equipo_id);
-              setEquipoActivo(null);
-              setTareas([]);
-              setMensajes([]);
-              setMiembros([]);
+socketRef.current.emit('salir-equipo', equipoActivo.equipo_id);
+      setEquipoActivo(null);
+      setTareas([]);
+      setMensajes([]);
+      setMiembros([]);
             }}
             className="text-xs text-gray-400 hover:text-emerald-600 font-bold mb-2 transition-colors"
           >
@@ -510,12 +512,14 @@ const GestorEquipos = () => {
                   placeholder="Título de la tarea"
                   value={nuevaTarea.titulo}
                   onChange={(e) => setNuevaTarea({ ...nuevaTarea, titulo: e.target.value })}
+                  aria-label="Título de la tarea"
                   className="col-span-2 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
                 <textarea
                   placeholder="Descripción (opcional)"
                   value={nuevaTarea.descripcion}
                   onChange={(e) => setNuevaTarea({ ...nuevaTarea, descripcion: e.target.value })}
+                  aria-label="Descripción de la tarea"
                   className="col-span-2 border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none resize-none h-16"
                 />
                 <div>
@@ -612,10 +616,10 @@ const GestorEquipos = () => {
               <p className="text-gray-300 text-xs">Aún no hay mensajes</p>
             </div>
           )}
-          {mensajes.map((msg, i) => {
+          {mensajes.map((msg) => {
             const esMio = String(msg.usuario_id) === String(usuario);
             return (
-              <div key={i} className={`flex ${esMio ? 'justify-end' : 'justify-start'}`}>
+              <div key={msg.mensaje_id || msg.fecha_envio} className={`flex ${esMio ? 'justify-end' : 'justify-start'}`}>
                 <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${
                   esMio
                     ? 'bg-emerald-600 text-white rounded-br-md'
@@ -642,6 +646,7 @@ const GestorEquipos = () => {
               value={nuevoMensaje}
               onChange={(e) => setNuevoMensaje(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && enviarMensaje()}
+              aria-label="Mensaje de chat"
               className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
             />
             <button

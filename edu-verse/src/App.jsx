@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
+import ErrorBoundary from './components/ErrorBoundary';
 import Signup from './pages/Signup';
 import Login from './pages/Login';
 import Home from './pages/Home';
@@ -19,41 +20,27 @@ import { Toaster } from 'react-hot-toast';
 function App() {
   return (
     <Router>
-      <div className="min-h-screen bg-gray-50">
-        <Toaster position="top-right" reverseOrder={false} /> 
-        <Navbar />
-        
-        <Routes>
-          {/* Página principal (Home) */}
-          <Route path="/" element={<Home />} />
-
-          {/* Ruta para el Registro */}
-
-          <Route path="/signup" element={<Signup />} />
-          <Route path="/login" element={<Login />} /> 
-          <Route path="/Home" element={<Home />} />
-          <Route path="/biblioteca" element={<Biblioteca />} />
-          <Route path="/perfil" element={<Profile />} />
-          <Route path="/upload" element={<Upload />} />
-          <Route path="/apunte/:id" element={<DetalleApunte />} />
-          <Route path="/mis-apuntes" element={<MyNotes />} />
-          <Route path="/favoritos" element={<Favorites />} />
-          <Route path="/gestor-equipos" element={
-            <ProtectedRoute>
-              <GestorEquipos />
-            </ProtectedRoute>
-          } />
-          <Route 
-    path="/apuntes" 
-    element={
-        <ProtectedRoute>
-            <Apuntes />
-        </ProtectedRoute>
-    } 
-/>
- <Route path="*" element={<NotFound />} />
-        </Routes>
-      </div>
+      <ErrorBoundary>
+        <div className="min-h-screen bg-gray-50">
+          <Toaster position="top-right" reverseOrder={false} /> 
+          <Navbar />
+          
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/signup" element={<Signup />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/biblioteca" element={<Biblioteca />} />
+            <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/upload" element={<ProtectedRoute><Upload /></ProtectedRoute>} />
+            <Route path="/apunte/:id" element={<DetalleApunte />} />
+            <Route path="/mis-apuntes" element={<ProtectedRoute><MyNotes /></ProtectedRoute>} />
+            <Route path="/favoritos" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
+            <Route path="/gestor-equipos" element={<ProtectedRoute><GestorEquipos /></ProtectedRoute>} />
+            <Route path="/apuntes" element={<ProtectedRoute><Apuntes /></ProtectedRoute>} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </div>
+      </ErrorBoundary>
     </Router>
   );
 }

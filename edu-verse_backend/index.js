@@ -8,6 +8,11 @@ const multer = require('multer');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('❌ JWT_SECRET no está definido en las variables de entorno');
+  process.exit(1);
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -59,21 +64,8 @@ app.use(express.json());
 // Servir archivos estáticos (debe estar antes de las rutas)
 app.use('/uploads', express.static('uploads'));
 
-const verificarToken = (req, res, next) => {
-    const token = req.header('Authorization')?.split(' ')[1]; // Extrae el token del Header: "Bearer TOKEN"
-
-    if (!token) {
-        return res.status(401).json({ mensaje: "Acceso denegado. No hay token." });
-    }
-
-    try {
-        const verificado = jwt.verify(token, process.env.JWT_SECRET || 'clave_secreta_provisional');
-        req.usuario = verificado; // Guarda los datos del usuario en la petición
-        next(); // Continúa a la siguiente función
-    } catch (err) {
-        res.status(400).json({ mensaje: "Token no válido." });
-    }
-};
+const verificarToken = require('./middleware/auth');
+const { sanitize } = require('./middleware/sanitize');
 
 // --- 2. CONFIGURACIÓN DE MULTER ---
 const equiposRoutes = require('./routes/equipos');
@@ -87,14 +79,29 @@ const storageApuntes = multer.diskStorage({
   destination: (req, file, cb) => { cb(null, 'uploads/'); },
   filename: (req, file, cb) => { cb(null, Date.now() + '-' + file.originalname); }
 });
-const upload = multer({ storage: storageApuntes });
+const upload = multer({
+  storage: storageApuntes,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Solo se permiten archivos PDF, PNG o JPG'));
+  }
+});
 
-// Almacenamiento para Fotos de Perfil
 const storagePerfil = multer.diskStorage({
   destination: (req, file, cb) => { cb(null, 'uploads/perfiles/'); },
   filename: (req, file, cb) => { cb(null, Date.now() + '-' + file.originalname); }
 });
-const uploadPerfil = multer({ storage: storagePerfil });
+const uploadPerfil = multer({
+  storage: storagePerfil,
+  limits: { fileSize: 5 * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const allowed = ['image/png', 'image/jpeg', 'image/jpg'];
+    if (allowed.includes(file.mimetype)) cb(null, true);
+    else cb(new Error('Solo se permiten imágenes PNG o JPG'));
+  }
+});
 // --- 3. RUTAS GENERALES ---
 app.get('/', (req, res) => {
   res.send("¡El servidor de Edu-Verse está vivo! 🚀");
@@ -142,14 +149,14 @@ app.post('/auth/login', async (req, res) => {
         // --- CREAR TOKEN ---
         const token = jwt.sign(
             { id: usuario.rows[0].usuario_id, nombre: usuario.rows[0].nombre },
-            process.env.JWT_SECRET || 'clave_secreta_provisional',
+            JWT_SECRET,
             { expiresIn: '24h' } // El token expira en un día
         );
 
         res.json({
             mensaje: "¡Éxito!",
-            token, // Enviamos el token al frontend
-            usuario: { id: usuario.rows[0].usuario_id, nombre: usuario.rows[0].nombre }
+            token,
+            usuario: { id: usuario.rows[0].usuario_id, nombre: usuario.rows[0].nombre, foto_url: usuario.rows[0].foto_url }
         });
     } catch (err) {
         res.status(500).send("Error en el servidor");
@@ -174,10 +181,11 @@ app.get('/auth/perfil/:id', async (req, res) => {
   }
 });
 
-app.put('/auth/perfil/update/:id', async (req, res) => {
+app.put('/auth/perfil/update/:id', verificarToken, async (req, res) => {
   try {
     const { id } = req.params;
     const { nombre, email } = req.body;
+    if (String(req.usuario.id) !== String(id)) return res.status(403).json("No autorizado");
     if (!email.endsWith('@alumnos.udg.mx')) return res.status(400).json("Debe ser @alumnos.udg.mx");
 
     const updateUsuario = await pool.query(
@@ -191,9 +199,10 @@ app.put('/auth/perfil/update/:id', async (req, res) => {
 });
 
 // --- 6. RUTAS DE APUNTES ---
-app.post('/apuntes/upload', upload.single('archivo'), async (req, res) => {
+app.post('/apuntes/upload', verificarToken, upload.single('archivo'), async (req, res) => {
   try {
-    const { titulo, materia, descripcion, usuario_id } = req.body;
+    const { titulo, materia, descripcion } = req.body;
+    const usuario_id = req.usuario.id;
     if (!req.file) return res.status(400).json("No hay archivo");
 
     const archivo_url = `/uploads/${req.file.filename}`;
@@ -235,7 +244,7 @@ app.get('/apuntes/buscar', async (req, res) => {
       ORDER BY fecha_subida DESC
     `;
     
-    const valores = [`%${q}%` || '%%']; 
+    const valores = [`%${q}%`]; 
     const resultados = await pool.query(consulta, valores);
     
     res.json(resultados.rows);
@@ -294,7 +303,7 @@ app.get('/apuntes/mis-apuntes/:usuario_id', async (req, res) => {
 });
 
 // ELIMINAR UN APUNTE
-app.delete('/apuntes/:id', async (req, res) => {
+app.delete('/apuntes/:id', verificarToken, async (req, res) => {
   try {
     const { id } = req.params;
     // Aquí podrías agregar una validación extra para ver si el archivo existe físicamente y borrarlo también
@@ -345,9 +354,9 @@ app.get('/favoritos/:usuario_id', async (req, res) => {
 });
 // ELIMINAR DE FAVORITOS
 app.delete('/favoritos', verificarToken, async (req, res) => {
-    const usuario_id = req.usuario.id;
   try {
-    const { usuario_id, apunte_id } = req.body;
+    const { apunte_id } = req.body;
+    const usuario_id = req.usuario.id;
     
     await pool.query(
       "DELETE FROM favoritos WHERE usuario_id = $1 AND apunte_id = $2",
@@ -362,7 +371,7 @@ app.delete('/favoritos', verificarToken, async (req, res) => {
 });
 
 // RUTA PARA ACTUALIZAR FOTO DE PERFIL
-app.put('/usuarios/foto/:id', uploadPerfil.single('foto'), async (req, res) => {
+app.put('/usuarios/foto/:id', verificarToken, uploadPerfil.single('foto'), async (req, res) => {
   try {
     const { id } = req.params;
     const urlFoto = `/uploads/perfiles/${req.file.filename}`;
@@ -409,14 +418,14 @@ app.get('/comentarios/:apunte_id', async (req, res) => {
     res.json(result.rows);
 });
 
-app.post('/comentarios', async (req, res) => {
+app.post('/comentarios', verificarToken, async (req, res) => {
     const { apunte_id, usuario_id, texto } = req.body;
-    await pool.query("INSERT INTO comentarios (apunte_id, usuario_id, texto) VALUES ($1, $2, $3)", [apunte_id, usuario_id, texto]);
+    await pool.query("INSERT INTO comentarios (apunte_id, usuario_id, texto) VALUES ($1, $2, $3)", [apunte_id, usuario_id, sanitize(texto)]);
     res.json("Comentario añadido");
 });
 
 // 3. Valoraciones: Registrar o actualizar
-app.post('/valoraciones', async (req, res) => {
+app.post('/valoraciones', verificarToken, async (req, res) => {
     const { apunte_id, usuario_id, estrellas } = req.body;
     await pool.query(
         "INSERT INTO valoraciones (apunte_id, usuario_id, estrellas) VALUES ($1, $2, $3) ON CONFLICT (apunte_id, usuario_id) DO UPDATE SET estrellas = EXCLUDED.estrellas",

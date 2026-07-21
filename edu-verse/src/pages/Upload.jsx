@@ -4,6 +4,9 @@ import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config';
 
+const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
+const MAX_SIZE_MB = 10;
+
 const Upload = () => {
   const [file, setFile] = useState(null);
   const [formData, setFormData] = useState({ titulo: '', materia: '', descripcion: '' });
@@ -11,12 +14,22 @@ const Upload = () => {
   const navigate = useNavigate();
 
   const handleFileChange = (e) => {
-    setFile(e.target.files[0]);
+    const selected = e.target.files[0];
+    if (!selected) return;
+    if (!ALLOWED_TYPES.includes(selected.type)) {
+      toast.error('Formato no permitido. Usa PDF, PNG o JPG.');
+      return;
+    }
+    if (selected.size > MAX_SIZE_MB * 1024 * 1024) {
+      toast.error(`El archivo excede ${MAX_SIZE_MB}MB.`);
+      return;
+    }
+    setFile(selected);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file) return alert("Por favor, selecciona un archivo (PDF o Imagen)");
+    if (!file) return toast.error("Por favor, selecciona un archivo (PDF o Imagen)");
 
     setCargando(true);
     
@@ -44,9 +57,8 @@ const Upload = () => {
   });
 
   navigate('/biblioteca');
-} catch (err) {
-  toast.error('Hubo un error al subir el archivo'); // <--- Notificación de error
-  console.error(err);
+} catch {
+  toast.error('Hubo un error al subir el archivo');
 }
   }
 
