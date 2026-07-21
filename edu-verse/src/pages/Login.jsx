@@ -53,7 +53,7 @@ const Login = () => {
             <input 
               type="email" 
               className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-transparent focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
-              placeholder="tu@correo.edu"
+              placeholder="tu@correo.alumnos.udg.mx"
               onChange={(e) => setFormData({...formData, email: e.target.value})}
               required
             />
