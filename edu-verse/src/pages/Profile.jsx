@@ -98,7 +98,49 @@ const Profile = () => {
   }
 
   return (
-    <div className="max-w-2xl mx-auto mt-10 p-8 bg-white rounded-3xl shadow-sm border border-gray-100">
+    <div className="max-w-2xl mx-auto mt-6 sm:mt-10 px-4 sm:px-0">
+
+      {/* MODULOS */}
+      <div className="flex gap-3 mb-8">
+        <Link
+          to="/biblioteca"
+          className="flex-1 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all flex items-center gap-3 group"
+        >
+          <div className="w-11 h-11 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+            <img src="/modulos/biblioteca.png" alt="" className="w-8 h-8 object-contain" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-black text-gray-900 text-sm truncate">Biblioteca</p>
+            <p className="text-[10px] text-gray-400 font-medium">Apuntes y materiales</p>
+          </div>
+        </Link>
+
+        <Link
+          to="/gestor-equipos"
+          className="flex-1 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all flex items-center gap-3 group"
+        >
+          <div className="w-11 h-11 bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+            <img src="/modulos/gestor-equipos.png" alt="" className="w-8 h-8 object-contain" />
+          </div>
+          <div className="min-w-0">
+            <p className="font-black text-gray-900 text-sm truncate">Equipos</p>
+            <p className="text-[10px] text-gray-400 font-medium">Colabora en equipo</p>
+          </div>
+        </Link>
+
+        <div className="flex-1 bg-white p-4 rounded-2xl border border-gray-100 shadow-sm opacity-50 flex items-center gap-3 cursor-not-allowed">
+          <div className="w-11 h-11 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl flex items-center justify-center shrink-0 text-2xl">
+            🤖
+          </div>
+          <div className="min-w-0">
+            <p className="font-black text-gray-900 text-sm truncate">Tutor IA</p>
+            <p className="text-[10px] text-gray-400 font-medium">Próximamente</p>
+          </div>
+        </div>
+      </div>
+
+      {/* PERFIL */}
+      <div className="p-6 sm:p-8 bg-white rounded-3xl shadow-sm border border-gray-100">
       
       {/* SECCIÓN DE FOTO DE PERFIL OPTIMIZADA */}
       <div className="flex flex-col items-center mb-10">
@@ -182,19 +224,6 @@ const Profile = () => {
           Actualizar Datos Personales
         </button>
       </form>
-
-      {/* GESTIÓN DE CONTENIDO */}
-      <div className="mt-10 bg-blue-50 p-6 rounded-3xl flex justify-between items-center border border-blue-100">
-        <div>
-          <h3 className="font-bold text-blue-900 text-lg">Mis Apuntes</h3>
-          <p className="text-sm text-blue-700">Administra el material que has compartido.</p>
-        </div>
-        <Link
-          to="/mis-apuntes"
-          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-2xl font-bold transition-all shadow-md"
-        >
-          Ver Todo
-        </Link>
       </div>
 
     </div>

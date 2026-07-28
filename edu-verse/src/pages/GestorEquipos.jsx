@@ -55,8 +55,12 @@ const GestorEquipos = () => {
   });
   const [chatAbierto, setChatAbierto] = useState(false);
   const chatAbiertoRef = useRef(false);
+  const [sidebarMinimizado, setSidebarMinimizado] = useState(false);
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
   const [tareaAEliminar, setTareaAEliminar] = useState(null);
+  const [tareaEditando, setTareaEditando] = useState(null);
+  const [tareaEditForm, setTareaEditForm] = useState({ titulo: '', descripcion: '', prioridad: 'verde', fecha_entrega: '', asignado_a: '' });
+  const [sidebarMovil, setSidebarMovil] = useState(false);
 
   const cargarEquipos = useCallback(async () => {
     if (!usuario) return;
@@ -252,6 +256,37 @@ const GestorEquipos = () => {
     }
   };
 
+  const abrirEditorTarea = (tarea) => {
+    setTareaEditando(tarea);
+    setTareaEditForm({
+      titulo: tarea.titulo,
+      descripcion: tarea.descripcion || '',
+      prioridad: tarea.prioridad || 'verde',
+      fecha_entrega: tarea.fecha_entrega ? new Date(tarea.fecha_entrega).toISOString().split('T')[0] : '',
+      asignado_a: tarea.asignado_a || '',
+      estado: tarea.estado || 'pendiente',
+    });
+  };
+
+  const guardarEdicionTarea = async () => {
+    if (!tareaEditForm.titulo.trim()) return;
+    try {
+      const res = await axios.put(`${API_URL}/tareas/${tareaEditando.tarea_id}`, {
+        titulo: tareaEditForm.titulo,
+        descripcion: tareaEditForm.descripcion,
+        prioridad: tareaEditForm.prioridad,
+        fecha_entrega: tareaEditForm.fecha_entrega || null,
+        asignado_a: tareaEditForm.asignado_a || null,
+        estado: tareaEditForm.estado || tareaEditando.estado,
+      });
+      socketRef.current.emit('editar-tarea', { equipo_id: equipoActivo.equipo_id, tarea: res.data.tarea });
+      setTareaEditando(null);
+      toast.success('Tarea actualizada');
+    } catch {
+      toast.error('Error al guardar cambios');
+    }
+  };
+
   const enviarMensaje = async () => {
     if (!nuevoMensaje.trim()) return;
     try {
@@ -317,15 +352,17 @@ const GestorEquipos = () => {
         key={tarea.tarea_id}
         draggable
         onDragStart={(e) => handleDragStart(e, tarea)}
+        onClick={() => abrirEditorTarea(tarea)}
         className={`p-3 rounded-xl border-l-4 ${pri.border} bg-white shadow-sm mb-3 cursor-grab active:cursor-grabbing hover:shadow-md transition-all`}
       >
         <div className="flex items-start justify-between gap-2">
           <h4 className="font-bold text-gray-800 text-sm leading-tight flex-1">{tarea.titulo}</h4>
           <button
-            onClick={() => setTareaAEliminar(tarea)}
-            className="text-gray-300 hover:text-red-500 transition-colors text-xs shrink-0"
+            onClick={(e) => { e.stopPropagation(); setTareaAEliminar(tarea); }}
+            className="text-gray-300 hover:text-red-500 transition-colors text-xs shrink-0 w-6 h-6 rounded-full hover:bg-red-50 flex items-center justify-center"
+            title="Eliminar tarea"
           >
-            ✕
+            🗑
           </button>
         </div>
 
@@ -368,7 +405,7 @@ const GestorEquipos = () => {
             est !== tarea.estado && (
               <button
                 key={est}
-                onClick={() => moverTarea(tarea.tarea_id, est)}
+                onClick={(e) => { e.stopPropagation(); moverTarea(tarea.tarea_id, est); }}
                 className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-gray-100 hover:bg-emerald-100 hover:text-emerald-700 text-gray-500 transition-colors"
               >
                 → {ESTADOS[est].emoji}
@@ -382,22 +419,22 @@ const GestorEquipos = () => {
 
   if (!equipoActivo) {
     return (
-      <div className="max-w-6xl mx-auto px-4 py-10">
-        <header className="mb-8 p-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[2rem] shadow-xl text-white">
-          <h1 className="text-3xl font-black">👥 Gestor de Equipos</h1>
-          <p className="opacity-90 mt-2">Crea o únete a un equipo para empezar a colaborar</p>
+      <div className="max-w-6xl mx-auto px-3 sm:px-4 py-6 sm:py-10">
+        <header className="mb-6 sm:mb-8 p-5 sm:p-8 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl sm:rounded-[2rem] shadow-xl text-white">
+          <h1 className="text-xl sm:text-3xl font-black">👥 Gestor de Equipos</h1>
+          <p className="opacity-90 mt-2 text-xs sm:text-base">Crea o únete a un equipo para empezar a colaborar</p>
         </header>
 
-        <div className="flex gap-4 mb-8">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 mb-6 sm:mb-8">
           <button
             onClick={() => setShowCrearEquipo(true)}
-            className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-md"
+            className="bg-emerald-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-emerald-700 transition-colors shadow-md text-sm sm:text-base"
           >
             + Crear Equipo
           </button>
           <button
             onClick={() => setShowUnirse(true)}
-            className="bg-white text-emerald-700 px-6 py-3 rounded-xl font-bold hover:bg-emerald-50 transition-colors border border-emerald-200 shadow-sm"
+            className="bg-white text-emerald-700 px-6 py-3 rounded-xl font-bold hover:bg-emerald-50 transition-colors border border-emerald-200 shadow-sm text-sm sm:text-base"
           >
             🔗 Unirse con Código
           </button>
@@ -465,9 +502,10 @@ const GestorEquipos = () => {
                   👥
                 </div>
                 <h3 className="font-black text-gray-900 text-lg">{eq.nombre}</h3>
-                <p className="text-xs text-gray-400 mt-1 font-mono tracking-wider">
-                  🔑 {eq.codigo_invitacion}
-                </p>
+                <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-1.5">
+                  <p className="text-[9px] font-bold uppercase text-emerald-600 tracking-wider">Clave</p>
+                  <p className="text-lg font-black text-emerald-700 font-mono tracking-[0.25em]">{eq.codigo_invitacion}</p>
+                </div>
                 <span className="inline-block mt-3 text-[10px] font-bold uppercase px-3 py-1 rounded-full bg-emerald-50 text-emerald-600">
                   {eq.rol}
                 </span>
@@ -480,64 +518,123 @@ const GestorEquipos = () => {
   }
 
   return (
-    <div className="flex h-[calc(100vh-64px)]">
+    <div className="flex h-[calc(100vh-64px)] relative">
+      {/* SIDEBAR - Mobile overlay */}
+      {sidebarMovil && (
+        <div className="fixed inset-0 bg-black/40 z-40 lg:hidden" onClick={() => setSidebarMovil(false)} />
+      )}
+
       {/* SIDEBAR */}
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col shrink-0">
-        <div className="p-4 border-b border-gray-100">
+      <div className={`
+        bg-white border-r border-gray-200 flex flex-col shrink-0 transition-all duration-300
+        lg:relative lg:z-auto
+        fixed inset-y-0 left-0 z-50
+        ${sidebarMinimizado ? 'lg:w-14' : 'lg:w-64'}
+        ${sidebarMovil ? 'w-72 translate-x-0' : '-translate-x-full lg:translate-x-0'}
+      `}>
+        <div className={`${sidebarMinimizado ? 'p-2' : 'p-4'} border-b border-gray-100 flex items-center ${sidebarMinimizado ? 'justify-center' : 'justify-between'}`}>
+          {!sidebarMinimizado && (
+            <button
+              onClick={() => {
+                if (socketRef.current) socketRef.current.emit('salir-equipo', equipoActivo.equipo_id);
+                setEquipoActivo(null);
+                setTareas([]);
+                setMensajes([]);
+                setMiembros([]);
+                setChatAbierto(false);
+                chatAbiertoRef.current = false;
+                setMensajesNoLeidos(0);
+                setSidebarMovil(false);
+              }}
+              className="text-xs text-gray-400 hover:text-emerald-600 font-bold transition-colors"
+            >
+              ← Volver
+            </button>
+          )}
           <button
-            onClick={() => {
-              if (socketRef.current) socketRef.current.emit('salir-equipo', equipoActivo.equipo_id);
-              setEquipoActivo(null);
-              setTareas([]);
-              setMensajes([]);
-              setMiembros([]);
-              setChatAbierto(false);
-              chatAbiertoRef.current = false;
-              setMensajesNoLeidos(0);
-            }}
-            className="text-xs text-gray-400 hover:text-emerald-600 font-bold mb-2 transition-colors"
+            onClick={() => setSidebarMinimizado(!sidebarMinimizado)}
+            className={`${sidebarMinimizado ? '' : 'ml-auto'} w-7 h-7 rounded-lg bg-gray-100 hover:bg-emerald-100 text-gray-500 hover:text-emerald-600 flex items-center justify-center text-xs font-bold transition-colors shrink-0 hidden lg:flex`}
+            title={sidebarMinimizado ? 'Expandir panel' : 'Minimizar panel'}
           >
-            ← Volver a mis equipos
+            {sidebarMinimizado ? '›' : '‹'}
           </button>
-          <h2 className="font-black text-gray-900 text-lg leading-tight">{equipoActivo.nombre}</h2>
-          <p className="text-[10px] text-gray-400 font-mono mt-1">🔑 {equipoActivo.codigo_invitacion}</p>
+          <button
+            onClick={() => setSidebarMovil(false)}
+            className="lg:hidden w-7 h-7 rounded-lg bg-gray-100 hover:bg-red-100 text-gray-500 hover:text-red-600 flex items-center justify-center text-xs font-bold transition-colors shrink-0 ml-auto"
+          >
+            ✕
+          </button>
         </div>
 
-        <div className="p-4 flex-1 overflow-y-auto">
-          <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-3">
-            Miembros ({miembros.length})
-          </h3>
-          <div className="space-y-2">
+        {!sidebarMinimizado && (
+          <>
+            <div className="p-4 border-b border-gray-100">
+              <h2 className="font-black text-gray-900 text-lg leading-tight">{equipoActivo.nombre}</h2>
+              <div className="mt-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2">
+                <p className="text-[9px] font-bold uppercase text-emerald-600 tracking-wider">Clave de acceso</p>
+                <p className="text-xl font-black text-emerald-700 font-mono tracking-[0.3em] mt-0.5">{equipoActivo.codigo_invitacion}</p>
+              </div>
+            </div>
+
+            <div className="p-4 flex-1 overflow-y-auto">
+              <h3 className="text-[10px] font-black uppercase text-gray-400 tracking-widest mb-3">
+                Miembros ({miembros.length})
+              </h3>
+              <div className="space-y-2">
+                {miembros.map((m) => (
+                  <div key={m.usuario_id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50">
+                    <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                      {m.nombre.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-gray-800 truncate">{m.nombre}</p>
+                      <p className="text-[9px] text-gray-400 uppercase">{m.rol}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {sidebarMinimizado && (
+          <div className="flex-1 flex flex-col items-center py-3 gap-2">
+            <div className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-bold" title={equipoActivo.nombre}>
+              {equipoActivo.nombre.charAt(0).toUpperCase()}
+            </div>
             {miembros.map((m) => (
-              <div key={m.usuario_id} className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50">
-                <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                  {m.nombre.charAt(0).toUpperCase()}
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs font-bold text-gray-800 truncate">{m.nombre}</p>
-                  <p className="text-[9px] text-gray-400 uppercase">{m.rol}</p>
-                </div>
+              <div key={m.usuario_id} className="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 text-[10px] font-bold" title={m.nombre}>
+                {m.nombre.charAt(0).toUpperCase()}
               </div>
             ))}
           </div>
-        </div>
+        )}
       </div>
 
       {/* KANBAN - SIEMPRE VISIBLE */}
       <div className="flex-1 flex flex-col min-w-0">
-        <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
-          <h2 className="font-black text-gray-900">📋 Tablero de Tareas</h2>
-          <div className="flex items-center gap-3">
+        <div className="p-3 sm:p-4 border-b border-gray-100 flex items-center justify-between bg-white gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={() => setSidebarMovil(true)}
+              className="lg:hidden w-8 h-8 rounded-lg bg-gray-100 hover:bg-emerald-100 text-gray-500 hover:text-emerald-600 flex items-center justify-center text-sm font-bold transition-colors shrink-0"
+            >
+              ☰
+            </button>
+            <h2 className="font-black text-gray-900 text-sm sm:text-base truncate">📋 Tablero</h2>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
             {!chatAbierto && (
               <button
                 onClick={() => setChatAbierto(true)}
-                className={`relative px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+                className={`relative px-3 py-2 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center gap-2 ${
                   mensajesNoLeidos > 0
                     ? 'bg-red-50 text-red-600 border border-red-300 hover:bg-red-100 animate-pulse'
                     : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
                 }`}
               >
-                💬 Chat del Equipo
+                <span className="hidden sm:inline">💬 Chat del Equipo</span>
+                <span className="sm:hidden">💬</span>
                 {mensajesNoLeidos > 0 && (
                   <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">
                     {Math.min(mensajesNoLeidos, 99)}
@@ -547,18 +644,19 @@ const GestorEquipos = () => {
             )}
             <button
               onClick={() => setShowCrearTarea(true)}
-              className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors shadow-md"
+              className="bg-emerald-600 text-white px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold hover:bg-emerald-700 transition-colors shadow-md"
             >
-              + Nueva Tarea
+              <span className="sm:hidden">+</span>
+              <span className="hidden sm:inline">+ Nueva Tarea</span>
             </button>
           </div>
         </div>
 
         {showCrearTarea && (
-          <div className="bg-emerald-50 border-b border-emerald-100 p-4">
-            <div className="bg-white rounded-xl p-4 shadow-sm border border-emerald-100 max-w-2xl">
+          <div className="bg-emerald-50 border-b border-emerald-100 p-3 sm:p-4">
+            <div className="bg-white rounded-xl p-3 sm:p-4 shadow-sm border border-emerald-100 max-w-2xl">
               <h3 className="font-bold text-gray-800 mb-3 text-sm">Crear Nueva Tarea</h3>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <input
                   type="text"
                   placeholder="Título de la tarea"
@@ -628,11 +726,11 @@ const GestorEquipos = () => {
           </div>
         )}
 
-        <div className="flex-1 flex gap-4 p-4 overflow-x-auto">
+        <div className="flex-1 flex gap-3 sm:gap-4 p-3 sm:p-4 overflow-x-auto">
           {Object.entries(ESTADOS).map(([key, val]) => (
             <div
               key={key}
-              className={`flex-1 min-w-[280px] rounded-2xl ${val.bg} p-3 flex flex-col`}
+              className={`flex-1 min-w-[260px] sm:min-w-[280px] rounded-2xl ${val.bg} p-2 sm:p-3 flex flex-col`}
               onDrop={(e) => handleDrop(e, key)}
               onDragOver={handleDragOver}
             >
@@ -656,9 +754,11 @@ const GestorEquipos = () => {
         </div>
       </div>
 
-      {/* CHAT PANEL - LATERAL DERECHO */}
+      {/* CHAT PANEL */}
       {chatAbierto && (
-        <div className="w-80 bg-white border-l border-gray-200 flex flex-col shrink-0">
+        <>
+          <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => { setChatAbierto(false); chatAbiertoRef.current = false; }} />
+          <div className="fixed inset-0 z-40 lg:relative lg:z-auto w-full lg:w-80 bg-white border-l border-gray-200 flex flex-col shrink-0 lg:shrink">
           <div className="p-4 border-b border-gray-100 flex items-center justify-between">
             <h3 className="font-black text-gray-900 text-sm">💬 Chat del Equipo</h3>
             <button
@@ -720,6 +820,7 @@ const GestorEquipos = () => {
             </div>
           </div>
         </div>
+        </>
       )}
       {/* MODAL CONFIRMAR ELIMINAR TAREA */}
       {tareaAEliminar && (
@@ -747,6 +848,118 @@ const GestorEquipos = () => {
                   Aceptar
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL EDITAR TAREA */}
+      {tareaEditando && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setTareaEditando(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
+              <h3 className="font-black text-gray-900 text-base sm:text-lg">✏️ Editar Tarea</h3>
+              <button
+                onClick={() => setTareaEditando(null)}
+                className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 text-sm flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="p-4 sm:p-6 space-y-4">
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Título</label>
+                <input
+                  type="text"
+                  value={tareaEditForm.titulo}
+                  onChange={(e) => setTareaEditForm({ ...tareaEditForm, titulo: e.target.value })}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Descripción</label>
+                <textarea
+                  value={tareaEditForm.descripcion}
+                  onChange={(e) => setTareaEditForm({ ...tareaEditForm, descripcion: e.target.value })}
+                  rows={3}
+                  className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none resize-none"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Fecha de entrega</label>
+                  <input
+                    type="date"
+                    value={tareaEditForm.fecha_entrega}
+                    onChange={(e) => setTareaEditForm({ ...tareaEditForm, fecha_entrega: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-bold text-gray-500 uppercase mb-1 block">Asignar a</label>
+                  <select
+                    value={tareaEditForm.asignado_a}
+                    onChange={(e) => setTareaEditForm({ ...tareaEditForm, asignado_a: e.target.value })}
+                    className="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                  >
+                    <option value="">Sin asignar</option>
+                    {miembros.map((m) => (
+                      <option key={m.usuario_id} value={m.usuario_id}>{m.nombre}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Prioridad</label>
+                <div className="flex gap-2">
+                  {Object.entries(PRIORIDADES).map(([key, val]) => (
+                    <button
+                      key={key}
+                      onClick={() => setTareaEditForm({ ...tareaEditForm, prioridad: key })}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                        tareaEditForm.prioridad === key
+                          ? `${val.bg} ${val.text} ring-2 ring-offset-1 ${val.border}`
+                          : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                      }`}
+                    >
+                      <span className={`inline-block w-2 h-2 rounded-full ${val.color} mr-1`}></span>
+                      {val.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-[10px] font-bold text-gray-500 uppercase mb-2 block">Estado</label>
+                <div className="flex gap-2">
+                  {Object.entries(ESTADOS).map(([key, val]) => (
+                    <button
+                      key={key}
+                      onClick={() => setTareaEditForm({ ...tareaEditForm, estado: key })}
+                      className={`flex-1 py-2.5 rounded-lg text-xs font-bold transition-all ${
+                        tareaEditForm.estado === key
+                          ? 'bg-emerald-50 text-emerald-700 ring-2 ring-offset-1 ring-emerald-300'
+                          : 'bg-gray-50 text-gray-400 hover:bg-gray-100'
+                      }`}
+                    >
+                      {val.emoji} {val.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+            <div className="p-4 sm:p-6 border-t border-gray-100 flex gap-3 sticky bottom-0 bg-white rounded-b-2xl">
+              <button
+                onClick={() => setTareaEditando(null)}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={guardarEdicionTarea}
+                className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-colors shadow-md"
+              >
+                Guardar Cambios
+              </button>
             </div>
           </div>
         </div>

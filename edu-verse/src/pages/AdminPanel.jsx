@@ -41,7 +41,14 @@ const AdminPanel = () => {
   };
 
   const fetchUsuarios = async () => {
-    try { const res = await axios.get('/admin/usuarios'); setUsuarios(res.data); } catch { toast.error('Error al cargar usuarios'); }
+    try {
+      const [resUsuarios, resBaneados] = await Promise.all([
+        axios.get('/admin/usuarios'),
+        axios.get('/admin/baneados'),
+      ]);
+      setUsuarios(resUsuarios.data);
+      setBaneados(resBaneados.data);
+    } catch { toast.error('Error al cargar usuarios'); }
   };
 
   const fetchBaneados = async () => {
@@ -91,7 +98,7 @@ const AdminPanel = () => {
 
   const handleUnban = async (email) => {
     if (!window.confirm(`¿Desbanear a ${email}?`)) return;
-    try { await axios.delete(`/admin/baneados/${encodeURIComponent(email)}`); toast.success('Desbaneado'); fetchBaneados(); } catch { toast.error('Error al desbanear'); }
+    try { await axios.delete(`/admin/baneados/${encodeURIComponent(email)}`); toast.success('Desbaneado'); fetchBaneados(); fetchUsuarios(); } catch { toast.error('Error al desbanear'); }
   };
 
   const handleDeleteApunte = async (id) => {
@@ -210,12 +217,16 @@ const AdminPanel = () => {
                       <span className="font-medium text-gray-900">{u.nombre}</span>
                     </div>,
                     <span className="text-gray-600">{u.email}</span>,
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${u.rol === 'admin' ? 'bg-red-100 text-red-700' : 'bg-gray-100 text-gray-600'}`}>{u.rol}</span>,
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${u.rol === 'admin' ? 'bg-red-100 text-red-700' : baneados.some(b => b.email === u.email) ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{baneados.some(b => b.email === u.email) ? 'Baneado' : u.rol}</span>,
                     <span className="text-gray-500">{new Date(u.fecha_registro).toLocaleDateString()}</span>,
                     <div className="flex items-center justify-end gap-2">
                       {u.rol !== 'admin' ? (
                         <>
-                          <button onClick={() => setBanModal({ open: true, usuario: u })} className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 text-xs font-medium transition-colors">Banear</button>
+                          {baneados.some(b => b.email === u.email) ? (
+                            <button onClick={() => handleUnban(u.email)} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 text-xs font-medium transition-colors">Desbanear</button>
+                          ) : (
+                            <button onClick={() => setBanModal({ open: true, usuario: u })} className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 text-xs font-medium transition-colors">Banear</button>
+                          )}
                           <button onClick={() => handleDeleteUser(u.usuario_id, u.nombre)} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-xs font-medium transition-colors">Eliminar</button>
                         </>
                       ) : <span className="text-xs text-gray-400 italic">Admin</span>}
@@ -382,7 +393,7 @@ const AdminPanel = () => {
           <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
             <h3 className="text-lg font-bold text-gray-900 mb-1">Banear usuario</h3>
             <p className="text-sm text-gray-500 mb-4">
-              Se eliminará la cuenta de <strong>{banModal.usuario?.nombre}</strong> y no podrá volver a registrarse.
+              <strong>{banModal.usuario?.nombre}</strong> no podrá iniciar sesión en la plataforma.
             </p>
             <textarea
               placeholder="Motivo del baneo (opcional)"
