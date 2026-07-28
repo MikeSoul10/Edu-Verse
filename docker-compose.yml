@@ -42,13 +42,12 @@ services:
     build:
       context: ./edu-verse
       dockerfile: Dockerfile
-      args:
-        VITE_API_URL: http://localhost:4000
     restart: unless-stopped
     ports:
       - "5173:5173"
     volumes:
       - ./edu-verse/src:/app/src
+      - ./edu-verse/public:/app/public
       - ./edu-verse/index.html:/app/index.html
       - ./edu-verse/vite.config.js:/app/vite.config.js
       - ./edu-verse/tailwind.config.js:/app/tailwind.config.js

@@ -12,6 +12,7 @@ import DetalleApunte from './pages/DetalleApunte';
 import MyNotes from './pages/MyNotes';
 import Favorites from './pages/Favorites';
 import GestorEquipos from './pages/GestorEquipos';
+import AdminPanel from './pages/AdminPanel';
 import ProtectedRoute from './pages/ProtectedRoute';
 import NotFound from './pages/NotFound';
 import { Toaster } from 'react-hot-toast';
@@ -36,6 +37,7 @@ function App() {
             <Route path="/mis-apuntes" element={<ProtectedRoute><MyNotes /></ProtectedRoute>} />
             <Route path="/favoritos" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
             <Route path="/gestor-equipos" element={<ProtectedRoute><GestorEquipos /></ProtectedRoute>} />
+            <Route path="/admin" element={<ProtectedRoute><AdminPanel /></ProtectedRoute>} />
             <Route path="/apuntes" element={<ProtectedRoute><Apuntes /></ProtectedRoute>} />
             <Route path="*" element={<NotFound />} />
           </Routes>

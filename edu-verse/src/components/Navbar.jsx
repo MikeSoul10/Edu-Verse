@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
 
 const Navbar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
@@ -15,6 +16,83 @@ const Navbar = () => {
   };
 
   const closeMenu = () => setMenuOpen(false);
+
+  const getModuleLinks = () => {
+    const path = location.pathname;
+
+    if (path === '/') {
+      return (
+        <>
+          <Link to="/biblioteca" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
+            📚 Biblioteca
+          </Link>
+          <Link to="/gestor-equipos" className="text-gray-600 hover:text-emerald-600 font-medium text-sm transition-colors">
+            👥 Equipos
+          </Link>
+          <span className="text-gray-400 font-medium text-sm cursor-not-allowed" title="Próximamente">
+            🤖 Tutor IA
+          </span>
+        </>
+      );
+    }
+
+    if (path === '/biblioteca') {
+      return (
+        <>
+          <Link to="/favoritos" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
+            ⭐ Favoritos
+          </Link>
+          <Link to="/mis-apuntes" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
+            📁 Mis Apuntes
+          </Link>
+        </>
+      );
+    }
+
+    if (path === '/gestor-equipos') {
+      return (
+        <Link to="/gestor-equipos" className="text-gray-600 hover:text-emerald-600 font-medium text-sm transition-colors">
+          👥 Equipos
+        </Link>
+      );
+    }
+
+    return null;
+  };
+
+  const getMobileModuleLinks = () => {
+    const path = location.pathname;
+
+    if (path === '/') {
+      return (
+        <>
+          <Link to="/biblioteca" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">📚 Biblioteca</Link>
+          <Link to="/gestor-equipos" onClick={closeMenu} className="text-gray-700 hover:text-emerald-600 font-medium text-sm py-2">👥 Equipos</Link>
+          <span className="text-gray-400 font-medium text-sm py-2 cursor-not-allowed">🤖 Tutor IA (Próximamente)</span>
+        </>
+      );
+    }
+
+    if (path === '/biblioteca') {
+      return (
+        <>
+          <Link to="/favoritos" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">⭐ Favoritos</Link>
+          <Link to="/mis-apuntes" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">📁 Mis Apuntes</Link>
+        </>
+      );
+    }
+
+    if (path === '/gestor-equipos') {
+      return (
+        <Link to="/gestor-equipos" onClick={closeMenu} className="text-gray-700 hover:text-emerald-600 font-medium text-sm py-2">👥 Equipos</Link>
+      );
+    }
+
+    return null;
+  };
+
+  const moduleLinks = getModuleLinks();
+  const mobileModuleLinks = getMobileModuleLinks();
 
   return (
     <nav className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-50">
@@ -43,25 +121,22 @@ const Navbar = () => {
       <div className="hidden md:flex items-center space-x-5">
         {user ? (
           <div className="flex items-center space-x-4">
-            <Link to="/biblioteca" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
-              📚 Biblioteca
-            </Link>
-            <Link to="/favoritos" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
-              ⭐ Favoritos
-            </Link>
-            <Link to="/gestor-equipos" className="text-gray-600 hover:text-emerald-600 font-medium text-sm transition-colors">
-              👥 Equipos
-            </Link>
-            <Link to="/mis-apuntes" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
-              📁 Mis Apuntes
-            </Link>
+            {moduleLinks}
+
+            {user.rol === 'admin' && (
+              <Link to="/admin" className="text-red-600 hover:text-red-700 font-medium text-sm transition-colors">
+                ⚡ Admin
+              </Link>
+            )}
 
             <Link 
               to="/perfil" 
               className="flex items-center space-x-3 bg-gray-50 pl-4 pr-1 py-1 rounded-full border border-gray-100 hover:bg-gray-100 transition-all"
             >
               <div className="flex flex-col items-end">
-                <span className="text-[10px] text-gray-400 font-bold uppercase tracking-wider leading-none">Estudiante</span>
+                <span className={`text-[10px] font-bold uppercase tracking-wider leading-none ${user.rol === 'admin' ? 'text-red-500' : 'text-gray-400'}`}>
+                  {user.rol === 'admin' ? 'Admin' : 'Estudiante'}
+                </span>
                 <span className="text-sm font-bold text-gray-800 leading-tight">{user.nombre}</span>
               </div>
               <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-sm ring-1 ring-blue-100">
@@ -92,10 +167,10 @@ const Navbar = () => {
         <div className="absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg md:hidden z-50">
           {user ? (
             <div className="flex flex-col p-4 space-y-3">
-              <Link to="/biblioteca" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">📚 Biblioteca</Link>
-              <Link to="/favoritos" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">⭐ Favoritos</Link>
-              <Link to="/gestor-equipos" onClick={closeMenu} className="text-gray-700 hover:text-emerald-600 font-medium text-sm py-2">👥 Equipos</Link>
-              <Link to="/mis-apuntes" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">📁 Mis Apuntes</Link>
+              {mobileModuleLinks}
+              {user.rol === 'admin' && (
+                <Link to="/admin" onClick={closeMenu} className="text-red-600 hover:text-red-700 font-medium text-sm py-2">⚡ Admin</Link>
+              )}
               <Link to="/perfil" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">👤 Mi Perfil</Link>
               <hr className="border-gray-100" />
               <div className="flex items-center justify-between">

@@ -53,6 +53,10 @@ const GestorEquipos = () => {
     fecha_entrega: '',
     asignado_a: '',
   });
+  const [chatAbierto, setChatAbierto] = useState(false);
+  const chatAbiertoRef = useRef(false);
+  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
+  const [tareaAEliminar, setTareaAEliminar] = useState(null);
 
   const cargarEquipos = useCallback(async () => {
     if (!usuario) return;
@@ -123,6 +127,9 @@ const GestorEquipos = () => {
     });
     socket.on('nuevo-mensaje', (data) => {
       setMensajes((prev) => [...prev, data]);
+      if (!chatAbiertoRef.current) {
+        setMensajesNoLeidos((prev) => prev + 1);
+      }
     });
     return () => {
       socket.disconnect();
@@ -130,22 +137,45 @@ const GestorEquipos = () => {
   }, []);
 
   useEffect(() => {
-    if (chatRef.current) {
+    chatAbiertoRef.current = chatAbierto;
+    if (chatAbierto) {
+      setMensajesNoLeidos(0);
+    }
+  }, [chatAbierto]);
+
+  useEffect(() => {
+    if (chatAbierto && chatRef.current) {
       chatRef.current.scrollTop = chatRef.current.scrollHeight;
     }
-  }, [mensajes]);
+  }, [mensajes, chatAbierto]);
 
   const seleccionarEquipo = async (equipo) => {
-    if (equipoActivo) {
-      socketRef.current.emit('salir-equipo', equipoActivo.equipo_id);
+    try {
+      if (equipoActivo && socketRef.current) {
+        socketRef.current.emit('salir-equipo', equipoActivo.equipo_id);
+      }
+      setEquipoActivo(equipo);
+      setChatAbierto(false);
+      chatAbiertoRef.current = false;
+      setMensajesNoLeidos(0);
+      if (socketRef.current) {
+        socketRef.current.emit('unirse-equipo', equipo.equipo_id);
+      }
+      await Promise.all([
+        cargarTareas(equipo.equipo_id),
+        cargarMiembros(equipo.equipo_id),
+        cargarMensajes(equipo.equipo_id),
+      ]);
+    } catch (err) {
+      console.error('Error al seleccionar equipo:', err);
     }
-    setEquipoActivo(equipo);
-    socketRef.current.emit('unirse-equipo', equipo.equipo_id);
-    await Promise.all([
-      cargarTareas(equipo.equipo_id),
-      cargarMiembros(equipo.equipo_id),
-      cargarMensajes(equipo.equipo_id),
-    ]);
+  };
+
+  const getToastMsg = (err) => {
+    const data = err?.response?.data;
+    if (typeof data === 'string') return data;
+    if (data?.mensaje) return data.mensaje;
+    return 'Ocurrió un error';
   };
 
   const crearEquipo = async () => {
@@ -157,9 +187,9 @@ const GestorEquipos = () => {
       setEquipos((prev) => [res.data.equipo, ...prev]);
       setNombreEquipo('');
       setShowCrearEquipo(false);
-      seleccionarEquipo(res.data.equipo);
+      await seleccionarEquipo(res.data.equipo);
     } catch (err) {
-      toast.error(err.response?.data || 'Error al crear equipo');
+      toast.error(getToastMsg(err));
     }
   };
 
@@ -174,9 +204,9 @@ const GestorEquipos = () => {
       await cargarEquipos();
       setCodigoUnirse('');
       setShowUnirse(false);
-      seleccionarEquipo(res.data.equipo);
-    } catch {
-      toast.error('Código no válido');
+      await seleccionarEquipo(res.data.equipo);
+    } catch (err) {
+      toast.error(getToastMsg(err));
     }
   };
 
@@ -292,7 +322,7 @@ const GestorEquipos = () => {
         <div className="flex items-start justify-between gap-2">
           <h4 className="font-bold text-gray-800 text-sm leading-tight flex-1">{tarea.titulo}</h4>
           <button
-            onClick={() => eliminarTarea(tarea.tarea_id)}
+            onClick={() => setTareaAEliminar(tarea)}
             className="text-gray-300 hover:text-red-500 transition-colors text-xs shrink-0"
           >
             ✕
@@ -456,11 +486,14 @@ const GestorEquipos = () => {
         <div className="p-4 border-b border-gray-100">
           <button
             onClick={() => {
-socketRef.current.emit('salir-equipo', equipoActivo.equipo_id);
-      setEquipoActivo(null);
-      setTareas([]);
-      setMensajes([]);
-      setMiembros([]);
+              if (socketRef.current) socketRef.current.emit('salir-equipo', equipoActivo.equipo_id);
+              setEquipoActivo(null);
+              setTareas([]);
+              setMensajes([]);
+              setMiembros([]);
+              setChatAbierto(false);
+              chatAbiertoRef.current = false;
+              setMensajesNoLeidos(0);
             }}
             className="text-xs text-gray-400 hover:text-emerald-600 font-bold mb-2 transition-colors"
           >
@@ -490,16 +523,35 @@ socketRef.current.emit('salir-equipo', equipoActivo.equipo_id);
         </div>
       </div>
 
-      {/* KANBAN BOARD */}
+      {/* KANBAN - SIEMPRE VISIBLE */}
       <div className="flex-1 flex flex-col min-w-0">
         <div className="p-4 border-b border-gray-100 flex items-center justify-between bg-white">
           <h2 className="font-black text-gray-900">📋 Tablero de Tareas</h2>
-          <button
-            onClick={() => setShowCrearTarea(true)}
-            className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors shadow-md"
-          >
-            + Nueva Tarea
-          </button>
+          <div className="flex items-center gap-3">
+            {!chatAbierto && (
+              <button
+                onClick={() => setChatAbierto(true)}
+                className={`relative px-4 py-2 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+                  mensajesNoLeidos > 0
+                    ? 'bg-red-50 text-red-600 border border-red-300 hover:bg-red-100 animate-pulse'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                💬 Chat del Equipo
+                {mensajesNoLeidos > 0 && (
+                  <span className="absolute -top-2 -right-2 w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-black flex items-center justify-center">
+                    {Math.min(mensajesNoLeidos, 99)}
+                  </span>
+                )}
+              </button>
+            )}
+            <button
+              onClick={() => setShowCrearTarea(true)}
+              className="bg-emerald-600 text-white px-4 py-2 rounded-xl text-sm font-bold hover:bg-emerald-700 transition-colors shadow-md"
+            >
+              + Nueva Tarea
+            </button>
+          </div>
         </div>
 
         {showCrearTarea && (
@@ -604,62 +656,101 @@ socketRef.current.emit('salir-equipo', equipoActivo.equipo_id);
         </div>
       </div>
 
-      {/* CHAT PANEL */}
-      <div className="w-80 bg-white border-l border-gray-200 flex flex-col shrink-0">
-        <div className="p-4 border-b border-gray-100">
-          <h3 className="font-black text-gray-900 text-sm">💬 Chat del Equipo</h3>
-        </div>
-
-        <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
-          {mensajes.length === 0 && (
-            <div className="text-center py-8">
-              <p className="text-gray-300 text-xs">Aún no hay mensajes</p>
-            </div>
-          )}
-          {mensajes.map((msg) => {
-            const esMio = String(msg.usuario_id) === String(usuario);
-            return (
-              <div key={msg.mensaje_id || msg.fecha_envio} className={`flex ${esMio ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${
-                  esMio
-                    ? 'bg-emerald-600 text-white rounded-br-md'
-                    : 'bg-gray-100 text-gray-800 rounded-bl-md'
-                }`}>
-                  {!esMio && (
-                    <p className="text-[9px] font-bold text-emerald-600 mb-0.5">{msg.autor_nombre}</p>
-                  )}
-                  <p className="text-xs leading-relaxed">{msg.texto}</p>
-                  <p className={`text-[8px] mt-1 ${esMio ? 'text-emerald-200' : 'text-gray-400'}`}>
-                    {new Date(msg.fecha_envio).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
-        <div className="p-3 border-t border-gray-100">
-          <div className="flex gap-2">
-            <input
-              type="text"
-              placeholder="Escribe un mensaje..."
-              value={nuevoMensaje}
-              onChange={(e) => setNuevoMensaje(e.target.value)}
-              onKeyDown={(e) => e.key === 'Enter' && enviarMensaje()}
-              aria-label="Mensaje de chat"
-              className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
-            />
+      {/* CHAT PANEL - LATERAL DERECHO */}
+      {chatAbierto && (
+        <div className="w-80 bg-white border-l border-gray-200 flex flex-col shrink-0">
+          <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+            <h3 className="font-black text-gray-900 text-sm">💬 Chat del Equipo</h3>
             <button
-              onClick={enviarMensaje}
-              className="bg-emerald-600 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-emerald-700 transition-colors shadow-md shrink-0"
+              onClick={() => { setChatAbierto(false); chatAbiertoRef.current = false; }}
+              className="w-7 h-7 rounded-full bg-gray-100 text-gray-500 text-xs flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors"
+              title="Cerrar chat"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-              </svg>
+              ✕
             </button>
           </div>
+
+          <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+            {mensajes.length === 0 && (
+              <div className="text-center py-8">
+                <p className="text-gray-300 text-xs">Aún no hay mensajes</p>
+              </div>
+            )}
+            {mensajes.map((msg) => {
+              const esMio = String(msg.usuario_id) === String(usuario);
+              return (
+                <div key={msg.mensaje_id || msg.fecha_envio} className={`flex ${esMio ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${
+                    esMio
+                      ? 'bg-emerald-600 text-white rounded-br-md'
+                      : 'bg-gray-100 text-gray-800 rounded-bl-md'
+                  }`}>
+                    {!esMio && (
+                      <p className="text-[9px] font-bold text-emerald-600 mb-0.5">{msg.autor_nombre}</p>
+                    )}
+                    <p className="text-xs leading-relaxed">{msg.texto}</p>
+                    <p className={`text-[8px] mt-1 ${esMio ? 'text-emerald-200' : 'text-gray-400'}`}>
+                      {new Date(msg.fecha_envio).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })} · {new Date(msg.fecha_envio).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div className="p-3 border-t border-gray-100">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                placeholder="Escribe un mensaje..."
+                value={nuevoMensaje}
+                onChange={(e) => setNuevoMensaje(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && enviarMensaje()}
+                aria-label="Mensaje de chat"
+                className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+              <button
+                onClick={enviarMensaje}
+                className="bg-emerald-600 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-emerald-700 transition-colors shadow-md shrink-0"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                </svg>
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
+      {/* MODAL CONFIRMAR ELIMINAR TAREA */}
+      {tareaAEliminar && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50" onClick={() => setTareaAEliminar(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-sm w-full mx-4" onClick={(e) => e.stopPropagation()}>
+            <div className="text-center">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-2xl">🗑️</span>
+              </div>
+              <h3 className="font-black text-gray-900 text-lg mb-2">Eliminar tarea</h3>
+              <p className="text-sm text-gray-500 mb-6">
+                ¿Seguro que quieres eliminar <span className="font-bold text-gray-700">"{tareaAEliminar.titulo}"</span>?
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setTareaAEliminar(null)}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => { eliminarTarea(tareaAEliminar.tarea_id); setTareaAEliminar(null); }}
+                  className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 transition-colors shadow-md"
+                >
+                  Aceptar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
