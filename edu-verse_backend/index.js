@@ -118,6 +118,12 @@ app.post('/auth/signup', async (req, res) => {
     if (!email.toLowerCase().endsWith('@alumnos.udg.mx')) return res.status(400).json("Solo correos @alumnos.udg.mx");
     if (password.length < 6) return res.status(400).json("Contraseña corta.");
 
+    // Verificar si el email está baneado
+    const baneado = await pool.query("SELECT * FROM baneados WHERE email = $1", [email.toLowerCase()]);
+    if (baneado.rows.length > 0) {
+      return res.status(403).json("Este correo ha sido suspendido. No puedes crear una cuenta.");
+    }
+
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
@@ -139,6 +145,13 @@ app.post('/auth/signup', async (req, res) => {
 app.post('/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
+
+        // Verificar si el email está baneado
+        const baneado = await pool.query("SELECT * FROM baneados WHERE email = $1", [email.toLowerCase()]);
+        if (baneado.rows.length > 0) {
+            return res.status(403).json("Tu cuenta ha sido suspendida. Contacta al administrador.");
+        }
+
         const usuario = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email]);
         
         if (usuario.rows.length === 0) return res.status(401).json("Credenciales incorrectas");
@@ -146,17 +159,17 @@ app.post('/auth/login', async (req, res) => {
         const validPassword = await bcrypt.compare(password, usuario.rows[0].password_hash);
         if (!validPassword) return res.status(401).json("Credenciales incorrectas");
 
-        // --- CREAR TOKEN ---
+        // --- CREAR TOKEN (incluye rol) ---
         const token = jwt.sign(
-            { id: usuario.rows[0].usuario_id, nombre: usuario.rows[0].nombre },
+            { id: usuario.rows[0].usuario_id, nombre: usuario.rows[0].nombre, rol: usuario.rows[0].rol },
             JWT_SECRET,
-            { expiresIn: '24h' } // El token expira en un día
+            { expiresIn: '24h' }
         );
 
         res.json({
             mensaje: "¡Éxito!",
             token,
-            usuario: { id: usuario.rows[0].usuario_id, nombre: usuario.rows[0].nombre, foto_url: usuario.rows[0].foto_url }
+            usuario: { id: usuario.rows[0].usuario_id, nombre: usuario.rows[0].nombre, foto_url: usuario.rows[0].foto_url, rol: usuario.rows[0].rol }
         });
     } catch (err) {
         res.status(500).send("Error en el servidor");
@@ -432,4 +445,279 @@ app.post('/valoraciones', verificarToken, async (req, res) => {
         [apunte_id, usuario_id, estrellas]
     );
     res.json("Valoración guardada");
+});
+
+// =============================================
+// RUTAS DE ADMINISTRADOR
+// =============================================
+const verificarAdmin = require('./middleware/admin');
+
+// Dashboard - Estadísticas generales
+app.get('/admin/stats', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const [usuarios, apuntes, equipos, comentarios, tareas, baneados, apuntesHoy, usuariosHoy, equiposHoy] = await Promise.all([
+      pool.query("SELECT COUNT(*) FROM usuarios"),
+      pool.query("SELECT COUNT(*) FROM apuntes"),
+      pool.query("SELECT COUNT(*) FROM equipos"),
+      pool.query("SELECT COUNT(*) FROM comentarios"),
+      pool.query("SELECT COUNT(*) FROM tareas"),
+      pool.query("SELECT COUNT(*) FROM baneados"),
+      pool.query("SELECT COUNT(*) FROM apuntes WHERE fecha_subida::date = CURRENT_DATE"),
+      pool.query("SELECT COUNT(*) FROM usuarios WHERE fecha_registro::date = CURRENT_DATE"),
+      pool.query("SELECT COUNT(*) FROM equipos WHERE fecha_creacion::date = CURRENT_DATE"),
+    ]);
+
+    // Apuntes por día (últimos 7 días)
+    const apuntesPorDia = await pool.query(`
+      SELECT fecha_subida::date AS dia, COUNT(*) AS total
+      FROM apuntes
+      WHERE fecha_subida >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY dia ORDER BY dia
+    `);
+
+    // Usuarios por día (últimos 7 días)
+    const usuariosPorDia = await pool.query(`
+      SELECT fecha_registro::date AS dia, COUNT(*) AS total
+      FROM usuarios
+      WHERE fecha_registro >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY dia ORDER BY dia
+    `);
+
+    // Equipos por día (últimos 7 días)
+    const equiposPorDia = await pool.query(`
+      SELECT fecha_creacion::date AS dia, COUNT(*) AS total
+      FROM equipos
+      WHERE fecha_creacion >= CURRENT_DATE - INTERVAL '7 days'
+      GROUP BY dia ORDER BY dia
+    `);
+
+    res.json({
+      totalUsuarios: parseInt(usuarios.rows[0].count),
+      totalApuntes: parseInt(apuntes.rows[0].count),
+      totalEquipos: parseInt(equipos.rows[0].count),
+      totalComentarios: parseInt(comentarios.rows[0].count),
+      totalTareas: parseInt(tareas.rows[0].count),
+      totalBaneados: parseInt(baneados.rows[0].count),
+      apuntesHoy: parseInt(apuntesHoy.rows[0].count),
+      usuariosHoy: parseInt(usuariosHoy.rows[0].count),
+      equiposHoy: parseInt(equiposHoy.rows[0].count),
+      apuntesPorDia: apuntesPorDia.rows,
+      usuariosPorDia: usuariosPorDia.rows,
+      equiposPorDia: equiposPorDia.rows,
+    });
+  } catch (err) {
+    console.error("Error en stats admin:", err.message);
+    res.status(500).send("Error al obtener estadísticas");
+  }
+});
+
+// Listar todos los usuarios
+app.get('/admin/usuarios', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const resultado = await pool.query(
+      "SELECT usuario_id, nombre, email, fecha_registro, foto_url, rol FROM usuarios ORDER BY fecha_registro DESC"
+    );
+    res.json(resultado.rows);
+  } catch (err) {
+    res.status(500).send("Error al obtener usuarios");
+  }
+});
+
+// Eliminar usuario
+app.delete('/admin/usuarios/:id', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (String(req.usuario.id) === String(id)) {
+      return res.status(400).json("No puedes eliminarte a ti mismo.");
+    }
+    await pool.query("DELETE FROM usuarios WHERE usuario_id = $1", [id]);
+    await pool.query(
+      "INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)",
+      [req.usuario.id, 'eliminar_usuario', `Eliminó usuario ID ${id}`]
+    );
+    res.json({ mensaje: "Usuario eliminado" });
+  } catch (err) {
+    res.status(500).send("Error al eliminar usuario");
+  }
+});
+
+// Banear usuario
+app.post('/admin/ban', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const { usuario_id, motivo } = req.body;
+    if (String(req.usuario.id) === String(usuario_id)) {
+      return res.status(400).json("No puedes banearte a ti mismo.");
+    }
+
+    const usuario = await pool.query("SELECT email FROM usuarios WHERE usuario_id = $1", [usuario_id]);
+    if (usuario.rows.length === 0) return res.status(404).json("Usuario no encontrado");
+
+    const email = usuario.rows[0].email;
+
+    // Insertar en baneados (ignorar si ya existe)
+    await pool.query(
+      "INSERT INTO baneados (email, motivo, baneado_por) VALUES ($1, $2, $3) ON CONFLICT (email) DO UPDATE SET motivo = $2, baneado_por = $3, fecha_baneo = CURRENT_TIMESTAMP",
+      [email, motivo || 'Sin motivo', req.usuario.id]
+    );
+
+    // Eliminar usuario
+    await pool.query("DELETE FROM usuarios WHERE usuario_id = $1", [usuario_id]);
+
+    await pool.query(
+      "INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)",
+      [req.usuario.id, 'banear_usuario', `Baneó a ${email}. Motivo: ${motivo || 'Sin motivo'}`]
+    );
+
+    res.json({ mensaje: "Usuario baneado y eliminado" });
+  } catch (err) {
+    console.error("Error al banear:", err.message);
+    res.status(500).send("Error al banear usuario");
+  }
+});
+
+// Ver lista de baneados
+app.get('/admin/baneados', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const resultado = await pool.query(
+      "SELECT b.*, u.nombre AS admin_nombre FROM baneados b LEFT JOIN usuarios u ON b.baneado_por = u.usuario_id ORDER BY b.fecha_baneo DESC"
+    );
+    res.json(resultado.rows);
+  } catch (err) {
+    res.status(500).send("Error al obtener baneados");
+  }
+});
+
+// Desbanear usuario
+app.delete('/admin/baneados/:email', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const { email } = req.params;
+    await pool.query("DELETE FROM baneados WHERE email = $1", [decodeURIComponent(email)]);
+    await pool.query(
+      "INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)",
+      [req.usuario.id, 'desbanear', `Desbaneó a ${decodeURIComponent(email)}`]
+    );
+    res.json({ mensaje: "Email desbaneado" });
+  } catch (err) {
+    res.status(500).send("Error al desbanear");
+  }
+});
+
+// Eliminar apunte (como admin)
+app.delete('/admin/apuntes/:id', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM apuntes WHERE apunte_id = $1", [id]);
+    await pool.query(
+      "INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)",
+      [req.usuario.id, 'eliminar_apunte', `Eliminó apunte ID ${id}`]
+    );
+    res.json({ mensaje: "Apunte eliminado" });
+  } catch (err) {
+    res.status(500).send("Error al eliminar apunte");
+  }
+});
+
+// Eliminar comentario (como admin)
+app.delete('/admin/comentarios/:id', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM comentarios WHERE comentario_id = $1", [id]);
+    await pool.query(
+      "INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)",
+      [req.usuario.id, 'eliminar_comentario', `Eliminó comentario ID ${id}`]
+    );
+    res.json({ mensaje: "Comentario eliminado" });
+  } catch (err) {
+    res.status(500).send("Error al eliminar comentario");
+  }
+});
+
+// Eliminar tarea (como admin)
+app.delete('/admin/tareas/:id', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM tareas WHERE tarea_id = $1", [id]);
+    await pool.query(
+      "INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)",
+      [req.usuario.id, 'eliminar_tarea', `Eliminó tarea ID ${id}`]
+    );
+    res.json({ mensaje: "Tarea eliminada" });
+  } catch (err) {
+    res.status(500).send("Error al eliminar tarea");
+  }
+});
+
+// Logs de administrador
+app.get('/admin/logs', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const resultado = await pool.query(
+      "SELECT l.*, u.nombre AS admin_nombre FROM admin_logs l LEFT JOIN usuarios u ON l.admin_id = u.usuario_id ORDER BY l.fecha DESC LIMIT 50"
+    );
+    res.json(resultado.rows);
+  } catch (err) {
+    res.status(500).send("Error al obtener logs");
+  }
+});
+
+// Listar todos los apuntes (admin)
+app.get('/admin/apuntes', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const resultado = await pool.query(
+      `SELECT apuntes.*, usuarios.nombre AS autor 
+       FROM apuntes 
+       JOIN usuarios ON apuntes.usuario_id = usuarios.usuario_id 
+       ORDER BY apuntes.fecha_subida DESC`
+    );
+    res.json(resultado.rows);
+  } catch (err) {
+    res.status(500).send("Error al obtener apuntes");
+  }
+});
+
+// Listar todos los comentarios (admin)
+app.get('/admin/comentarios', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const resultado = await pool.query(
+      `SELECT c.*, u.nombre AS autor, a.titulo AS apunte_titulo 
+       FROM comentarios c 
+       JOIN usuarios u ON c.usuario_id = u.usuario_id 
+       JOIN apuntes a ON c.apunte_id = a.apunte_id 
+       ORDER BY c.fecha_creacion DESC`
+    );
+    res.json(resultado.rows);
+  } catch (err) {
+    res.status(500).send("Error al obtener comentarios");
+  }
+});
+
+// Listar todos los equipos (admin)
+app.get('/admin/equipos', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const resultado = await pool.query(
+      `SELECT e.*, u.nombre AS creador_nombre,
+       (SELECT COUNT(*) FROM miembros_equipo m WHERE m.equipo_id = e.equipo_id) AS total_miembros,
+       (SELECT COUNT(*) FROM tareas t WHERE t.equipo_id = e.equipo_id) AS total_tareas
+       FROM equipos e 
+       JOIN usuarios u ON e.creado_por = u.usuario_id 
+       ORDER BY e.fecha_creacion DESC`
+    );
+    res.json(resultado.rows);
+  } catch (err) {
+    res.status(500).send("Error al obtener equipos");
+  }
+});
+
+// Eliminar equipo (admin)
+app.delete('/admin/equipos/:id', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const { id } = req.params;
+    await pool.query("DELETE FROM equipos WHERE equipo_id = $1", [id]);
+    await pool.query(
+      "INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)",
+      [req.usuario.id, 'eliminar_equipo', `Eliminó equipo ID ${id}`]
+    );
+    res.json({ mensaje: "Equipo eliminado" });
+  } catch (err) {
+    res.status(500).send("Error al eliminar equipo");
+  }
 });

@@ -13,7 +13,7 @@ const Home = () => {
     {
       titulo: 'Biblioteca',
       descripcion: 'Explora y comparte apuntes, documentos y materiales de estudio con tu comunidad.',
-      icono: '📚',
+      icono: '/modulos/biblioteca.png',
       link: '/biblioteca',
       activo: true,
       color: 'from-blue-500 to-indigo-600',
@@ -23,7 +23,7 @@ const Home = () => {
     {
       titulo: 'Gestor de Equipos',
       descripcion: 'Organiza tu equipo de estudio, asigna tareas y colabora en tiempo real.',
-      icono: '👥',
+      icono: '/modulos/gestor-equipos.png',
       link: '/gestor-equipos',
       activo: true,
       color: 'from-emerald-500 to-teal-600',
@@ -33,7 +33,7 @@ const Home = () => {
     {
       titulo: 'Tutor IA',
       descripcion: 'Aprende con inteligencia artificial: resuelve dudas, genera resúmenes y más.',
-      icono: '🤖',
+      icono: null,
       link: null,
       activo: false,
       color: 'from-purple-500 to-pink-600',
@@ -46,7 +46,7 @@ const Home = () => {
     <div className="max-w-7xl mx-auto px-6 py-6">
 
       {/* Header */}
-      <header className="mb-10 p-8 md:p-12 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] shadow-xl text-white">
+      <header className="mb-10 p-8 md:p-12 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] shadow-xl text-white text-center">
         <h1 className="text-3xl md:text-5xl font-black tracking-tight">
           Hola, {userName || 'Estudiante'} 👋
         </h1>
@@ -77,7 +77,11 @@ const Home = () => {
 
               {/* Icono */}
               <div className={`w-24 h-24 ${modulo.bgColor} rounded-[2rem] flex items-center justify-center text-5xl mb-6 transition-transform duration-300 ${modulo.activo ? 'group-hover:scale-110' : ''}`}>
-                {modulo.icono}
+                {modulo.icono ? (
+                  <img src={modulo.icono} alt={modulo.titulo} className="w-20 h-20 object-contain" />
+                ) : (
+                  <span>🤖</span>
+                )}
               </div>
 
               {/* Texto */}

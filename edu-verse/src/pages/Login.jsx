@@ -26,7 +26,11 @@ const Login = () => {
       });
 
       setTimeout(() => {
-        navigate('/');
+        if (response.data.usuario.rol === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/');
+        }
       }, 1000);
 
     } catch (err) {

@@ -142,7 +142,8 @@ CREATE TABLE public.usuarios (
     email character varying(150) NOT NULL,
     password_hash character varying(255) NOT NULL,
     fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
-    foto_url text DEFAULT 'default-avatar.png'::text
+    foto_url text DEFAULT 'default-avatar.png'::text,
+    rol character varying(20) DEFAULT 'user'::character varying
 );
 
 
@@ -278,11 +279,11 @@ COPY public.favoritos (favorito_id, usuario_id, apunte_id, fecha_guardado) FROM 
 -- Data for Name: usuarios; Type: TABLE DATA; Schema: public; Owner: postgres
 --
 
-COPY public.usuarios (usuario_id, nombre, email, password_hash, fecha_registro, foto_url) FROM stdin;
-1	Miguel	test@edu.mx	$2b$10$AhvoT8OLUUkd8FRmuURIa.5sqg0l3RLT.VBCUI8/ntnKOXK4Qkh9a	2026-03-16 23:33:50.865721	default-avatar.png
-3	Cristoff	test3@alumno.edu	$2b$10$7Emk3./LLPiJnhzkdNIuH.VFXSoPmp.Cug6eop9OS3pmSopQms4Oa	2026-04-13 11:26:03.81259	default-avatar.png
-2	Edu	test2@alumno.edu	$2b$10$ZiZeXOhtHVmxSJi48FKJKeQldTNV2HuFNtpYfxZ3o38MneJBRFtNi	2026-03-17 09:46:32.830529	/uploads/perfiles/1778088001198-Arquitectura_Edu-Verse.png
-4	Miguel Espinoza	miguel@alumno.edu	$2b$10$Em1mc92xweb5nOEKS4LKWeibfmkpc8eeg0UQg.8A3qCubRs/16ZYG	2026-05-07 14:55:26.256041	/uploads/perfiles/1778375807955-default-avatar.png
+COPY public.usuarios (usuario_id, nombre, email, password_hash, fecha_registro, foto_url, rol) FROM stdin;
+1	Miguel	test@edu.mx	$2b$10$AhvoT8OLUUkd8FRmuURIa.5sqg0l3RLT.VBCUI8/ntnKOXK4Qkh9a	2026-03-16 23:33:50.865721	default-avatar.png	admin
+3	Cristoff	test3@alumno.edu	$2b$10$7Emk3./LLPiJnhzkdNIuH.VFXSoPmp.Cug6eop9OS3pmSopQms4Oa	2026-04-13 11:26:03.81259	default-avatar.png	user
+2	Edu	test2@alumno.edu	$2b$10$ZiZeXOhtHVmxSJi48FKJKeQldTNV2HuFNtpYfxZ3o38MneJBRFtNi	2026-03-17 09:46:32.830529	/uploads/perfiles/1778088001198-Arquitectura_Edu-Verse.png	user
+4	Miguel Espinoza	miguel@alumno.edu	$2b$10$Em1mc92xweb5nOEKS4LKWeibfmkpc8eeg0UQg.8A3qCubRs/16ZYG	2026-05-07 14:55:26.256041	/uploads/perfiles/1778375807955-default-avatar.png	user
 \.
 
 
@@ -593,6 +594,79 @@ ALTER TABLE ONLY public.mensajes_chat
 
 ALTER TABLE ONLY public.mensajes_chat
     ADD CONSTRAINT mensajes_chat_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(usuario_id);
+
+
+--
+-- Name: baneados; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.baneados (
+    baneo_id integer NOT NULL,
+    email character varying(150) NOT NULL,
+    motivo text,
+    baneado_por integer,
+    fecha_baneo timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.baneados OWNER TO postgres;
+
+CREATE SEQUENCE public.baneados_baneo_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.baneados_baneo_id_seq OWNER TO postgres;
+
+ALTER SEQUENCE public.baneados_baneo_id_seq OWNED BY public.baneados.baneo_id;
+
+ALTER TABLE ONLY public.baneados ALTER COLUMN baneo_id SET DEFAULT nextval('public.baneados_baneo_id_seq'::regclass);
+
+ALTER TABLE ONLY public.baneados
+    ADD CONSTRAINT baneados_pkey PRIMARY KEY (baneo_id);
+
+ALTER TABLE ONLY public.baneados
+    ADD CONSTRAINT baneados_email_key UNIQUE (email);
+
+ALTER TABLE ONLY public.baneados
+    ADD CONSTRAINT baneados_baneado_por_fkey FOREIGN KEY (baneado_por) REFERENCES public.usuarios(usuario_id);
+
+
+--
+-- Name: admin_logs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.admin_logs (
+    log_id integer NOT NULL,
+    admin_id integer,
+    accion character varying(100) NOT NULL,
+    detalle text,
+    fecha timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.admin_logs OWNER TO postgres;
+
+CREATE SEQUENCE public.admin_logs_log_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.admin_logs_log_id_seq OWNER TO postgres;
+
+ALTER SEQUENCE public.admin_logs_log_id_seq OWNED BY public.admin_logs.log_id;
+
+ALTER TABLE ONLY public.admin_logs ALTER COLUMN log_id SET DEFAULT nextval('public.admin_logs_log_id_seq'::regclass);
+
+ALTER TABLE ONLY public.admin_logs
+    ADD CONSTRAINT admin_logs_pkey PRIMARY KEY (log_id);
+
+ALTER TABLE ONLY public.admin_logs
+    ADD CONSTRAINT admin_logs_admin_id_fkey FOREIGN KEY (admin_id) REFERENCES public.usuarios(usuario_id);
 
 
 --

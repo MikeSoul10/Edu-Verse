@@ -8,7 +8,8 @@ export function AuthProvider({ children }) {
     const nombre = localStorage.getItem('usuario');
     const id = localStorage.getItem('usuario_id');
     const foto = localStorage.getItem('foto_url');
-    return nombre && id ? { nombre, id, foto } : null;
+    const rol = localStorage.getItem('rol');
+    return nombre && id ? { nombre, id, foto, rol } : null;
   });
 
   const login = useCallback((datos) => {
@@ -18,10 +19,14 @@ export function AuthProvider({ children }) {
     if (datos.usuario.foto_url) {
       localStorage.setItem('foto_url', datos.usuario.foto_url);
     }
+    if (datos.usuario.rol) {
+      localStorage.setItem('rol', datos.usuario.rol);
+    }
     setUser({
       nombre: datos.usuario.nombre,
       id: datos.usuario.id,
       foto: datos.usuario.foto_url || null,
+      rol: datos.usuario.rol || 'user',
     });
     emitAuthChange();
   }, []);

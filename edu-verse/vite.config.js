@@ -17,6 +17,7 @@ export default defineConfig({
       '/equipos': 'http://backend:4000',
       '/tareas': 'http://backend:4000',
       '/chat': 'http://backend:4000',
+      '/admin': 'http://backend:4000',
       '/uploads': 'http://backend:4000',
       '/socket.io': {
         target: 'http://backend:4000',

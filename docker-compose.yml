@@ -47,6 +47,7 @@ services:
       - "5173:5173"
     volumes:
       - ./edu-verse/src:/app/src
+      - ./edu-verse/public:/app/public
       - ./edu-verse/index.html:/app/index.html
       - ./edu-verse/vite.config.js:/app/vite.config.js
       - ./edu-verse/tailwind.config.js:/app/tailwind.config.js

@@ -24,10 +24,14 @@ class ErrorBoundary extends React.Component {
           <p className="text-gray-500 mb-8">Ocurrió un error inesperado. Por favor, intenta de nuevo.</p>
           <Link
             to="/"
-            onClick={() => this.setState({ hasError: false })}
+            onClick={(e) => {
+              e.preventDefault();
+              this.setState({ hasError: false });
+              window.location.href = '/';
+            }}
             className="bg-blue-600 text-white px-8 py-3 rounded-2xl font-bold hover:bg-blue-700 transition-all shadow-lg"
           >
-            Volver al Inicio
+            Regresar a Inicio
           </Link>
         </div>
       );
