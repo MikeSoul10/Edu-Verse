@@ -525,53 +525,69 @@ app.get('/admin/usuarios', verificarToken, verificarAdmin, async (req, res) => {
 
 // Eliminar usuario
 app.delete('/admin/usuarios/:id', verificarToken, verificarAdmin, async (req, res) => {
+  const client = await pool.connect();
   try {
     const { id } = req.params;
     if (String(req.usuario.id) === String(id)) {
       return res.status(400).json("No puedes eliminarte a ti mismo.");
     }
-    await pool.query("DELETE FROM usuarios WHERE usuario_id = $1", [id]);
-    await pool.query(
+    await client.query('BEGIN');
+    await client.query("DELETE FROM mensajes_chat WHERE usuario_id = $1", [id]);
+    await client.query("DELETE FROM tareas WHERE asignado_a = $1 OR creado_por = $1", [id]);
+    await client.query("DELETE FROM comentarios WHERE usuario_id = $1", [id]);
+    await client.query("DELETE FROM apuntes WHERE usuario_id = $1", [id]);
+    await client.query("DELETE FROM equipos WHERE creado_por = $1", [id]);
+    await client.query("DELETE FROM usuarios WHERE usuario_id = $1", [id]);
+    await client.query(
       "INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)",
       [req.usuario.id, 'eliminar_usuario', `Eliminó usuario ID ${id}`]
     );
+    await client.query('COMMIT');
     res.json({ mensaje: "Usuario eliminado" });
   } catch (err) {
+    await client.query('ROLLBACK');
+    console.error("Error al eliminar usuario:", err.message);
     res.status(500).send("Error al eliminar usuario");
+  } finally {
+    client.release();
   }
 });
 
 // Banear usuario
 app.post('/admin/ban', verificarToken, verificarAdmin, async (req, res) => {
+  const client = await pool.connect();
   try {
     const { usuario_id, motivo } = req.body;
     if (String(req.usuario.id) === String(usuario_id)) {
       return res.status(400).json("No puedes banearte a ti mismo.");
     }
 
-    const usuario = await pool.query("SELECT email FROM usuarios WHERE usuario_id = $1", [usuario_id]);
+    const usuario = await client.query("SELECT email FROM usuarios WHERE usuario_id = $1", [usuario_id]);
     if (usuario.rows.length === 0) return res.status(404).json("Usuario no encontrado");
 
     const email = usuario.rows[0].email;
 
+    await client.query('BEGIN');
+
     // Insertar en baneados (ignorar si ya existe)
-    await pool.query(
+    await client.query(
       "INSERT INTO baneados (email, motivo, baneado_por) VALUES ($1, $2, $3) ON CONFLICT (email) DO UPDATE SET motivo = $2, baneado_por = $3, fecha_baneo = CURRENT_TIMESTAMP",
       [email, motivo || 'Sin motivo', req.usuario.id]
     );
 
-    // Eliminar usuario
-    await pool.query("DELETE FROM usuarios WHERE usuario_id = $1", [usuario_id]);
-
-    await pool.query(
+    await client.query(
       "INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)",
       [req.usuario.id, 'banear_usuario', `Baneó a ${email}. Motivo: ${motivo || 'Sin motivo'}`]
     );
 
-    res.json({ mensaje: "Usuario baneado y eliminado" });
+    await client.query('COMMIT');
+    res.json({ mensaje: "Usuario baneado" });
   } catch (err) {
+    await client.query('ROLLBACK');
     console.error("Error al banear:", err.message);
     res.status(500).send("Error al banear usuario");
+  } finally {
+    client.release();
   }
 });
 
