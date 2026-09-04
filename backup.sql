@@ -463,6 +463,30 @@ CREATE INDEX idx_mensajes_chat_usuario_id ON public.mensajes_chat(usuario_id);
 CREATE INDEX idx_baneados_baneado_por ON public.baneados(baneado_por);
 CREATE INDEX idx_admin_logs_admin_id ON public.admin_logs(admin_id);
 
+-- ============================================================
+-- MIGRACIÓN ADMIN (compatibilidad con migracion_admin.sql)
+-- ============================================================
+
+ALTER TABLE public.usuarios ADD COLUMN IF NOT EXISTS rol VARCHAR(20) DEFAULT 'user';
+
+CREATE TABLE IF NOT EXISTS public.baneados (
+    baneo_id SERIAL PRIMARY KEY,
+    email VARCHAR(150) UNIQUE NOT NULL,
+    motivo TEXT,
+    baneado_por INTEGER REFERENCES public.usuarios(usuario_id),
+    fecha_baneo TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS public.admin_logs (
+    log_id SERIAL PRIMARY KEY,
+    admin_id INTEGER REFERENCES public.usuarios(usuario_id),
+    accion VARCHAR(100) NOT NULL,
+    detalle TEXT,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+UPDATE public.usuarios SET rol = 'admin' WHERE usuario_id = 1 AND (rol IS NULL OR rol = 'user');
+
 --
 -- PostgreSQL database dump complete
 --
