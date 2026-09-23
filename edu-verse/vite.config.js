@@ -7,6 +7,9 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
+    watch: {
+      usePolling: true,
+    },
     proxy: {
       '/auth': 'http://backend:4000',
       '/apuntes': 'http://backend:4000',

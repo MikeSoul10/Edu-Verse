@@ -8,11 +8,7 @@ const multer = require('multer');
 const path = require('path');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  console.error('❌ JWT_SECRET no está definido en las variables de entorno');
-  process.exit(1);
-}
+const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey_eduverse_2026';
 
 const app = express();
 const server = http.createServer(app);
@@ -138,6 +134,7 @@ app.post('/auth/signup', async (req, res) => {
     });
   } catch (err) {
     if (err.code === '23505') return res.status(400).json("El correo ya existe.");
+    console.error("❌ Error en signup:", err);
     res.status(500).send("Error en el servidor");
   }
 });
@@ -172,6 +169,7 @@ app.post('/auth/login', async (req, res) => {
             usuario: { id: usuario.rows[0].usuario_id, nombre: usuario.rows[0].nombre, foto_url: usuario.rows[0].foto_url, rol: usuario.rows[0].rol }
         });
     } catch (err) {
+        console.error("❌ Error en login:", err);
         res.status(500).send("Error en el servidor");
     }
 });

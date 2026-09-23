@@ -98,8 +98,12 @@ const Navbar = () => {
     <nav className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-50">
       
       {/* 1. LOGO */}
-      <Link to="/" className="text-2xl font-bold text-blue-600 tracking-tighter italic">
-        EDU-VERSE
+      <Link to="/" className="flex items-center space-x-2 group">
+        <img 
+          className="h-10 w-auto object-contain transition-transform group-hover:scale-105" 
+          onError={(e) => { e.target.style.display = 'none'; }} 
+        />
+        <span className="text-2xl font-extrabold text-blue-600 tracking-tight font-['Fredoka',sans-serif]">EduVers</span>
       </Link>
 
       {/* Hamburger (mobile) */}
