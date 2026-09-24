@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config';
 
-const FRASES_MASCOTA = ['¡Hola! 👋', '¡Estudia conmigo! ✨', '¡Comparte tus apuntes! 📚'];
+const FRASES_MASCOTA = ['¡Hola! 👋', '¡Estudia conmigo!', '¡Comparte tus apuntes!'];
 const INTERVALO_FRASE = 3000;
 
 const Signup = () => {
@@ -60,8 +60,15 @@ const Signup = () => {
 };
 
   return (
-    <div className="min-h-[88vh] flex items-center justify-center p-4 sm:p-6 lg:p-10 bg-gradient-to-br from-blue-50 via-white to-amber-50 font-['Fredoka',sans-serif]">
-      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden w-full max-w-6xl border border-blue-100 flex flex-col md:flex-row transition-all">
+    <div className="min-h-[88vh] flex items-center justify-center p-4 sm:p-6 lg:p-10 bg-gradient-to-br from-blue-50 via-white to-amber-50 font-['Fredoka',sans-serif] relative">
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(59,130,246,0.5) 3px, transparent 3px)',
+          backgroundSize: '36px 36px',
+        }}
+      ></div>
+      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden w-full max-w-6xl border border-blue-100 flex flex-col md:flex-row transition-all relative z-10">
 
         {/* LADO IZQUIERDO: LOGO Y MASCOTA EDUVERS */}
         <div className="md:w-1/2 bg-gradient-to-b from-blue-600 via-blue-700 to-indigo-800 p-8 sm:p-10 text-white flex flex-col items-center justify-between relative overflow-hidden">
@@ -91,8 +98,18 @@ const Signup = () => {
               </span>
             </div>
             
-            <p className="mt-4 text-center text-blue-100 font-medium text-lg sm:text-xl max-w-xs leading-snug">
-              ¡Tu comunidad académica favorita para compartir apuntes y colaborar! 📚✨
+            <p className="mt-4 text-center text-blue-100 font-medium text-lg sm:text-xl max-w-xs leading-snug flex items-center justify-center gap-1.5 flex-wrap">
+              <span>¡Tu comunidad académica favorita para compartir apuntes y colaborar!</span>
+              <img
+                src="/Iconos/libro.png"
+                alt="Libros"
+                className="w-10 h-10 object-contain inline-block"
+              />
+              <img
+                src="/Iconos/estrella.png"
+                alt="Brillos"
+                className="w-8 h-8 object-contain inline-block"
+              />
             </p>
           </div>
 
@@ -125,9 +142,11 @@ const Signup = () => {
                   onChange={(e) => setFormData({...formData, nombre: e.target.value})}
                   required
                 />
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  👤
-                </span>
+                <img
+                  src="/Iconos/usuario.png"
+                  alt="Nombre"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 object-contain"
+                />
               </div>
             </div>
 
@@ -143,9 +162,11 @@ const Signup = () => {
                   onChange={(e) => setFormData({...formData, email: e.target.value})}
                   required
                 />
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  📧
-                </span>
+                <img
+                  src="/Iconos/gmail.png"
+                  alt="Email"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 object-contain"
+                />
               </div>
             </div>
 
@@ -162,15 +183,29 @@ const Signup = () => {
                   onChange={(e) => setFormData({...formData, password: e.target.value})}
                   required
                 />
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-xl">
-                  🔒
-                </span>
+                <img
+                  src="/Iconos/candado.png"
+                  alt="Contraseña"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 object-contain"
+                />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
                 >
-                  {showPassword ? '👁️' : '🙈'}
+                  {showPassword ? (
+                    <img
+                      src="/Iconos/ojo.png"
+                      alt="Ocultar contraseña"
+                      className="w-5 h-5 inline-block align-middle"
+                    />
+                  ) : (
+                    <img
+                      src="/Iconos/ojo_cerrado.png"
+                      alt="Mostrar contraseña"
+                      className="w-5 h-5 inline-block align-middle"
+                    />
+                  )}
                 </button>
               </div>
             </div>
@@ -180,7 +215,7 @@ const Signup = () => {
               className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-xl hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/25 active:scale-95 transform transition-all mt-4 flex items-center justify-center space-x-2 cursor-pointer"
             >
               <span>Registrarse ahora</span>
-              <span className="text-2xl">🚀</span>
+             
             </button>
           </form>
 

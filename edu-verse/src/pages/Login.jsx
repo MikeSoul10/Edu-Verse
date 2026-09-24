@@ -196,11 +196,12 @@ const Login = () => {
               className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-xl hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/25 active:scale-95 transform transition-all mt-4 flex items-center justify-center space-x-2 cursor-pointer"
             >
               <span>Entrar a mi cuenta</span>
-              <img
+              
+              {/* <img
                 src="/Iconos/cohete_rojo.png"
                 alt="Icono"
                 className="w-6 h-6 inline-block align-middle"
-              />
+              /> */}
             </button>
           </form>
 

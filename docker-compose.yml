@@ -10,7 +10,7 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./backup.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./documentacion/backup_BASE_DE_DATOS.sql:/docker-entrypoint-initdb.d/init.sql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres"]
       interval: 5s
@@ -21,7 +21,7 @@ services:
     build: ./edu-verse_backend
     restart: unless-stopped
     ports:
-      - "4000:4000"
+      - "4001:4000"
     environment:
       DB_USER: postgres
       DB_HOST: postgres
