@@ -1,28 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
 
+const FRASES_MASCOTA = ['¡Hola! 👋', '¡Estudia conmigo! ', '¡Comparte tus apuntes! ', '¡Gestiona tus proyectos!'];
+const INTERVALO_FRASE = 5000;
+
 const Login = () => {
   const [formData, setFormData] = useState({ email: '', password: '' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [fraseIdx, setFraseIdx] = useState(0);
   const navigate = useNavigate();
   const { login } = useAuth();
 
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFraseIdx((prev) => (prev + 1) % FRASES_MASCOTA.length);
+    }, INTERVALO_FRASE);
+    return () => clearInterval(interval);
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     const loadingToast = toast.loading('Iniciando sesión...');
 
     try {
       const response = await axios.post(`${API_URL}/auth/login`, formData);
-      
+
       login(response.data);
 
       toast.success(`¡Bienvenido de nuevo, ${response.data.usuario.nombre}!`, {
         id: loadingToast,
-        icon: '🚀',
+        icon: (
+          <img
+            src="/Iconos/cohete.png"
+            alt="icono"
+            style={{ width: '24px', height: '24px', objectFit: 'contain' }}
+          />
+        ),
       });
 
       setTimeout(() => {
@@ -42,52 +60,161 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center p-6 animate-fade-in">
-      <div className="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md border border-gray-100 transform transition-all">
-        <h2 className="text-3xl font-black text-gray-900 text-center mb-2">
-          ¡Hola de nuevo!
-        </h2>
-        <p className="text-gray-500 text-center mb-8">
-          Ingresa a tu cuenta de <span className="text-blue-600 font-bold">Edu-Verse</span>
-        </p>
+    <div className="min-h-[88vh] flex items-center justify-center p-4 sm:p-6 lg:p-10 relative bg-gradient-to-br from-blue-50 via-white to-amber-50 font-['Fredoka',sans-serif]">
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          backgroundImage: 'radial-gradient(circle, rgba(59,130,246,0.5) 3px, transparent 3px)',
+          backgroundSize: '36px 36px',
+        }}
+      ></div>
+      <div className="bg-white rounded-3xl shadow-2xl overflow-hidden w-full max-w-6xl border border-blue-100 flex flex-col md:flex-row transition-all relative z-10">
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1 ml-1">Correo Institucional</label>
-            <input 
-              type="email" 
-              className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-transparent focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
-              placeholder="tu@correo.alumnos.udg.mx"
-              onChange={(e) => setFormData({...formData, email: e.target.value})}
-              required
+        {/* LADO IZQUIERDO: LOGO Y MASCOTA EDUVERS */}
+        <div className="md:w-1/2 bg-gradient-to-b from-blue-600 via-blue-700 to-indigo-800 p-8 sm:p-10 text-white flex flex-col items-center justify-between relative overflow-hidden">
+          {/* Círculos decorativos de fondo */}
+          <div className="absolute -top-12 -left-12 w-40 h-40 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
+          <div className="absolute -bottom-16 -right-16 w-56 h-56 bg-amber-400/20 rounded-full blur-2xl pointer-events-none"></div>
+
+          {/* Logo EduVers */}
+          <div className="w-full flex justify-center mb-4 relative z-10">
+            <img
+              src="/logo-eduverse.png"
+              alt="EduVers"
+              className="h-24 sm:h-28 object-contain filter drop-shadow-md transition-transform hover:scale-105"
             />
           </div>
 
-          <div>
-            <div className="flex justify-between mb-1 ml-1">
-              <label className="text-sm font-bold text-gray-700">Contraseña</label>
-              <a href="#" className="text-xs text-blue-600 font-bold hover:underline">¿La olvidaste?</a>
+          {/* Mascota EduVers */}
+          <div className="relative z-10 my-4 flex flex-col items-center">
+            <div className="relative group cursor-pointer">
+              <img
+                src="/mascota-eduverse.png"
+                alt="Mascota EduVers"
+                className="w-56 sm:w-64 h-auto object-contain drop-shadow-2xl transition-all duration-300 transform group-hover:scale-105 group-hover:-rotate-2"
+              />
+              <span key={fraseIdx} className="absolute -top-2 -right-2 bg-amber-400 text-blue-950 font-black text-base px-3 py-1.5 rounded-full shadow-lg border-2 border-white animate-bounce">
+                {FRASES_MASCOTA[fraseIdx]}
+              </span>
             </div>
-            <input 
-              type="password" 
-              className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-transparent focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all"
-              placeholder="••••••••"
-              onChange={(e) => setFormData({...formData, password: e.target.value})}
-              required
-            />
+
+            <p className="mt-4 text-center text-blue-100 font-medium text-lg sm:text-xl max-w-xs leading-snug flex items-center justify-center gap-1.5 flex-wrap">
+              <span>¡Tu comunidad académica favorita para compartir apuntes y colaborar!</span>
+              <img
+                src="/Iconos/libro.png"
+                alt="Libros"
+                className="w-10 h-10 object-contain inline-block"
+              />
+              <img
+                src="/Iconos/estrella.png"
+                alt="Brillos"
+                className="w-8 h-8 object-contain inline-block"
+              />
+            </p>
           </div>
 
-          <button 
-            type="submit"
-            className="w-full bg-blue-600 text-white py-4 rounded-2xl font-black text-lg hover:bg-blue-700 hover:shadow-xl active:scale-95 transform transition-all mt-4"
-          >
-            Entrar a mi cuenta
-          </button>
-        </form>
+          <div className="text-base text-blue-200/80 font-medium text-center relative z-10">
+            Exclusivo para estudiantes universarios
+          </div>
+        </div>
 
-        <p className="text-center text-sm text-gray-600 mt-8">
-          ¿No tienes cuenta? <Link to="/signup" className="text-blue-600 font-black hover:underline">Regístrate gratis</Link>
-        </p>
+        {/* LADO DERECHO: FORMULARIO DE LOGIN */}
+        <div className="md:w-1/2 p-8 sm:p-10 flex flex-col justify-center bg-white">
+          <div className="mb-8 text-center md:text-left">
+            <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight mb-2">
+              ¡Hola de nuevo!
+            </h2>
+            <p className="text-gray-500 text-lg font-medium">
+              Ingresa a tu cuenta de <span className="text-blue-600 font-bold">EduVers</span>
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-base font-bold text-gray-700 mb-1.5 ml-1">
+                Correo Institucional
+              </label>
+              <div className="relative">
+                <input
+                  type="email"
+                  className="w-full px-5 py-4 pl-12 rounded-2xl bg-gray-50 border border-gray-200 text-gray-900 text-lg font-medium focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all placeholder:text-gray-400"
+                  placeholder="tu@alumnos.udg.mx"
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                />
+                <img
+                  src="/Iconos/gmail.png"
+                  alt="Email"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 object-contain"
+                />
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-1.5 ml-1">
+                <label className="text-base font-bold text-gray-700">Contraseña</label>
+                <a href="#" className="text-base text-blue-600 font-bold hover:underline">¿La olvidaste?</a>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  className="w-full px-5 py-4 pl-12 pr-12 rounded-2xl bg-gray-50 border border-gray-200 text-gray-900 text-lg font-medium focus:bg-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 outline-none transition-all placeholder:text-gray-400"
+                  placeholder="••••••••"
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
+                />
+
+                <img
+                  src="/Iconos/candado.png"
+                  alt="Contraseña"
+                  className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 object-contain"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  {showPassword ? (
+                    <img
+                      src="/Iconos/ojo.png"
+                      alt="Ocultar contraseña"
+                      className="w-5 h-5 inline-block align-middle"
+                    />
+                  ) : (
+                    <img
+                      src="/Iconos/ojo_cerrado.png"
+                      alt="Mostrar contraseña"
+                      className="w-5 h-5 inline-block align-middle"
+                    />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-xl hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/25 active:scale-95 transform transition-all mt-4 flex items-center justify-center space-x-2 cursor-pointer"
+            >
+              <span>Entrar a mi cuenta</span>
+              
+              {/* <img
+                src="/Iconos/cohete_rojo.png"
+                alt="Icono"
+                className="w-6 h-6 inline-block align-middle"
+              /> */}
+            </button>
+          </form>
+
+          <div className="mt-8 pt-6 border-t border-gray-100 text-center">
+            <p className="text-base text-gray-600 font-medium">
+              ¿No tienes cuenta?{' '}
+              <Link to="/signup" className="text-blue-600 font-bold hover:underline ml-1">
+                Regístrate gratis
+              </Link>
+            </p>
+          </div>
+        </div>
+
       </div>
     </div>
   );

@@ -1,1 +1,7 @@
 @import "tailwindcss";
+
+@layer base {
+  body, button, input, select, textarea {
+    font-family: 'Fredoka', 'Nunito', system-ui, -apple-system, sans-serif;
+  }
+}
