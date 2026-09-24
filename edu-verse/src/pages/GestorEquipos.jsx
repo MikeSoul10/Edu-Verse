@@ -59,7 +59,10 @@ const GestorEquipos = () => {
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
   const [tareaAEliminar, setTareaAEliminar] = useState(null);
   const [tareaEditando, setTareaEditando] = useState(null);
+  const tareaEditandoRef = useRef(null);
   const [tareaEditForm, setTareaEditForm] = useState({ titulo: '', descripcion: '', prioridad: 'verde', fecha_entrega: '', asignado_a: '' });
+  const [comentariosTarea, setComentariosTarea] = useState([]);
+  const [nuevoComentario, setNuevoComentario] = useState('');
   const [sidebarMovil, setSidebarMovil] = useState(false);
 
   const cargarEquipos = useCallback(async () => {
@@ -99,6 +102,15 @@ const GestorEquipos = () => {
     }
   }, []);
 
+  const cargarComentariosTarea = useCallback(async (tareaId) => {
+    try {
+      const res = await axios.get(`${API_URL}/tareas/${tareaId}/comentarios`);
+      setComentariosTarea(res.data);
+    } catch {
+      // handled silently
+    }
+  }, []);
+
   useEffect(() => {
     const cargarDatos = async () => {
       await cargarEquipos();
@@ -128,6 +140,14 @@ const GestorEquipos = () => {
     });
     socket.on('tarea-eliminada', (data) => {
       setTareas((prev) => prev.filter((t) => t.tarea_id !== data.tarea_id));
+    });
+    socket.on('comentario-nuevo', (data) => {
+      if (tareaEditandoRef.current && data.tarea_id === tareaEditandoRef.current.tarea_id) {
+        setComentariosTarea((prev) => {
+          if (prev.some((c) => c.comentario_id === data.comentario.comentario_id)) return prev;
+          return [...prev, data.comentario];
+        });
+      }
     });
     socket.on('nuevo-mensaje', (data) => {
       setMensajes((prev) => [...prev, data]);
@@ -258,6 +278,7 @@ const GestorEquipos = () => {
 
   const abrirEditorTarea = (tarea) => {
     setTareaEditando(tarea);
+    tareaEditandoRef.current = tarea;
     setTareaEditForm({
       titulo: tarea.titulo,
       descripcion: tarea.descripcion || '',
@@ -266,6 +287,32 @@ const GestorEquipos = () => {
       asignado_a: tarea.asignado_a || '',
       estado: tarea.estado || 'pendiente',
     });
+    cargarComentariosTarea(tarea.tarea_id);
+  };
+
+  const cerrarEditorTarea = () => {
+    setTareaEditando(null);
+    tareaEditandoRef.current = null;
+    setComentariosTarea([]);
+    setNuevoComentario('');
+  };
+
+  const agregarComentario = async () => {
+    if (!nuevoComentario.trim() || !tareaEditando) return;
+    try {
+      const res = await axios.post(`${API_URL}/tareas/${tareaEditando.tarea_id}/comentarios`, {
+        texto: nuevoComentario,
+      });
+      socketRef.current.emit('comentario-tarea', {
+        equipo_id: equipoActivo.equipo_id,
+        tarea_id: tareaEditando.tarea_id,
+        comentario: res.data,
+      });
+      setNuevoComentario('');
+      toast.success('Comentario enviado');
+    } catch {
+      toast.error('Error al enviar comentario');
+    }
   };
 
   const guardarEdicionTarea = async () => {
@@ -280,7 +327,7 @@ const GestorEquipos = () => {
         estado: tareaEditForm.estado || tareaEditando.estado,
       });
       socketRef.current.emit('editar-tarea', { equipo_id: equipoActivo.equipo_id, tarea: res.data.tarea });
-      setTareaEditando(null);
+      cerrarEditorTarea();
       toast.success('Tarea actualizada');
     } catch {
       toast.error('Error al guardar cambios');
@@ -855,12 +902,12 @@ const GestorEquipos = () => {
 
       {/* MODAL EDITAR TAREA */}
       {tareaEditando && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => setTareaEditando(null)}>
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={cerrarEditorTarea}>
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="p-4 sm:p-6 border-b border-gray-100 flex items-center justify-between sticky top-0 bg-white rounded-t-2xl z-10">
               <h3 className="font-black text-gray-900 text-base sm:text-lg">✏️ Editar Tarea</h3>
               <button
-                onClick={() => setTareaEditando(null)}
+                onClick={cerrarEditorTarea}
                 className="w-8 h-8 rounded-full bg-gray-100 text-gray-500 text-sm flex items-center justify-center hover:bg-red-50 hover:text-red-500 transition-colors"
               >
                 ✕
@@ -946,10 +993,62 @@ const GestorEquipos = () => {
                   ))}
                 </div>
               </div>
+
+              {/* SECCIÓN DE COMENTARIOS */}
+              <div className="border-t border-gray-100 pt-4">
+                <label className="text-[10px] font-bold text-gray-500 uppercase mb-2 block">
+                  💬 Comentarios ({comentariosTarea.length})
+                </label>
+                <div className="max-h-44 overflow-y-auto space-y-2 mb-3 pr-1">
+                  {comentariosTarea.length === 0 && (
+                    <p className="text-xs text-gray-400 italic">Sin comentarios todavía. ¡Sé el primero!</p>
+                  )}
+                  {comentariosTarea.map((c) => {
+                    const esMio = String(c.usuario_id) === String(usuario);
+                    return (
+                      <div key={c.comentario_id} className={`flex ${esMio ? 'justify-end' : 'justify-start'}`}>
+                        <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${
+                          esMio
+                            ? 'bg-emerald-600 text-white rounded-br-md'
+                            : 'bg-gray-100 text-gray-800 rounded-bl-md'
+                        }`}>
+                          {!esMio && (
+                            <p className="text-[9px] font-bold text-emerald-600 mb-0.5">{c.autor_nombre}</p>
+                          )}
+                          <p className="text-xs leading-relaxed break-words">{c.texto}</p>
+                          <p className={`text-[8px] mt-1 ${esMio ? 'text-emerald-200' : 'text-gray-400'}`}>
+                            {new Date(c.fecha).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="Escribe un comentario..."
+                    value={nuevoComentario}
+                    onChange={(e) => setNuevoComentario(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && agregarComentario()}
+                    aria-label="Comentario de la tarea"
+                    className="flex-1 border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-emerald-500 outline-none"
+                  />
+                  <button
+                    onClick={agregarComentario}
+                    className="bg-emerald-600 text-white w-10 h-10 rounded-xl flex items-center justify-center hover:bg-emerald-700 transition-colors shadow-md shrink-0"
+                    title="Enviar comentario"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
             </div>
             <div className="p-4 sm:p-6 border-t border-gray-100 flex gap-3 sticky bottom-0 bg-white rounded-b-2xl">
               <button
-                onClick={() => setTareaEditando(null)}
+                onClick={cerrarEditorTarea}
                 className="flex-1 px-4 py-2.5 rounded-xl text-sm font-bold bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors"
               >
                 Cancelar
