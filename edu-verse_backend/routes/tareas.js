@@ -94,4 +94,50 @@ router.delete('/:id', verificarToken, async (req, res) => {
   }
 });
 
+// Comentarios por tarea
+router.get('/:id/comentarios', verificarToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const comentarios = await pool.query(
+      `SELECT ct.*, u.nombre AS autor_nombre
+       FROM comentarios_tarea ct
+       JOIN usuarios u ON ct.usuario_id = u.usuario_id
+       WHERE ct.tarea_id = $1
+       ORDER BY ct.fecha ASC`,
+      [id]
+    );
+    res.json(comentarios.rows);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Error al obtener comentarios');
+  }
+});
+
+router.post('/:id/comentarios', verificarToken, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { texto } = req.body;
+    if (!texto || !texto.trim()) return res.status(400).json('Comentario vacío');
+
+    const nuevoComentario = await pool.query(
+      `INSERT INTO comentarios_tarea (tarea_id, usuario_id, texto)
+       VALUES ($1, $2, $3) RETURNING *`,
+      [id, req.usuario.id, sanitize(texto)]
+    );
+
+    const conAutor = await pool.query(
+      `SELECT ct.*, u.nombre AS autor_nombre
+       FROM comentarios_tarea ct
+       JOIN usuarios u ON ct.usuario_id = u.usuario_id
+       WHERE ct.comentario_id = $1`,
+      [nuevoComentario.rows[0].comentario_id]
+    );
+
+    res.status(201).json(conAutor.rows[0]);
+  } catch (err) {
+    console.error(err.message);
+    res.status(500).send('Error al agregar comentario');
+  }
+});
+
 module.exports = router;
