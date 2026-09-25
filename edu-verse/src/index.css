@@ -5,3 +5,22 @@
     font-family: 'Fredoka', 'Nunito', system-ui, -apple-system, sans-serif;
   }
 }
+
+@keyframes mascota-rebote-suave {
+  0%, 8%, 48%, 88%, 100% { transform: translateY(0); }
+  18% { transform: translateY(-13px); }
+  30% { transform: translateY(-4px); }
+  62% { transform: translateY(-9px); }
+  74% { transform: translateY(-3px); }
+}
+
+.mascota-rebote-suave {
+  animation: mascota-rebote-suave 2.2s ease-in-out both;
+  transform-origin: center bottom;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mascota-rebote-suave {
+    animation: none;
+  }
+}

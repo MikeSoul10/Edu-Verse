@@ -27,13 +27,13 @@ const Navbar = () => {
     if (path === '/') {
       return (
         <>
-          <Link to="/biblioteca" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
+          <Link to="/biblioteca" className="text-white/90 hover:text-amber-300 font-medium text-sm transition-colors">
             Biblioteca
           </Link>
-          <Link to="/gestor-equipos" className="text-gray-600 hover:text-emerald-600 font-medium text-sm transition-colors">
+          <Link to="/gestor-equipos" className="text-white/90 hover:text-amber-300 font-medium text-sm transition-colors">
             Equipos
           </Link>
-          <span className="text-gray-400 font-medium text-sm cursor-not-allowed" title="Próximamente">
+          <span className="text-white/50 font-medium text-sm cursor-not-allowed" title="Próximamente">
             Tutor IA
           </span>
         </>
@@ -43,10 +43,10 @@ const Navbar = () => {
     if (path === '/biblioteca') {
       return (
         <>
-          <Link to="/favoritos" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
+          <Link to="/favoritos" className="text-white/90 hover:text-amber-300 font-medium text-sm transition-colors">
             Favoritos
           </Link>
-          <Link to="/mis-apuntes" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
+          <Link to="/mis-apuntes" className="text-white/90 hover:text-amber-300 font-medium text-sm transition-colors">
             Mis Apuntes
           </Link>
         </>
@@ -55,7 +55,7 @@ const Navbar = () => {
 
     if (path === '/gestor-equipos') {
       return (
-        <Link to="/gestor-equipos" className="text-gray-600 hover:text-emerald-600 font-medium text-sm transition-colors">
+        <Link to="/gestor-equipos" className="text-white/90 hover:text-amber-300 font-medium text-sm transition-colors">
           Equipos
         </Link>
       );
@@ -70,9 +70,9 @@ const Navbar = () => {
     if (path === '/') {
       return (
         <>
-          <Link to="/biblioteca" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">Biblioteca</Link>
-          <Link to="/gestor-equipos" onClick={closeMenu} className="text-gray-700 hover:text-emerald-600 font-medium text-sm py-2">Equipos</Link>
-          <span className="text-gray-400 font-medium text-sm py-2 cursor-not-allowed">Tutor IA (Próximamente)</span>
+          <Link to="/biblioteca" onClick={closeMenu} className="text-white/90 hover:text-amber-300 font-medium text-sm py-2">Biblioteca</Link>
+          <Link to="/gestor-equipos" onClick={closeMenu} className="text-white/90 hover:text-amber-300 font-medium text-sm py-2">Equipos</Link>
+          <span className="text-white/50 font-medium text-sm py-2 cursor-not-allowed">Tutor IA (Próximamente)</span>
         </>
       );
     }
@@ -80,15 +80,15 @@ const Navbar = () => {
     if (path === '/biblioteca') {
       return (
         <>
-          <Link to="/favoritos" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">Favoritos</Link>
-          <Link to="/mis-apuntes" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">Mis Apuntes</Link>
+          <Link to="/favoritos" onClick={closeMenu} className="text-white/90 hover:text-amber-300 font-medium text-sm py-2">Favoritos</Link>
+          <Link to="/mis-apuntes" onClick={closeMenu} className="text-white/90 hover:text-amber-300 font-medium text-sm py-2">Mis Apuntes</Link>
         </>
       );
     }
 
     if (path === '/gestor-equipos') {
       return (
-        <Link to="/gestor-equipos" onClick={closeMenu} className="text-gray-700 hover:text-emerald-600 font-medium text-sm py-2">Equipos</Link>
+        <Link to="/gestor-equipos" onClick={closeMenu} className="text-white/90 hover:text-amber-300 font-medium text-sm py-2">Equipos</Link>
       );
     }
 
@@ -99,11 +99,7 @@ const Navbar = () => {
   const mobileModuleLinks = getMobileModuleLinks();
 
   return (
-    <nav className={`sticky top-0 z-50 transition-all ${
-      isAuthView 
-        ? "bg-[linear-gradient(to_right,#ffffff_0%,#ffffff_31%,#2563eb_75%,#1e1b4b_100%)] border-b border-blue-300/60 px-4 md:px-8 py-3.5 flex items-center justify-between shadow-md font-['Fredoka',sans-serif]" 
-        : "bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center justify-between shadow-sm"
-    }`}>
+    <nav className="sticky top-0 z-50 flex items-center justify-between border-b border-blue-300/60 bg-[linear-gradient(to_right,#ffffff_0%,#ffffff_31%,#2563eb_75%,#1e1b4b_100%)] px-4 py-3.5 shadow-md transition-all md:px-8 font-['Fredoka',sans-serif]">
       
       {/* 1. LOGO & BRAND (Blanco puro hasta el 31%) */}
       <div className="flex items-center space-x-3">
@@ -129,9 +125,7 @@ const Navbar = () => {
       {/* Hamburger (mobile) */}
       <button
         onClick={() => setMenuOpen(!menuOpen)}
-        className={`md:hidden p-2 transition-colors ${
-          isAuthView ? 'text-white hover:text-amber-300' : 'text-gray-600 hover:text-blue-600'
-        }`}
+        className="md:hidden p-2 text-white transition-colors hover:text-amber-300"
         aria-label="Menu"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -150,20 +144,20 @@ const Navbar = () => {
             {moduleLinks}
 
             {user.rol === 'admin' && (
-              <Link to="/admin" className="text-red-600 hover:text-red-700 font-medium text-sm transition-colors">
+              <Link to="/admin" className="text-amber-300 hover:text-amber-200 font-medium text-sm transition-colors">
                 Admin
               </Link>
             )}
 
             <Link 
               to="/perfil" 
-              className="flex items-center space-x-3 bg-gray-50 pl-4 pr-1 py-1 rounded-full border border-gray-100 hover:bg-gray-100 transition-all"
+              className="flex items-center space-x-3 bg-white/15 pl-4 pr-1 py-1 rounded-full border border-white/25 hover:bg-white/25 transition-all"
             >
               <div className="flex flex-col items-end">
-                <span className={`text-[10px] font-bold uppercase tracking-wider leading-none ${user.rol === 'admin' ? 'text-red-500' : 'text-gray-400'}`}>
+                <span className={`text-[10px] font-bold uppercase tracking-wider leading-none ${user.rol === 'admin' ? 'text-amber-300' : 'text-blue-100'}`}>
                   {user.rol === 'admin' ? 'Admin' : 'Estudiante'}
                 </span>
-                <span className="text-sm font-bold text-gray-800 leading-tight">{user.nombre}</span>
+                <span className="text-sm font-bold text-white leading-tight">{user.nombre}</span>
               </div>
               <div className="w-9 h-9 rounded-full overflow-hidden border-2 border-white shadow-sm ring-1 ring-blue-100">
                 <img 
@@ -174,7 +168,7 @@ const Navbar = () => {
               </div>
             </Link>
 
-            <button onClick={handleLogout} className="p-2 text-gray-400 hover:text-red-600 transition-colors" title="Cerrar Sesión">
+            <button onClick={handleLogout} className="p-2 text-white/80 hover:text-amber-300 transition-colors" title="Cerrar Sesión">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
               </svg>
@@ -198,8 +192,8 @@ const Navbar = () => {
               </Link>
             ) : (
               <>
-                <Link to="/login" className="text-gray-600 font-bold hover:text-blue-600 text-sm">Iniciar Sesión</Link>
-                <Link to="/signup" className="bg-blue-600 text-white px-5 py-2 rounded-full font-bold hover:bg-blue-700 text-sm shadow-md transition-all">Registrarse</Link>
+                <Link to="/login" className="text-white/90 font-bold hover:text-amber-300 text-sm">Iniciar Sesión</Link>
+                <Link to="/signup" className="bg-amber-400 text-blue-950 px-5 py-2 rounded-full font-bold hover:bg-amber-300 text-sm shadow-md transition-all">Registrarse</Link>
               </>
             )}
           </div>
@@ -208,16 +202,12 @@ const Navbar = () => {
 
       {/* 3. MOBILE MENU (dropdown) */}
       {menuOpen && (
-        <div className={`absolute top-full left-0 right-0 border-b shadow-xl md:hidden z-50 font-['Fredoka',sans-serif] ${
-          isAuthView 
-            ? "bg-blue-900/95 backdrop-blur-md border-blue-700 text-white" 
-            : "bg-white/95 backdrop-blur-md border-blue-100"
-        }`}>
+        <div className="absolute top-full left-0 right-0 z-50 border-b border-blue-700 bg-blue-900/95 text-white shadow-xl backdrop-blur-md md:hidden font-['Fredoka',sans-serif]">
           {user ? (
             <div className="flex flex-col p-4 space-y-3">
               {mobileModuleLinks}
               {user.rol === 'admin' && (
-                <Link to="/admin" onClick={closeMenu} className="text-red-400 hover:text-red-300 font-medium text-sm py-2">Admin</Link>
+                <Link to="/admin" onClick={closeMenu} className="text-amber-300 hover:text-amber-200 font-medium text-sm py-2">Admin</Link>
               )}
               <Link to="/perfil" onClick={closeMenu} className="text-gray-200 hover:text-white font-medium text-sm py-2">Mi Perfil</Link>
               <hr className="border-blue-800" />
