@@ -43,12 +43,24 @@ const Home = () => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-6">
+    <div
+      className="relative isolate min-h-screen overflow-hidden"
+      style={{
+        backgroundColor: '#eaf3ff',
+        backgroundImage: 'radial-gradient(ellipse at 25% 10%, rgba(96, 165, 250, 0.38), transparent 48%), radial-gradient(ellipse at 85% 55%, rgba(147, 197, 253, 0.42), transparent 45%)',
+      }}
+    >
+      <div className="relative mx-auto max-w-7xl px-6 py-6">
 
       {/* Header */}
       <header className="mb-10 p-8 md:p-12 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-[2.5rem] shadow-xl text-white text-center">
         <h1 className="text-3xl md:text-5xl font-black tracking-tight">
-          Hola, {userName || 'Estudiante'} 👋
+          Hola, {userName || 'Estudiante'}
+          <img
+            src="/Imagenes_Diseño/mascota_riendo.png"
+            alt="Mascota de Edu-Verse riendo"
+            className="inline-block ml-3 w-14 h-14 md:w-20 md:h-20 object-contain align-middle"
+          />
         </h1>
         <p className="opacity-90 mt-3 text-lg">Bienvenido a Edu-Verse — elige un módulo para comenzar</p>
       </header>
@@ -116,6 +128,7 @@ const Home = () => {
           );
         })}
       </section>
+      </div>
     </div>
   );
 };

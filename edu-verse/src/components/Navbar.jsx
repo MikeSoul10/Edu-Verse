@@ -9,6 +9,10 @@ const Navbar = () => {
   const { user, logout } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
 
+  const isLoginPage = location.pathname === '/login';
+  const isSignupPage = location.pathname === '/signup';
+  const isAuthView = isLoginPage || isSignupPage;
+
   const handleLogout = () => {
     logout();
     setMenuOpen(false);
@@ -24,13 +28,13 @@ const Navbar = () => {
       return (
         <>
           <Link to="/biblioteca" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
-            📚 Biblioteca
+            Biblioteca
           </Link>
           <Link to="/gestor-equipos" className="text-gray-600 hover:text-emerald-600 font-medium text-sm transition-colors">
-            👥 Equipos
+            Equipos
           </Link>
           <span className="text-gray-400 font-medium text-sm cursor-not-allowed" title="Próximamente">
-            🤖 Tutor IA
+            Tutor IA
           </span>
         </>
       );
@@ -40,10 +44,10 @@ const Navbar = () => {
       return (
         <>
           <Link to="/favoritos" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
-            ⭐ Favoritos
+            Favoritos
           </Link>
           <Link to="/mis-apuntes" className="text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors">
-            📁 Mis Apuntes
+            Mis Apuntes
           </Link>
         </>
       );
@@ -52,7 +56,7 @@ const Navbar = () => {
     if (path === '/gestor-equipos') {
       return (
         <Link to="/gestor-equipos" className="text-gray-600 hover:text-emerald-600 font-medium text-sm transition-colors">
-          👥 Equipos
+          Equipos
         </Link>
       );
     }
@@ -66,9 +70,9 @@ const Navbar = () => {
     if (path === '/') {
       return (
         <>
-          <Link to="/biblioteca" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">📚 Biblioteca</Link>
-          <Link to="/gestor-equipos" onClick={closeMenu} className="text-gray-700 hover:text-emerald-600 font-medium text-sm py-2">👥 Equipos</Link>
-          <span className="text-gray-400 font-medium text-sm py-2 cursor-not-allowed">🤖 Tutor IA (Próximamente)</span>
+          <Link to="/biblioteca" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">Biblioteca</Link>
+          <Link to="/gestor-equipos" onClick={closeMenu} className="text-gray-700 hover:text-emerald-600 font-medium text-sm py-2">Equipos</Link>
+          <span className="text-gray-400 font-medium text-sm py-2 cursor-not-allowed">Tutor IA (Próximamente)</span>
         </>
       );
     }
@@ -76,15 +80,15 @@ const Navbar = () => {
     if (path === '/biblioteca') {
       return (
         <>
-          <Link to="/favoritos" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">⭐ Favoritos</Link>
-          <Link to="/mis-apuntes" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">📁 Mis Apuntes</Link>
+          <Link to="/favoritos" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">Favoritos</Link>
+          <Link to="/mis-apuntes" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">Mis Apuntes</Link>
         </>
       );
     }
 
     if (path === '/gestor-equipos') {
       return (
-        <Link to="/gestor-equipos" onClick={closeMenu} className="text-gray-700 hover:text-emerald-600 font-medium text-sm py-2">👥 Equipos</Link>
+        <Link to="/gestor-equipos" onClick={closeMenu} className="text-gray-700 hover:text-emerald-600 font-medium text-sm py-2">Equipos</Link>
       );
     }
 
@@ -95,21 +99,39 @@ const Navbar = () => {
   const mobileModuleLinks = getMobileModuleLinks();
 
   return (
-    <nav className="bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center justify-between shadow-sm sticky top-0 z-50">
+    <nav className={`sticky top-0 z-50 transition-all ${
+      isAuthView 
+        ? "bg-[linear-gradient(to_right,#ffffff_0%,#ffffff_31%,#2563eb_75%,#1e1b4b_100%)] border-b border-blue-300/60 px-4 md:px-8 py-3.5 flex items-center justify-between shadow-md font-['Fredoka',sans-serif]" 
+        : "bg-white border-b border-gray-200 px-4 md:px-6 py-3 flex items-center justify-between shadow-sm"
+    }`}>
       
-      {/* 1. LOGO */}
-      <Link to="/" className="flex items-center space-x-2 group">
-        <img 
-          className="h-10 w-auto object-contain transition-transform group-hover:scale-105" 
-          onError={(e) => { e.target.style.display = 'none'; }} 
-        />
-        <span className="text-2xl font-extrabold text-blue-600 tracking-tight font-['Fredoka',sans-serif]">EduVers</span>
-      </Link>
+      {/* 1. LOGO & BRAND (Blanco puro hasta el 31%) */}
+      <div className="flex items-center space-x-3">
+        <Link to="/" className="flex items-center space-x-2.5 group">
+          <img 
+            src="/logo-eduverse.png" 
+            alt="EduVers" 
+            className="h-10 sm:h-11 w-auto object-contain transition-transform group-hover:scale-110 filter drop-shadow-xs" 
+            onError={(e) => { e.target.style.display = 'none'; }} 
+          />
+          <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 tracking-tight font-['Fredoka',sans-serif]">
+            EduVers
+          </span>
+        </Link>
+
+        {isAuthView && (
+          <div className="hidden sm:flex items-center space-x-2 bg-amber-400 text-blue-950 font-black px-3.5 py-1 rounded-full text-xs shadow-md border border-amber-300">
+            <span>UDG Comunidad</span>
+          </div>
+        )}
+      </div>
 
       {/* Hamburger (mobile) */}
       <button
         onClick={() => setMenuOpen(!menuOpen)}
-        className="md:hidden p-2 text-gray-600 hover:text-blue-600 transition-colors"
+        className={`md:hidden p-2 transition-colors ${
+          isAuthView ? 'text-white hover:text-amber-300' : 'text-gray-600 hover:text-blue-600'
+        }`}
         aria-label="Menu"
       >
         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -129,7 +151,7 @@ const Navbar = () => {
 
             {user.rol === 'admin' && (
               <Link to="/admin" className="text-red-600 hover:text-red-700 font-medium text-sm transition-colors">
-                ⚡ Admin
+                Admin
               </Link>
             )}
 
@@ -159,33 +181,55 @@ const Navbar = () => {
             </button>
           </div>
         ) : (
-          <div className="flex items-center space-x-4">
-            <Link to="/login" className="text-gray-600 font-medium hover:text-blue-600 text-sm">Iniciar Sesión</Link>
-            <Link to="/signup" className="bg-blue-600 text-white px-5 py-2 rounded-full font-semibold hover:bg-blue-700 text-sm shadow-md transition-all">Registrarse</Link>
+          <div className="flex items-center space-x-4 font-['Fredoka',sans-serif]">
+            {isLoginPage ? (
+              <Link 
+                to="/signup" 
+                className="bg-amber-400 hover:bg-amber-300 text-blue-950 px-6 py-2.5 rounded-full font-black text-sm shadow-md hover:shadow-amber-400/30 hover:scale-105 active:scale-95 transition-all flex items-center space-x-2 cursor-pointer border border-amber-300"
+              >
+                <span>¿Eres nuevo? Regístrate aquí</span>
+              </Link>
+            ) : isSignupPage ? (
+              <Link 
+                to="/login" 
+                className="bg-white/10 hover:bg-white/20 text-white border-2 border-white/70 px-6 py-2.5 rounded-full font-bold text-sm shadow-sm hover:scale-105 active:scale-95 transition-all flex items-center space-x-2 cursor-pointer backdrop-blur-xs"
+              >
+                <span>Ya tengo cuenta</span>
+              </Link>
+            ) : (
+              <>
+                <Link to="/login" className="text-gray-600 font-bold hover:text-blue-600 text-sm">Iniciar Sesión</Link>
+                <Link to="/signup" className="bg-blue-600 text-white px-5 py-2 rounded-full font-bold hover:bg-blue-700 text-sm shadow-md transition-all">Registrarse</Link>
+              </>
+            )}
           </div>
         )}
       </div>
 
       {/* 3. MOBILE MENU (dropdown) */}
       {menuOpen && (
-        <div className="absolute top-full left-0 right-0 bg-white border-b border-gray-200 shadow-lg md:hidden z-50">
+        <div className={`absolute top-full left-0 right-0 border-b shadow-xl md:hidden z-50 font-['Fredoka',sans-serif] ${
+          isAuthView 
+            ? "bg-blue-900/95 backdrop-blur-md border-blue-700 text-white" 
+            : "bg-white/95 backdrop-blur-md border-blue-100"
+        }`}>
           {user ? (
             <div className="flex flex-col p-4 space-y-3">
               {mobileModuleLinks}
               {user.rol === 'admin' && (
-                <Link to="/admin" onClick={closeMenu} className="text-red-600 hover:text-red-700 font-medium text-sm py-2">⚡ Admin</Link>
+                <Link to="/admin" onClick={closeMenu} className="text-red-400 hover:text-red-300 font-medium text-sm py-2">Admin</Link>
               )}
-              <Link to="/perfil" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">👤 Mi Perfil</Link>
-              <hr className="border-gray-100" />
+              <Link to="/perfil" onClick={closeMenu} className="text-gray-200 hover:text-white font-medium text-sm py-2">Mi Perfil</Link>
+              <hr className="border-blue-800" />
               <div className="flex items-center justify-between">
-                <span className="text-sm font-bold text-gray-800">{user.nombre}</span>
-                <button onClick={handleLogout} className="text-red-500 hover:text-red-700 font-bold text-sm">Cerrar Sesión</button>
+                <span className="text-sm font-bold text-white">{user.nombre}</span>
+                <button onClick={handleLogout} className="text-red-300 hover:text-red-100 font-bold text-sm">Cerrar Sesión</button>
               </div>
             </div>
           ) : (
             <div className="flex flex-col p-4 space-y-3">
-              <Link to="/login" onClick={closeMenu} className="text-gray-700 hover:text-blue-600 font-medium text-sm py-2">Iniciar Sesión</Link>
-              <Link to="/signup" onClick={closeMenu} className="bg-blue-600 text-white px-5 py-2 rounded-full font-semibold hover:bg-blue-700 text-sm shadow-md text-center">Registrarse</Link>
+              <Link to="/login" onClick={closeMenu} className="text-white font-bold text-sm py-2">Iniciar Sesión</Link>
+              <Link to="/signup" onClick={closeMenu} className="bg-amber-400 text-blue-950 px-5 py-2.5 rounded-full font-black text-sm shadow-md text-center">Registrarse gratis</Link>
             </div>
           )}
         </div>
