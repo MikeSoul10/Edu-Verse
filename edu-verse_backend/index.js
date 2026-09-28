@@ -41,6 +41,10 @@ io.on('connection', (socket) => {
     io.to(`equipo-${data.equipo_id}`).emit('tarea-editada', data);
   });
 
+  socket.on('comentario-tarea', (data) => {
+    io.to(`equipo-${data.equipo_id}`).emit('comentario-nuevo', data);
+  });
+
   socket.on('eliminar-tarea', (data) => {
     io.to(`equipo-${data.equipo_id}`).emit('tarea-eliminada', data);
   });

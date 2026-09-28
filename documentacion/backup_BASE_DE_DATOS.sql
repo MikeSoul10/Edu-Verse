@@ -27,6 +27,7 @@ SET default_table_access_method = heap;
 DROP TABLE IF EXISTS public.admin_logs CASCADE;
 DROP TABLE IF EXISTS public.baneados CASCADE;
 DROP TABLE IF EXISTS public.mensajes_chat CASCADE;
+DROP TABLE IF EXISTS public.comentarios_tarea CASCADE;
 DROP TABLE IF EXISTS public.tareas CASCADE;
 DROP TABLE IF EXISTS public.miembros_equipo CASCADE;
 DROP TABLE IF EXISTS public.equipos CASCADE;
@@ -232,6 +233,28 @@ ALTER SEQUENCE public.mensajes_chat_mensaje_id_seq OWNER TO postgres;
 
 ALTER SEQUENCE public.mensajes_chat_mensaje_id_seq OWNED BY public.mensajes_chat.mensaje_id;
 
+CREATE TABLE public.comentarios_tarea (
+    comentario_id integer NOT NULL,
+    tarea_id integer,
+    usuario_id integer,
+    texto text NOT NULL,
+    fecha timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+ALTER TABLE public.comentarios_tarea OWNER TO postgres;
+
+CREATE SEQUENCE public.comentarios_tarea_comentario_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.comentarios_tarea_comentario_id_seq OWNER TO postgres;
+
+ALTER SEQUENCE public.comentarios_tarea_comentario_id_seq OWNED BY public.comentarios_tarea.comentario_id;
+
 CREATE TABLE public.baneados (
     baneo_id integer NOT NULL,
     email character varying(150) NOT NULL,
@@ -288,6 +311,7 @@ ALTER TABLE ONLY public.valoraciones ALTER COLUMN valoracion_id SET DEFAULT next
 ALTER TABLE ONLY public.equipos ALTER COLUMN equipo_id SET DEFAULT nextval('public.equipos_equipo_id_seq'::regclass);
 ALTER TABLE ONLY public.tareas ALTER COLUMN tarea_id SET DEFAULT nextval('public.tareas_tarea_id_seq'::regclass);
 ALTER TABLE ONLY public.mensajes_chat ALTER COLUMN mensaje_id SET DEFAULT nextval('public.mensajes_chat_mensaje_id_seq'::regclass);
+ALTER TABLE ONLY public.comentarios_tarea ALTER COLUMN comentario_id SET DEFAULT nextval('public.comentarios_tarea_comentario_id_seq'::regclass);
 ALTER TABLE ONLY public.baneados ALTER COLUMN baneo_id SET DEFAULT nextval('public.baneados_baneo_id_seq'::regclass);
 ALTER TABLE ONLY public.admin_logs ALTER COLUMN log_id SET DEFAULT nextval('public.admin_logs_log_id_seq'::regclass);
 
@@ -377,6 +401,9 @@ ALTER TABLE ONLY public.tareas
 ALTER TABLE ONLY public.mensajes_chat
     ADD CONSTRAINT mensajes_chat_pkey PRIMARY KEY (mensaje_id);
 
+ALTER TABLE ONLY public.comentarios_tarea
+    ADD CONSTRAINT comentarios_tarea_pkey PRIMARY KEY (comentario_id);
+
 ALTER TABLE ONLY public.baneados
     ADD CONSTRAINT baneados_pkey PRIMARY KEY (baneo_id);
 
@@ -435,6 +462,12 @@ ALTER TABLE ONLY public.mensajes_chat
 ALTER TABLE ONLY public.mensajes_chat
     ADD CONSTRAINT mensajes_chat_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(usuario_id) ON DELETE SET NULL;
 
+ALTER TABLE ONLY public.comentarios_tarea
+    ADD CONSTRAINT comentarios_tarea_tarea_id_fkey FOREIGN KEY (tarea_id) REFERENCES public.tareas(tarea_id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.comentarios_tarea
+    ADD CONSTRAINT comentarios_tarea_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(usuario_id) ON DELETE CASCADE;
+
 ALTER TABLE ONLY public.baneados
     ADD CONSTRAINT baneados_baneado_por_fkey FOREIGN KEY (baneado_por) REFERENCES public.usuarios(usuario_id) ON DELETE SET NULL;
 
@@ -460,6 +493,8 @@ CREATE INDEX idx_tareas_asignado_a ON public.tareas(asignado_a);
 CREATE INDEX idx_tareas_creado_por ON public.tareas(creado_por);
 CREATE INDEX idx_mensajes_chat_equipo_id ON public.mensajes_chat(equipo_id);
 CREATE INDEX idx_mensajes_chat_usuario_id ON public.mensajes_chat(usuario_id);
+CREATE INDEX idx_comentarios_tarea_tarea_id ON public.comentarios_tarea(tarea_id);
+CREATE INDEX idx_comentarios_tarea_usuario_id ON public.comentarios_tarea(usuario_id);
 CREATE INDEX idx_baneados_baneado_por ON public.baneados(baneado_por);
 CREATE INDEX idx_admin_logs_admin_id ON public.admin_logs(admin_id);
 
@@ -484,6 +519,17 @@ CREATE TABLE IF NOT EXISTS public.admin_logs (
     detalle TEXT,
     fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS public.comentarios_tarea (
+    comentario_id SERIAL PRIMARY KEY,
+    tarea_id INTEGER REFERENCES public.tareas(tarea_id) ON DELETE CASCADE,
+    usuario_id INTEGER REFERENCES public.usuarios(usuario_id) ON DELETE CASCADE,
+    texto TEXT NOT NULL,
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_comentarios_tarea_tarea_id ON public.comentarios_tarea(tarea_id);
+CREATE INDEX IF NOT EXISTS idx_comentarios_tarea_usuario_id ON public.comentarios_tarea(usuario_id);
 
 UPDATE public.usuarios SET rol = 'admin' WHERE usuario_id = 1 AND (rol IS NULL OR rol = 'user');
 
