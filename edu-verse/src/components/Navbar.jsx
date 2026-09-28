@@ -110,9 +110,7 @@ const Navbar = () => {
             className="h-10 sm:h-11 w-auto object-contain transition-transform group-hover:scale-110 filter drop-shadow-xs" 
             onError={(e) => { e.target.style.display = 'none'; }} 
           />
-          <span className="text-2xl sm:text-3xl font-extrabold text-blue-600 tracking-tight font-['Fredoka',sans-serif]">
-            EduVers
-          </span>
+          
         </Link>
 
         {isAuthView && (

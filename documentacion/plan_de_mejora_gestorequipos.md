@@ -42,7 +42,10 @@ Con esto dividí el plan en **5 fases ordenadas por prioridad** (de mayor a meno
 Objetivo: cerrar los huecos más usados en ClickUp sin tocar la arquitectura.
 
 #### 1.1 Comentarios por tarea (referencia ClickUp: "Comments & Clips")
+chuy_front
+=======
 **Estado:** ✅ COMPLETADO (24/09/2026)
+main
 - **Qué:** cada tarea tiene su propio hilo de comentarios, además del chat del equipo.
 - **Por qué:** los comentarios por tarea mantienen el contexto (ClickUp lo llama "work lives in DMs... and gets missed").
 - **Cómo:**
@@ -257,4 +260,14 @@ De la investigación de ClickUp, lo **más valioso y trasladable a Edu-Verse** e
 - La lógica de auto-prioridad por días (`autoAsignarPrioridad`) ya existe y puede reutilizarse para automatizaciones.
 - El patrón de puntos de acceso ya está en `routes/tareas.js`, `routes/equipos.js` y `routes/chat.js`.
 - Las notificaciones y el historial podrían apoyarse en la infraestructura mental de `admin_logs` (auditoría) y `mensajes_chat`.
+chuy_front
 - Muchas fases requieren **migraciones de BD** → agregarlas al dump `backup_BASE_DE_DATOS.sql` (ver `documentacion/BASE_DE_DATOS.md`).
+
+
+
+
+--------------------------------------------------------------------------------
+
+=======
+- Muchas fases requieren **migraciones de BD** → agregarlas al dump `backup_BASE_DE_DATOS.sql` (ver `documentacion/BASE_DE_DATOS.md`).
+main
