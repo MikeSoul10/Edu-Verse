@@ -22,7 +22,7 @@ Este documento contiene la representación visual y los diagramas de flujo compl
 
 Representación de la arquitectura multinivel desplegada con **Docker Compose**.
 
-![Arquitectura General e Infraestructura](imagenes/01_arquitectura_general.png)
+![Arquitectura General e Infraestructura](documentacion/imagenes/01_arquitectura_general.png)
 
 <details>
 <summary>🔍 Ver código del diagrama (Mermaid)</summary>
@@ -63,7 +63,7 @@ flowchart TD
 
 ### 2.1 Registro de Usuario (`POST /auth/signup`)
 
-![Flujo de Registro de Usuario](imagenes/02_1_flujo_registro.png)
+![Flujo de Registro de Usuario](documentacion/imagenes/02_1_flujo_registro.png)
 
 <details>
 <summary>🔍 Ver código del diagrama (Mermaid)</summary>
@@ -96,7 +96,7 @@ flowchart TD
 
 ### 2.2 Inicio de Sesión (`POST /auth/login`)
 
-![Flujo de Inicio de Sesión](imagenes/02_2_flujo_login.png)
+![Flujo de Inicio de Sesión](documentacion/imagenes/02_2_flujo_login.png)
 
 <details>
 <summary>🔍 Ver código del diagrama (Mermaid)</summary>
@@ -131,7 +131,7 @@ flowchart TD
 
 ## 3. Flujo de Gestión de Apuntes
 
-![Flujo de Gestión de Apuntes](imagenes/03_flujo_apuntes.png)
+![Flujo de Gestión de Apuntes](documentacion/imagenes/03_flujo_apuntes.png)
 
 <details>
 <summary>🔍 Ver código del diagrama (Mermaid)</summary>
@@ -160,7 +160,7 @@ flowchart TD
 
 ## 4. Flujo de Comunidad
 
-![Flujo de Comunidad](imagenes/04_flujo_comunidad.png)
+![Flujo de Comunidad](documentacion/imagenes/04_flujo_comunidad.png)
 
 <details>
 <summary>🔍 Ver código del diagrama (Mermaid)</summary>
@@ -191,7 +191,7 @@ flowchart TD
 
 ## 5. Flujo de Equipos y Colaboración en Tiempo Real
 
-![Flujo de Equipos y WebSockets](imagenes/05_flujo_equipos_websockets.png)
+![Flujo de Equipos y WebSockets](documentacion/imagenes/05_flujo_equipos_websockets.png)
 
 <details>
 <summary>🔍 Ver código del diagrama (Mermaid)</summary>
@@ -229,7 +229,7 @@ flowchart TD
 
 ## 6. Flujo de Administración y Moderación
 
-![Flujo de Administración](imagenes/06_flujo_administracion.png)
+![Flujo de Administración](documentacion/imagenes/06_flujo_administracion.png)
 
 <details>
 <summary>🔍 Ver código del diagrama (Mermaid)</summary>
@@ -259,7 +259,7 @@ flowchart TD
 
 Diagrama de la estructura de tablas de **PostgreSQL** (`Edu-verseDB`).
 
-![Modelo Entidad-Relación](imagenes/07_modelo_entidad_relacion.png)
+![Modelo Entidad-Relación](documentacion/imagenes/07_modelo_entidad_relacion.png)
 
 <details>
 <summary>🔍 Ver código del diagrama (Mermaid)</summary>
