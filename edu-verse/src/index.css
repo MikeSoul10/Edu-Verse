@@ -4,9 +4,80 @@
   body, button, input, select, textarea {
     font-family: 'Fredoka', 'Nunito', system-ui, -apple-system, sans-serif;
   }
+
+  :root {
+    /* Curvas de easing propias: las built-in se sienten debiles */
+    --ev-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ev-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+    /* Duraciones por tipo de elemento */
+    --ev-t-fast: 140ms;
+    --ev-t-base: 200ms;
+    --ev-t-slow: 380ms;
+    --ev-t-stage: 520ms;
+  }
 }
 
-@keyframes mascota-rebote-suave {
+/* ------------------------------------------------------------------
+   Entrada coreografiada (stagger)
+   Nada entra desde scale(0): siempre opacity 0 + desplazamiento leve.
+   ------------------------------------------------------------------ */
+
+@keyframes ev-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ev-enter-card {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ev-enter-pop {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.ev-enter,
+.ev-enter-card,
+.ev-enter-pop {
+  animation-fill-mode: both;
+  animation-timing-function: var(--ev-ease-out);
+  animation-duration: var(--ev-t-stage);
+}
+
+.ev-enter-card { animation-name: ev-enter-card; }
+
+.ev-enter { animation-name: ev-enter; }
+
+/* Escalonado: la card entra primero, el contenido se despliega sobre ella */
+.ev-d-0   { animation-delay: 0ms; }
+.ev-d-1   { animation-delay: 90ms; }
+.ev-d-2   { animation-delay: 170ms; }
+.ev-d-3   { animation-delay: 250ms; }
+.ev-d-4   { animation-delay: 330ms; }
+.ev-d-5   { animation-delay: 410ms; }
+.ev-d-6   { animation-delay: 490ms; }
+
+/* La burbuja usa una entrada con escala, no un bounce generico */
+.ev-bubble { animation: ev-enter-pop 340ms var(--ev-ease-out) both; }
+
+/* ------------------------------------------------------------------
+   Elementos de escena
+   ------------------------------------------------------------------ */
+
+/* Flotacion idle de la mascota: continua, lenta, no llama la atencion */
+@keyframes ev-float {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-5px); }
+}
+
+.ev-float {
+  animation: ev-float 3.4s var(--ev-ease-in-out) infinite alternate;
+}
+
+/* Rebote suave conservado del proyecto (frases de la mascota) */
+@keyframes ev-rebote-suave {
   0%, 8%, 48%, 88%, 100% { transform: translateY(0); }
   18% { transform: translateY(-13px); }
   30% { transform: translateY(-4px); }
@@ -14,13 +85,493 @@
   74% { transform: translateY(-3px); }
 }
 
-.mascota-rebote-suave {
-  animation: mascota-rebote-suave 2.2s ease-in-out both;
+.ev-rebote-suave {
+  animation: ev-rebote-suave 2.2s var(--ev-ease-in-out) both;
   transform-origin: center bottom;
 }
 
+/* Orbitacion lenta de los circulos decorativos */
+@keyframes ev-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(10px, -14px, 0) scale(1.06); }
+}
+
+.ev-drift { animation: ev-drift 9s var(--ev-ease-in-out) infinite alternate; }
+.ev-drift-lento { animation: ev-drift 13s var(--ev-ease-in-out) infinite alternate-reverse; }
+
+/* ------------------------------------------------------------------
+   Feedback de error
+   ------------------------------------------------------------------ */
+
+@keyframes ev-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+.ev-shake { animation: ev-shake 340ms var(--ev-ease-in-out) both; }
+
+/* ------------------------------------------------------------------
+   Shimmer del boton primario
+   ------------------------------------------------------------------ */
+
+.ev-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.28) 50%,
+    transparent 80%
+  );
+  transform: translateX(-120%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ev-shimmer:hover::after {
+  animation: ev-sweep 1.1s linear infinite;
+}
+
+@keyframes ev-sweep {
+  from { transform: translateX(-120%); opacity: 0.9; }
+  to   { transform: translateX(120%); opacity: 0; }
+}
+
+/* ------------------------------------------------------------------
+   Fondo de la pagina: cinco capas, de la mas profunda a la mas cercana
+   1. mesh gradient   2. puntos   3. glow central   4. particulas   5. viñeta
+   ------------------------------------------------------------------ */
+
+.ev-mesh-bg {
+  background-color: #ffffff;
+}
+
+/* Capa 2: puntos, mas ralos que antes pero ahora con presencia real */
+.ev-dotfield {
+  background-image: radial-gradient(circle, rgba(37, 99, 235, 0.5) 3.2px, transparent 3.2px);
+  background-size: 42px 42px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 85% at 50% 45%, #000 50%, transparent 100%);
+  mask-image: radial-gradient(ellipse 90% 85% at 50% 45%, #000 50%, transparent 100%);
+}
+
+/* La capa 3 (halo central) se retiro: sobre fondo blanco difuminaba
+   una mancha azul justo detras de la card. El blanco va puro. */
+
+/* Capa 4: particulas. Solo transform, la duracion viene de cada elemento.
+   El anillo blanco y el halo las separan visualmente del enrejado estatico. */
+@keyframes ev-particle {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(var(--dx, 14px), var(--dy, -18px), 0) scale(1.18); }
+}
+
+@keyframes ev-twinkle {
+  0%, 100% { opacity: 0.75; }
+  50%      { opacity: 1; }
+}
+
+.ev-particle {
+  position: absolute;
+  border-radius: 9999px;
+  animation:
+    ev-particle var(--dur, 12s) var(--ev-ease-in-out) infinite alternate,
+    ev-twinkle calc(var(--dur, 12s) / 3) ease-in-out infinite;
+  animation-delay: var(--delay, 0s), var(--delay, 0s);
+}
+
+/* La viñeta se retiro: sobre fondo blanco ensuciaba los bordes. */
+
+/* ------------------------------------------------------------------
+   Panel izquierdo: mesh gradient
+   ------------------------------------------------------------------ */
+
+/* Panel izquierdo: identico a Signup.jsx para que ambas paginas
+   se vean como la misma pantalla */
+.ev-mesh {
+  background-image: linear-gradient(to bottom, #2563eb 0%, #1d4ed8 50%, #312e81 100%);
+}
+
+/* ------------------------------------------------------------------
+   Cursor glow: se posiciona con transform via JS (sin reflow)
+   ------------------------------------------------------------------ */
+
+.ev-glow {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  margin: -210px 0 0 -210px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(191, 219, 254, 0.28) 0%, rgba(147, 197, 253, 0.1) 45%, transparent 70%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--ev-t-slow) ease;
+  will-change: transform;
+}
+
+/* ------------------------------------------------------------------
+   Formulario: transiciones especificas (nunca transition: all)
+   ------------------------------------------------------------------ */
+
+.ev-field {
+  transition:
+    background-color var(--ev-t-base) ease,
+    border-color var(--ev-t-base) ease,
+    box-shadow var(--ev-t-base) ease,
+    transform var(--ev-t-fast) var(--ev-ease-out);
+}
+
+.ev-field:focus {
+  background-color: #fff;
+}
+
+.ev-field-label {
+  transition: color var(--ev-t-base) ease;
+}
+
+.ev-field:focus-within .ev-field-label { color: #2563eb; }
+
+.ev-field-icon {
+  opacity: 0.7;
+  transition:
+    transform var(--ev-t-base) var(--ev-ease-out),
+    opacity var(--ev-t-base) ease;
+}
+
+.ev-field:focus-within .ev-field-icon {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.12);
+}
+
+.ev-eye {
+  transition:
+    opacity var(--ev-t-base) var(--ev-ease-out),
+    transform var(--ev-t-base) var(--ev-ease-out);
+}
+
+/* Boton primario */
+.ev-btn {
+  position: relative;
+  overflow: hidden;
+  transition:
+    background-color var(--ev-t-base) ease,
+    box-shadow var(--ev-t-base) ease,
+    transform var(--ev-t-fast) var(--ev-ease-out);
+}
+
+.ev-btn:active { transform: scale(0.97); }
+.ev-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+/* ------------------------------------------------------------------
+   Hover: solo en dispositivos con puntero fino
+   ------------------------------------------------------------------ */
+
+/* La transicion vive en la base: en el hover solo cambia el transform,
+   asi el regreso tambien se anima en reversa. */
+.ev-lift,
+.ev-lift-mascota {
+  transition: transform var(--ev-t-base) var(--ev-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ev-lift:hover { transform: translateY(-3px); }
+
+  .ev-lift-mascota:hover { transform: scale(1.05) rotate(-2deg); }
+
+  .ev-panel:hover .ev-glow { opacity: 1; }
+
+  .ev-btn:hover {
+    background-color: #1d4ed8;
+    box-shadow: 0 14px 30px -12px rgba(37, 99, 235, 0.55);
+  }
+
+  .ev-eye-btn:hover {
+    color: #4b5563;
+    transition: color var(--ev-t-base) ease;
+  }
+}
+
+/* Foco de teclado siempre visible */
+.ev-focusable:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+
+/* ------------------------------------------------------------------
+   Dashboard de equipos
+   Todo se anima con transform/opacity salvo las barras, donde el ancho
+   es el dato mismo (no hay forma de expresar un porcentaje con scale
+   sin falsear la escala visual).
+   ------------------------------------------------------------------ */
+
+/* Superficie de glass reutilizable */
+.ev-panel-glass {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 18px 50px -24px rgba(30, 58, 138, 0.35);
+}
+
+/* Stat card: el hover solo escala, nunca salta de sitio */
+.ev-stat {
+  transition:
+    transform var(--ev-t-base) var(--ev-ease-out),
+    box-shadow var(--ev-t-base) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ev-stat:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 26px 60px -22px rgba(30, 58, 138, 0.42);
+  }
+}
+
+/* Barra de progreso: el ancho es el dato, asi que transiciona width */
+.ev-progress-track {
+  height: 8px;
+  border-radius: 9999px;
+  background: rgba(219, 234, 254, 0.7);
+  overflow: hidden;
+}
+
+.ev-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width var(--ev-t-stage) var(--ev-ease-out);
+}
+
+/* Barra horizontal de los charts */
+.ev-bar-track {
+  height: 10px;
+  border-radius: 9999px;
+  background: rgba(226, 232, 240, 0.6);
+  overflow: hidden;
+}
+
+.ev-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width var(--ev-t-stage) var(--ev-ease-out);
+}
+
+/* Donut de prioridad */
+.ev-donut {
+  border-radius: 9999px;
+  /* conic-gradient lo inyecta el componente segun los datos */
+  transition: transform var(--ev-t-slow) var(--ev-ease-out);
+}
+
+.ev-donut-hueco {
+  border-radius: 9999px;
+  background: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.7);
+}
+
+/* Tabs: transicion de color e indicador, sin keyframes */
+.ev-tab {
+  position: relative;
+  transition:
+    background-color var(--ev-t-base) ease,
+    color var(--ev-t-base) ease,
+    transform var(--ev-t-fast) var(--ev-ease-out);
+}
+
+.ev-tab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 9999px;
+  background: #2563eb;
+  transform: scaleX(0);
+  transition: transform var(--ev-t-base) var(--ev-ease-out);
+}
+
+.ev-tab[aria-selected='true']::after {
+  transform: scaleX(1);
+}
+
+.ev-tab:active { transform: scale(0.97); }
+
+/* Cambio de vista entre tabs: entra desde abajo, nunca desde scale(0) */
+@keyframes ev-view-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ev-view { animation: ev-view-in 260ms var(--ev-ease-out) both; }
+
+/* Chip de filtro activo */
+.ev-chip {
+  transition:
+    background-color var(--ev-t-base) ease,
+    color var(--ev-t-base) ease,
+    border-color var(--ev-t-base) ease,
+    transform var(--ev-t-fast) var(--ev-ease-out);
+}
+
+.ev-chip:active { transform: scale(0.96); }
+
+/* Tarjeta de tarea del kanban */
+.ev-tarea {
+  transition:
+    transform var(--ev-t-base) var(--ev-ease-out),
+    box-shadow var(--ev-t-base) ease,
+    border-color var(--ev-t-base) ease;
+}
+
+.ev-tarea:active { transform: scale(0.98); }
+
+.ev-tarea-arrastrando {
+  opacity: 0.4;
+  transform: rotate(1.5deg) scale(0.98);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ev-tarea:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 36px -18px rgba(30, 58, 138, 0.4);
+  }
+
+  .ev-tarea-arrastrando:hover { transform: rotate(1.5deg) scale(0.98); }
+}
+
+/* Zona de drop del kanban */
+.ev-columna {
+  transition:
+    background-color var(--ev-t-base) ease,
+    box-shadow var(--ev-t-base) ease;
+}
+
+.ev-columna-sobre {
+  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.35);
+}
+
+/* Avatar: el color se deriva del nombre, la inicial siempre visible */
+.ev-avatar {
+  transition: transform var(--ev-t-fast) var(--ev-ease-out);
+}
+
+/* Modal: overlay y panel con timings asimetricos (sale mas rapido) */
+.ev-overlay {
+  animation: ev-fade-in 200ms ease both;
+}
+
+@keyframes ev-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ev-modal {
+  /* los modales son la excepcion: centrados, transform-origin center */
+  transform-origin: center;
+  animation: ev-modal-in 260ms var(--ev-ease-out) both;
+}
+
+@keyframes ev-modal-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Burbuja de chat: entra con escala leve, nunca desde cero */
+.ev-burbuja {
+  animation: ev-burbuja-in 220ms var(--ev-ease-out) both;
+}
+
+@keyframes ev-burbuja-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Punto de "en linea" en el header */
+.ev-online {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+/* ------------------------------------------------------------------
+   Fondo del gestor de equipos: lineas de grid en vez de puntos.
+   El patron de puntos vive en Login/Signup; aqui la textura es mas
+   tecnica y menos ruidosa porque hay contenido denso encima.
+   ------------------------------------------------------------------ */
+
+.ev-gridfield {
+  background-image:
+    linear-gradient(to right, rgba(37, 99, 235, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(37, 99, 235, 0.07) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, #000 40%, transparent 100%);
+}
+
+/* Micro barra de progreso dentro de las columnas del kanban */
+.ev-progress-mini {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.75);
+  overflow: hidden;
+}
+
+.ev-progress-mini-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width var(--ev-t-stage) var(--ev-ease-out);
+}
+
+/* ------------------------------------------------------------------
+   Reduced motion: menos movimiento, no cero movimiento.
+   Se conservan los cambios de color y opacidad que explican estado.
+   ------------------------------------------------------------------ */
+
 @media (prefers-reduced-motion: reduce) {
-  .mascota-rebote-suave {
-    animation: none;
+  .ev-enter,
+  .ev-enter-card,
+  .ev-enter-pop,
+  .ev-bubble,
+  .ev-shake,
+  .ev-float,
+  .ev-rebote-suave,
+  .ev-drift,
+  .ev-drift-lento,
+  .ev-particle,
+  .ev-view,
+  .ev-overlay,
+  .ev-modal,
+  .ev-burbuja,
+  .ev-shimmer:hover::after {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+
+  /* El halo y el cursor glow son adorno puro: fuera por completo */
+  .ev-glow { display: none; }
+
+  .ev-field,
+  .ev-field-label,
+  .ev-field-icon,
+  .ev-eye,
+  .ev-btn,
+  .ev-glow,
+  .ev-stat,
+  .ev-progress-fill,
+  .ev-bar-fill,
+  .ev-donut,
+  .ev-tab,
+  .ev-tab::after,
+  .ev-chip,
+  .ev-tarea,
+  .ev-columna,
+  .ev-progress-mini-fill {
+    transition-duration: 1ms;
   }
 }
