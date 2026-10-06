@@ -197,7 +197,7 @@ const Login = () => {
         </div>
 
         {/* LADO DERECHO: FORMULARIO */}
-        <div className="md:w-1/2 p-8 sm:p-10 flex flex-col justify-center bg-white/85 backdrop-blur-xl">
+        <div className="md:w-1/2 p-8 sm:p-10 flex flex-col justify-center bg-white">
           <div className="mb-8 ev-enter ev-d-1">
             <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight mb-2">
               Hola de nuevo

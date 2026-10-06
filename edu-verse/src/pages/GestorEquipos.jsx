@@ -4,6 +4,11 @@ import { io } from 'socket.io-client';
 import { API_URL } from '../config';
 import toast from 'react-hot-toast';
 
+// Resumen global del selector de equipos. El backend no expone un endpoint
+// agregado, asi que las tareas de cada equipo se traen en paralelo y se
+// aplanan por equipo_id para poder derivar las metricas de abajo.
+const ETIQUETA_ROL = { admin: 'Administrador', miembro: 'Miembro' };
+
 const PRIORIDADES = {
   verde: { label: 'No urgente', color: '#22c55e', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-300' },
   amarillo: { label: 'Urgente', color: '#eab308', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-300' },
@@ -17,6 +22,18 @@ const ESTADOS = {
 };
 
 const ORDEN_ESTADOS = ['pendiente', 'en_progreso', 'completada'];
+
+const INTERVALO_FRASE_HERO = 4500;
+
+// Frases del hero: rotan en la burbuja sobre la ilustracion del equipo.
+const FRASES_HERO = ['¡Juntos rendimos más! ', 'Reparte y avanza en equipo ', '¡Nunca estudies solo! ', 'Tareas claras, equipo fuerte '];
+
+// Pilares del gestor, en vez de una lista de features vacia.
+const BENEFICIOS = [
+  { texto: 'Tablero kanban', icono: 'tablero' },
+  { texto: 'Tareas en tiempo real', icono: 'reloj' },
+  { texto: 'Chat del equipo', icono: 'chat' },
+];
 
 /* Iconos SVG inline: sin dependencias, con aria-hidden cuando son decorativos */
 const Icono = ({ nombre, className = 'w-5 h-5' }) => {
@@ -174,6 +191,18 @@ const GestorEquipos = () => {
   // porque ambos eventos se disparan al cruzar elementos hijos.
   const contadorDrag = useRef(0);
 
+  // Hero del selector de equipos: la frase rota sola y el glow sigue al mouse.
+  const heroRef = useRef(null);
+  const heroGlowRef = useRef(null);
+  const heroRafRef = useRef(0);
+  const [fraseHeroIdx, setFraseHeroIdx] = useState(0);
+  const [tareasPorEquipo, setTareasPorEquipo] = useState({});
+
+  // Cifras del dashboard. Se guardan aparte del valor final porque las
+  // animaciones de conteo necesitan mutarlas por frame.
+  const [cifras, setCifras] = useState({ equipos: 0, tareas: 0, completadas: 0, vencidas: 0, tasa: 0 });
+  const cifrasRafRef = useRef(0);
+
   const usuario = getUsuarioId();
   const usuarioNombre = localStorage.getItem('usuario');
 
@@ -297,6 +326,61 @@ const GestorEquipos = () => {
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
+  useEffect(() => () => cancelAnimationFrame(heroRafRef.current), []);
+
+  /* ---------------- resumen global (solo vista de equipos) ---------------- */
+
+  // El backend no tiene un endpoint agregado, asi que se pide el tablero de
+  // cada equipo en paralelo. Un equipo que falle no tumba el resumen: se
+  // resuelve con lista vacia y el resto de las metricas siguen valiendo.
+  useEffect(() => {
+    if (equipoActivo || equipos.length === 0) {
+      setTareasPorEquipo({});
+      return undefined;
+    }
+
+    let vigente = true;
+    (async () => {
+      const resultados = await Promise.all(
+        equipos.map(async (eq) => {
+          try {
+            const res = await axios.get(`${API_URL}/tareas/equipo/${eq.equipo_id}`);
+            return [eq.equipo_id, res.data];
+          } catch {
+            return [eq.equipo_id, []];
+          }
+        })
+      );
+      if (vigente) setTareasPorEquipo(Object.fromEntries(resultados));
+    })();
+
+    return () => {
+      vigente = false;
+    };
+  }, [equipos, equipoActivo]);
+
+  // Solo rota la frase cuando no hay equipo seleccionado: dentro de un
+  // equipo el hero no existe y el intervalo no tendria a que animar.
+  useEffect(() => {
+    if (equipoActivo) return undefined;
+    const interval = window.setInterval(() => {
+      setFraseHeroIdx((prev) => (prev + 1) % FRASES_HERO.length);
+    }, INTERVALO_FRASE_HERO);
+    return () => window.clearInterval(interval);
+  }, [equipoActivo]);
+
+  // El glow se mueve con transform (no left/top) para no provocar reflow
+  const handleHeroPointerMove = (e) => {
+    const hero = heroRef.current;
+    const glow = heroGlowRef.current;
+    if (!hero || !glow) return;
+    const rect = hero.getBoundingClientRect();
+    cancelAnimationFrame(heroRafRef.current);
+    heroRafRef.current = requestAnimationFrame(() => {
+      glow.style.transform = `translate3d(${e.clientX - rect.left}px, ${e.clientY - rect.top}px, 0)`;
+    });
+  };
+
   /* ---------------- metricas del dashboard ---------------- */
 
   const metricas = useMemo(() => {
@@ -345,6 +429,102 @@ const GestorEquipos = () => {
         .slice(0, 5),
     };
   }, [tareas, miembros]);
+
+  /* ---------------- metricas globales del selector ---------------- */
+
+  const resumenGlobal = useMemo(() => {
+    const todas = Object.values(tareasPorEquipo).flat();
+    const completadas = todas.filter((t) => t.estado === 'completada').length;
+    const vencidas = todas.filter((t) => {
+      const d = getDiasRestantes(t.fecha_entrega);
+      return d !== null && d < 0 && t.estado !== 'completada';
+    });
+
+    // Avance por equipo: el tablero es el dato que el usuario ya conoce de
+    // cada equipo, asi que se lee sin entrar a ninguno.
+    const porEquipo = equipos
+      .map((eq) => {
+        const lista = tareasPorEquipo[eq.equipo_id] || [];
+        const hechas = lista.filter((t) => t.estado === 'completada').length;
+        const porHacer = lista.length - hechas;
+        const dias = lista.filter((t) => {
+          const d = getDiasRestantes(t.fecha_entrega);
+          return d !== null && d < 0 && t.estado !== 'completada';
+        }).length;
+        return {
+          equipo: eq,
+          total: lista.length,
+          avance: pct(hechas, lista.length),
+          urgente: porHacer > 0 && dias > 0,
+        };
+      })
+      .sort((a, b) => b.urgente - a.urgente || b.total - a.total);
+
+    return {
+      tareas: todas.length,
+      completadas,
+      pendientes: todas.length - completadas,
+      vencidas: vencidas.length,
+      // Count separate: lo que ya paso (red de "Vencidas") y lo que vence
+      // hoy (urgente pero aun recuperable) no son lo mismo.
+      hoy: todas.filter((t) => {
+        const d = getDiasRestantes(t.fecha_entrega);
+        return d === 0 && t.estado !== 'completada';
+      }).length,
+      tasa: pct(completadas, todas.length),
+      admins: equipos.filter((eq) => eq.rol === 'admin').length,
+      porEquipo,
+      // Las 5 entregas mas cercanas de todos los equipos, no solo del abierto.
+      proximas: Object.entries(tareasPorEquipo)
+        .flatMap(([equipoId, lista]) => {
+          const eq = equipos.find((e) => String(e.equipo_id) === String(equipoId));
+          return lista
+            .filter((t) => t.estado !== 'completada' && getDiasRestantes(t.fecha_entrega) !== null)
+            .map((t) => ({ ...t, equipo_id: equipoId, equipo_nombre: eq?.nombre || 'Equipo' }));
+        })
+        .sort((a, b) => new Date(a.fecha_entrega) - new Date(b.fecha_entrega))
+        .slice(0, 5),
+    };
+  }, [equipos, tareasPorEquipo]);
+
+  /* ---------------- conteo animado de las cifras ---------------- */
+
+  // Un solo rAF para las cinco cifras: interpolan juntas hacia su valor
+  // real. Si el usuario entra a un equipo, el panel se desmonta y el rAF
+  // se cancela, asi que no queda contando a ciegas.
+  useEffect(() => {
+    if (equipoActivo) {
+      cancelAnimationFrame(cifrasRafRef.current);
+      return undefined;
+    }
+
+    const objetivo = {
+      equipos: equipos.length,
+      tareas: resumenGlobal.tareas,
+      completadas: resumenGlobal.completadas,
+      vencidas: resumenGlobal.vencidas,
+      tasa: resumenGlobal.tasa,
+    };
+    const duracion = 900;
+    const inicio = performance.now();
+
+    const paso = (ahora) => {
+      // easeOutCubic: rapido al principio, frena al final
+      const t = Math.min((ahora - inicio) / duracion, 1);
+      const eased = 1 - (1 - t) ** 3;
+      setCifras({
+        equipos: Math.round(objetivo.equipos * eased),
+        tareas: Math.round(objetivo.tareas * eased),
+        completadas: Math.round(objetivo.completadas * eased),
+        vencidas: Math.round(objetivo.vencidas * eased),
+        tasa: Math.round(objetivo.tasa * eased),
+      });
+      if (t < 1) cifrasRafRef.current = requestAnimationFrame(paso);
+    };
+
+    cifrasRafRef.current = requestAnimationFrame(paso);
+    return () => cancelAnimationFrame(cifrasRafRef.current);
+  }, [equipos.length, resumenGlobal.tareas, resumenGlobal.completadas, resumenGlobal.vencidas, resumenGlobal.tasa, equipoActivo]);
 
   const tareasFiltradas = useMemo(() => {
     const q = busqueda.trim().toLowerCase();
@@ -690,30 +870,93 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
 
   if (!equipoActivo) {
     return (
-      <div className="ev-mesh-bg min-h-[calc(100vh-64px)] font-['Fredoka',sans-serif] relative">
+      <div className="ev-bg-nexo min-h-[calc(100vh-64px)] font-['Fredoka',sans-serif] relative">
         <div className="ev-gridfield absolute inset-0 pointer-events-none" />
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
-          <header className="ev-mesh rounded-[2rem] p-8 sm:p-12 text-white shadow-lg relative overflow-hidden ev-enter ev-d-0">
-            <div aria-hidden="true" className="absolute -top-12 -left-12 w-40 h-40 bg-white/10 rounded-full blur-xl" />
-            <div aria-hidden="true" className="absolute -bottom-16 -right-12 w-56 h-56 bg-amber-400/20 rounded-full blur-2xl" />
-            <div className="relative">
-              <p className="text-blue-200 text-sm font-semibold">Colaboración en equipo</p>
-              <h1 className="mt-2 text-3xl sm:text-5xl font-extrabold tracking-tight">Gestor de Equipos</h1>
-              <p className="mt-3 text-blue-100 text-lg max-w-lg">
-                Crea un equipo de estudio o únete con un código para repartir tareas y avanzar juntos.
-              </p>
-              <div className="mt-6 flex flex-wrap gap-3">
-                <button type="button" onClick={() => { setShowCrearEquipo(true); setShowUnirse(false); }} className="ev-btn ev-focusable inline-flex items-center gap-2 bg-white text-blue-700 px-5 py-3 rounded-xl font-bold shadow-md">
-                  <Icono nombre="mas" className="w-5 h-5" />
-                  Crear equipo
-                </button>
-                <button type="button" onClick={() => { setShowUnirse(true); setShowCrearEquipo(false); }} className="ev-btn ev-focusable inline-flex items-center gap-2 bg-white/15 text-white px-5 py-3 rounded-xl font-bold border border-white/30 hover:bg-white/25">
-                  <Icono nombre="copiar" className="w-5 h-5" />
-                  Unirme con código
-                </button>
+          <header
+            ref={heroRef}
+            onMouseMove={handleHeroPointerMove}
+            className="ev-mesh rounded-[2rem] text-white shadow-lg relative overflow-hidden ev-enter ev-d-0"
+          >
+            <div ref={heroGlowRef} className="ev-glow" />
+
+            {/* Círculos decorativos de fondo */}
+            <div aria-hidden="true" className="absolute -top-14 -left-14 w-48 h-48 bg-white/10 rounded-full blur-xl pointer-events-none" />
+            <div aria-hidden="true" className="absolute -bottom-20 -right-16 w-72 h-72 bg-amber-400/20 rounded-full blur-2xl pointer-events-none" />
+            <div aria-hidden="true" className="absolute top-1/3 -left-20 w-56 h-56 bg-indigo-400/20 rounded-full blur-2xl pointer-events-none" />
+
+            {/* Patrón de puntos, muy tenue, para que el degradado no quede plano */}
+            <div aria-hidden="true" className="ev-dotfield absolute inset-0 opacity-30 pointer-events-none" />
+
+            <div className="relative grid gap-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center p-8 sm:p-12">
+              {/* COLUMNA IZQUIERDA: texto y acciones */}
+              <div className="relative z-10 text-center lg:text-left">
+                <p className="text-blue-200 text-sm font-semibold ev-enter ev-d-1">Colaboración en equipo</p>
+                <h1 className="mt-2 text-3xl sm:text-5xl font-extrabold tracking-tight ev-enter ev-d-2">Gestor de Equipos</h1>
+                <p className="mt-3 text-blue-100 text-lg max-w-lg mx-auto lg:mx-0 ev-enter ev-d-3">
+                  Crea un equipo de estudio o únete con un código para repartir tareas y avanzar juntos.
+                </p>
+
+                {/* Datos de la escena */}
+                <ul className="mt-7 flex flex-wrap justify-center lg:justify-start gap-2.5 ev-enter ev-d-4">
+                  {BENEFICIOS.map((b) => (
+                    <li key={b.texto} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white/12 border border-white/25 text-sm font-semibold text-white">
+                      <span className="grid place-items-center w-6 h-6 rounded-full bg-white/20 text-amber-200 shrink-0">
+                        <Icono nombre={b.icono} className="w-3.5 h-3.5" />
+                      </span>
+                      {b.texto}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* COLUMNA DERECHA: ilustracion del equipo. Es un boton:
+                  la imagen es la via rapida para crear el primer equipo. */}
+              <div className="relative z-10 flex justify-center ev-enter ev-d-3">
+                <div className="ev-float inline-block">
+                  <button
+                    type="button"
+                    onClick={() => { setShowCrearEquipo(true); setShowUnirse(false); }}
+                    aria-label="Crear un equipo nuevo"
+                    className="ev-focusable group relative block cursor-pointer rounded-3xl"
+                  >
+                    {/* Aro decorativo detras de la imagen */}
+                    <div aria-hidden="true" className="absolute inset-0 rounded-full bg-amber-300/20 blur-2xl scale-90 transition-opacity duration-300 group-hover:opacity-80" />
+                    <img
+                      src="/Imagenes_Diseño/super_equipo.png"
+                      alt="Equipo de estudiantes uniendose para trabajar en un proyecto. Crear un equipo nuevo."
+                      className="ev-lift-mascota relative w-40 h-auto object-contain drop-shadow-2xl sm:w-48 lg:w-56"
+                    />
+                    <span
+                      key={fraseHeroIdx}
+                      className="ev-bubble absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-400 text-blue-950 font-black text-xs sm:text-sm px-3 py-1 rounded-2xl shadow-lg border-2 border-white whitespace-nowrap"
+                    >
+                      {FRASES_HERO[fraseHeroIdx]}
+                    </span>
+
+                    {/* Pista de que la imagen es accionable */}
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 rounded-full bg-white text-blue-700 text-[11px] sm:text-xs font-black px-3 py-1.5 shadow-lg border border-blue-100 whitespace-nowrap">
+                      <Icono nombre="mas" className="w-3.5 h-3.5" />
+                      Crear equipo
+                    </span>
+                  </button>
+                </div>
               </div>
             </div>
           </header>
+
+          {/* BARRA DE ACCIONES: fuera del header, sobre el fondo blanco.
+              Aqui viven las dos vias de entrada al gestor. */}
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3 ev-enter ev-d-2">
+            <button type="button" onClick={() => { setShowCrearEquipo(true); setShowUnirse(false); }} className="ev-btn ev-shimmer ev-focusable inline-flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold text-lg shadow-md hover:bg-blue-700">
+              <Icono nombre="mas" className="w-5 h-5" />
+              Crear equipo
+            </button>
+            <button type="button" onClick={() => { setShowUnirse(true); setShowCrearEquipo(false); }} className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-6 py-3.5 rounded-2xl font-bold text-lg border border-blue-200 hover:border-blue-400 hover:bg-blue-50">
+              <Icono nombre="copiar" className="w-5 h-5" />
+              Unirme con código
+            </button>
+          </div>
 
           {(showCrearEquipo || showUnirse) && (
             <div className="ev-panel-glass rounded-2xl p-6 sm:p-7 mt-6 ev-view max-w-md">
@@ -760,34 +1003,89 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
             </div>
           )}
 
-          <section className="mt-8">
-            <h2 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">
-              Tus equipos ({equipos.length})
-            </h2>
-            {equipos.length === 0 ? (
-              <div className="ev-panel-glass rounded-2xl py-16 text-center">
-                <span className="mx-auto grid place-items-center w-14 h-14 rounded-2xl bg-blue-50 text-blue-400">
-                  <Icono nombre="usuarios" className="w-7 h-7" />
-                </span>
-                <p className="mt-4 text-slate-700 font-bold">Aún no tienes equipos</p>
-                <p className="mt-1 text-sm text-slate-400">Crea uno o únete con un código de invitación.</p>
+          <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
+            {/* COLUMNA IZQUIERDA: los equipos */}
+            <div className="min-w-0">
+              <h2 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">
+                Tus equipos ({equipos.length})
+              </h2>
+              {equipos.length === 0 ? (
+              <div className="ev-panel-glass relative overflow-hidden rounded-[2rem] px-6 py-14 sm:py-16 text-center ev-enter ev-d-2">
+                {/* Círculos decorativos: el mismo lenguaje del header */}
+                <div aria-hidden="true" className="pointer-events-none absolute -top-16 -left-12 w-44 h-44 bg-blue-200/40 rounded-full blur-2xl" />
+                <div aria-hidden="true" className="pointer-events-none absolute -bottom-20 -right-14 w-56 h-56 bg-amber-300/30 rounded-full blur-2xl" />
+                <div aria-hidden="true" className="ev-dotfield absolute inset-0 opacity-40 pointer-events-none" />
+
+                <div className="relative">
+                  {/* Ilustracion del equipo */}
+                  <div className="ev-float inline-block">
+                    <img
+                      src="/Imagenes_Diseño/super_equipo.png"
+                      alt=""
+                      aria-hidden="true"
+                      className="w-40 h-auto object-contain drop-shadow-xl sm:w-52"
+                    />
+                  </div>
+
+                  <h3 className="mt-6 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+                    Tu primer equipo te espera
+                  </h3>
+                  <p className="mt-2 text-slate-500 text-lg font-medium max-w-lg mx-auto">
+                    Reúne a tus compañeros, reparte el trabajo y mira cómo avanza el proyecto en tiempo real.
+                  </p>
+
+                  <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+                    <button type="button" onClick={() => { setShowCrearEquipo(true); setShowUnirse(false); }} className="ev-btn ev-shimmer ev-focusable inline-flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold text-lg shadow-md hover:bg-blue-700">
+                      <Icono nombre="mas" className="w-5 h-5" />
+                      Crear mi primer equipo
+                    </button>
+                    <button type="button" onClick={() => { setShowUnirse(true); setShowCrearEquipo(false); }} className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-6 py-3.5 rounded-2xl font-bold text-lg border border-blue-200 hover:border-blue-400 hover:bg-blue-50">
+                      <Icono nombre="copiar" className="w-5 h-5" />
+                      Tengo un código
+                    </button>
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {equipos.map((eq, i) => (
+              <div className="grid gap-4 sm:grid-cols-2">
+                {resumenGlobal.porEquipo.map(({ equipo: eq, total, avance, urgente }, i) => (
                   <button
                     key={eq.equipo_id}
                     type="button"
                     onClick={() => seleccionarEquipo(eq)}
-                    className={`ev-stat ev-panel-glass ev-focusable rounded-2xl p-5 text-left ev-enter ${['ev-d-1', 'ev-d-2', 'ev-d-3'][i % 3]}`}
+                    className={`ev-stat ev-panel-glass ev-focusable cursor-pointer rounded-2xl p-5 text-left ev-enter ${['ev-d-1', 'ev-d-2', 'ev-d-3'][i % 3]}`}
                   >
-                    <div className="flex items-start justify-between">
-                      <span className="grid place-items-center w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md">
+                    <div className="flex items-start justify-between gap-2">
+                      <span className="grid place-items-center w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md shrink-0">
                         <Icono nombre="usuarios" className="w-5 h-5" />
                       </span>
-                      <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">{eq.rol}</span>
+                      <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 shrink-0">
+                        {ETIQUETA_ROL[eq.rol] || eq.rol}
+                      </span>
                     </div>
                     <h3 className="mt-4 font-extrabold text-lg text-slate-900 leading-tight">{eq.nombre}</h3>
+
+                    {/* Avance del equipo, sin necesidad de entrar */}
+                    <div className="mt-3">
+                      <div className="flex items-baseline justify-between text-[11px] font-bold mb-1.5">
+                        <span className="text-slate-400 uppercase tracking-wider">
+                          {total === 0 ? 'Sin tareas' : `${avance}% completado`}
+                        </span>
+                        {urgente && (
+                          <span className="inline-flex items-center gap-1 text-red-600">
+                            <Icono nombre="alerta" className="w-3 h-3" />
+                            Vencidas
+                          </span>
+                        )}
+                      </div>
+                      <div className="ev-progress-track" role="img" aria-label={`${eq.nombre}: ${avance}% completado`}>
+                        <div
+                          className={`ev-progress-fill ${avance === 100 ? 'bg-gradient-to-r from-emerald-500 to-teal-600' : 'bg-gradient-to-r from-blue-600 to-indigo-600'}`}
+                          style={{ width: `${avance}%` }}
+                        />
+                      </div>
+                    </div>
+
                     <div className="mt-3 flex items-center justify-between rounded-xl bg-blue-50/70 border border-blue-100 px-3 py-2">
                       <div>
                         <p className="text-[9px] font-bold uppercase text-blue-500 tracking-wider">Código</p>
@@ -798,6 +1096,149 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                   </button>
                 ))}
               </div>
+              )}
+            </div>
+
+            {/* COLUMNA DERECHA: resumen global. Se oculta sin equipos porque
+                el empty state ya ofrece las dos vias de entrada. */}
+            {equipos.length > 0 && (
+              <aside className="lg:sticky lg:top-20 space-y-4" aria-label="Resumen de tu actividad">
+                {/* Cifras globales */}
+                <div className="ev-panel-glass ev-card-dash ev-slide-right ev-sr-0 relative overflow-hidden rounded-2xl p-5">
+                  <div aria-hidden="true" className="ev-dotfield absolute inset-0 opacity-40 pointer-events-none" />
+                  <div aria-hidden="true" className="pointer-events-none absolute -top-14 -right-10 w-36 h-36 bg-blue-200/40 rounded-full blur-2xl" />
+                  <div aria-hidden="true" className="pointer-events-none absolute -bottom-16 -left-8 w-32 h-32 bg-amber-300/25 rounded-full blur-2xl" />
+                  <span aria-hidden="true" className="ev-esquina" />
+
+                  <div className="relative">
+                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Tu actividad</h3>
+
+                    <div className="mt-4 grid grid-cols-2 gap-3">
+                      {[
+                        { etiqueta: 'Equipos', valor: cifras.equipos, gradiente: 'from-blue-600 to-indigo-700', icono: 'usuarios' },
+                        { etiqueta: 'Tareas', valor: cifras.tareas, gradiente: 'from-indigo-500 to-violet-600', icono: 'tablero' },
+                        { etiqueta: 'Completadas', valor: cifras.completadas, gradiente: 'from-emerald-500 to-teal-600', icono: 'check' },
+                        { etiqueta: 'Vencidas', valor: cifras.vencidas, gradiente: 'from-rose-500 to-red-600', icono: 'alerta' },
+                      ].map((s) => (
+                        <div key={s.etiqueta} className="rounded-xl bg-white/85 border border-white/70 px-3 py-2.5">
+                          <span className={`ev-stat-icon grid place-items-center w-7 h-7 rounded-lg bg-gradient-to-br ${s.gradiente} text-white shadow-sm mb-2`}>
+                            <Icono nombre={s.icono} className="w-4 h-4" />
+                          </span>
+                          <p className="text-3xl font-extrabold tracking-tight text-slate-900 leading-none tabular-nums">{s.valor}</p>
+                          <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{s.etiqueta}</p>
+                        </div>
+                      ))}
+                    </div>
+
+                    <hr className="ev-divisor my-4" />
+
+                    {/* Avance global */}
+                    <div>
+                      <div className="flex items-baseline justify-between text-xs font-bold mb-1.5">
+                        <span className="text-slate-500">Avance global</span>
+                        <span className="text-slate-900 tabular-nums">{cifras.tasa}%</span>
+                      </div>
+                      <div className="ev-progress-track ev-track-brillo" role="img" aria-label={`Avance global: ${resumenGlobal.tasa}%`}>
+                        <div className="ev-progress-fill bg-gradient-to-r from-emerald-500 to-teal-600" style={{ width: `${resumenGlobal.tasa}%` }} />
+                      </div>
+                      <p className="mt-2 text-[11px] font-medium text-slate-400">
+                        {resumenGlobal.pendientes === 0
+                          ? 'Todo al día, no te queda nada pendiente.'
+                          : `${resumenGlobal.pendientes} ${resumenGlobal.pendientes === 1 ? 'tarea pendiente' : 'tareas pendientes'} en total.`}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Próximas entregas, mezcladas entre todos los equipos */}
+                <div className="ev-panel-glass ev-card-dash ev-slide-right ev-sr-1 relative overflow-hidden rounded-2xl p-5">
+                  <span aria-hidden="true" className="ev-esquina" />
+
+                  <div className="flex items-center gap-3">
+                    <div className="ev-float shrink-0">
+                      <img
+                        src="/Imagenes_Diseño/asustado.png"
+                        alt=""
+                        aria-hidden="true"
+                        className="w-12 h-auto object-contain drop-shadow-md sm:w-14"
+                      />
+                    </div>
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Próximas entregas</h3>
+                      {resumenGlobal.hoy > 0 && (
+                        <p className="mt-0.5 text-xs font-bold text-red-600">
+                          {resumenGlobal.hoy} {resumenGlobal.hoy === 1 ? 'vence hoy' : 'vencen hoy'}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {resumenGlobal.proximas.length === 0 ? (
+                    <p className="mt-4 text-sm font-medium text-slate-400">
+                      Sin fechas de entrega próximas. Asigna una a una tarea para verla aquí.
+                    </p>
+                  ) : (
+                    <ul className="mt-4 space-y-2.5">
+                      {resumenGlobal.proximas.map((p) => {
+                        const dias = getDiasRestantes(p.fecha_entrega);
+                        const venceHoy = dias !== null && dias === 0;
+                        const urgente = dias !== null && dias <= 2;
+                        return (
+                          <li
+                            key={`${p.equipo_id}-${p.tarea_id}`}
+                            className={`rounded-xl border px-3 py-2.5 transition-colors ${
+                              venceHoy
+                                ? 'bg-red-50 border-red-200 shadow-[0_0_0_3px_rgba(239,68,68,0.08)]'
+                                : 'bg-white/85 border-white/70 hover:border-blue-300'
+                            }`}
+                          >
+                            <p className={`text-sm font-bold leading-snug truncate ${venceHoy ? 'text-red-900' : 'text-slate-800'}`}>
+                              {p.titulo}
+                            </p>
+                            <div className="mt-1 flex items-center justify-between gap-2">
+                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">{p.equipo_nombre}</span>
+                              <span
+                                className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                  venceHoy
+                                    ? 'ev-badge-urgente bg-red-600 text-white'
+                                    : urgente
+                                      ? 'bg-amber-100 text-amber-800'
+                                      : 'bg-slate-100 text-slate-600'
+                                }`}
+                              >
+                                <Icono nombre={venceHoy ? 'alerta' : 'reloj'} className="w-2.5 h-2.5" />
+                                {dias === 0 ? '¡Hoy!' : dias === 1 ? 'Mañana' : `${dias} d`}
+                              </span>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Recordatorio del rol: quien administra ve el código, no todos */}
+                {resumenGlobal.admins > 0 && (
+                  <div className="ev-slide-right ev-sr-2 relative overflow-hidden rounded-2xl bg-blue-600 p-5 text-white shadow-md">
+                    {/* Puntos tenues: la tarjeta azul es la unica sin glass,
+                        el patron evita que quede como un bloque plano */}
+                    <div aria-hidden="true" className="ev-dotfield absolute inset-0 opacity-20 pointer-events-none" />
+                    <div aria-hidden="true" className="pointer-events-none absolute -right-10 -bottom-12 w-36 h-36 bg-indigo-400/40 rounded-full blur-2xl" />
+
+                    <div className="relative">
+                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-200">Tu rol</p>
+                      <p className="mt-1 font-bold leading-snug">
+                        {resumenGlobal.admins === equipos.length
+                          ? 'Administras todos tus equipos.'
+                          : `Administras ${resumenGlobal.admins} de ${equipos.length} equipos.`}
+                      </p>
+                      <p className="mt-1 text-xs text-blue-100">
+                        Comparte el código de cada equipo para invitar a más compañeros.
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </aside>
             )}
           </section>
         </div>

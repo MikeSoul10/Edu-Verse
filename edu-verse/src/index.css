@@ -316,6 +316,12 @@
   box-shadow: 0 18px 50px -24px rgba(30, 58, 138, 0.35);
 }
 
+/* Sobre el fondo gris azulado el borde blanco se pierde: un hairline azul
+   separa la superficie del fondo sin agregar peso visual. */
+.ev-bg-nexo .ev-panel-glass {
+  border-color: rgba(147, 197, 253, 0.45);
+}
+
 /* Stat card: el hover solo escala, nunca salta de sitio */
 .ev-stat {
   transition:
@@ -513,6 +519,125 @@
   mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, #000 40%, transparent 100%);
 }
 
+/* ------------------------------------------------------------------
+   Dashboard lateral del selector de equipos
+   ------------------------------------------------------------------ */
+
+/* Entrada lateral: las tarjetas se asoman desde la derecha en cascada.
+   Se usa transform, no left, asi no hay reflow durante la entrada. */
+@keyframes ev-slide-right {
+  from { opacity: 0; transform: translate3d(28px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.ev-slide-right {
+  animation: ev-slide-right var(--ev-t-stage) var(--ev-ease-out) both;
+}
+
+.ev-sr-0 { animation-delay: 0ms; }
+.ev-sr-1 { animation-delay: 90ms; }
+.ev-sr-2 { animation-delay: 180ms; }
+
+/* Tarjeta del dashboard: sube y encende el borde al hover */
+.ev-card-dash {
+  position: relative;
+  border-color: rgba(147, 197, 253, 0.45);
+  transition:
+    transform var(--ev-t-base) var(--ev-ease-out),
+    box-shadow var(--ev-t-base) ease,
+    border-color var(--ev-t-base) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ev-card-dash:hover {
+    transform: translateY(-3px);
+    border-color: rgba(59, 130, 246, 0.6);
+    box-shadow: 0 26px 60px -22px rgba(30, 58, 138, 0.45);
+  }
+
+  /* El icono del dato reacts al hover de su tarjeta */
+  .ev-card-dash:hover .ev-stat-icon {
+    transform: translateY(-2px) scale(1.08) rotate(-4deg);
+  }
+}
+
+.ev-stat-icon {
+  transition: transform var(--ev-t-base) var(--ev-ease-out);
+}
+
+/* Barras del dashboard con brillo que recorre el relleno */
+.ev-track-brillo { position: relative; overflow: hidden; }
+
+.ev-track-brillo .ev-progress-fill { position: relative; overflow: hidden; }
+
+.ev-track-brillo .ev-progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 45%,
+    rgba(255, 255, 255, 0.75) 50%,
+    rgba(255, 255, 255, 0.55) 55%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: ev-sweep 2.6s var(--ev-ease-in-out) infinite;
+  animation-delay: 600ms;
+  pointer-events: none;
+}
+
+/* Respiracion del badge urgente: un halo rojo, no un salto de opacidad */
+@keyframes ev-respira {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45); }
+  50%      { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+.ev-badge-urgente {
+  animation: ev-respira 2.2s var(--ev-ease-in-out) infinite;
+}
+
+/* Separador con degradado entre secciones */
+.ev-divisor {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(to right, transparent, rgba(147, 197, 253, 0.7), transparent);
+}
+
+/* Acento decorativo de esquina en las tarjetas del dashboard */
+.ev-esquina {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 56px;
+  height: 56px;
+  border-top-right-radius: inherit;
+  background: linear-gradient(225deg, rgba(147, 197, 253, 0.5) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------
+   Fondo del selector de equipos: gris azulado en vez de blanco puro.
+   Los halos en las esquinas dan profundidad sin darkness, y el blanco
+   de las superficies de glass queda como la capa mas luminosa.
+   ------------------------------------------------------------------ */
+
+.ev-bg-nexo {
+  background-color: #eef4fb;
+  background-image:
+    radial-gradient(ellipse 55% 45% at 8% 4%, rgba(96, 165, 250, 0.30), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 95% 22%, rgba(167, 139, 250, 0.24), transparent 70%),
+    radial-gradient(ellipse 60% 45% at 88% 96%, rgba(251, 191, 36, 0.16), transparent 72%);
+  background-attachment: fixed;
+}
+
+/* El header azul se apoya sobre el gris: sin sombra dura se despegaba del
+   fondo blanco, y ahora la sombra debe anclar contra el gris azulado. */
+.ev-bg-nexo .ev-mesh {
+  box-shadow: 0 26px 70px -26px rgba(30, 58, 138, 0.5);
+}
+
 /* Micro barra de progreso dentro de las columnas del kanban */
 .ev-progress-mini {
   height: 4px;
@@ -543,6 +668,9 @@
   .ev-drift,
   .ev-drift-lento,
   .ev-particle,
+  .ev-slide-right,
+  .ev-badge-urgente,
+  .ev-track-brillo .ev-progress-fill::after,
   .ev-view,
   .ev-overlay,
   .ev-modal,

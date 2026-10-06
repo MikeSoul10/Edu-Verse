@@ -74,7 +74,7 @@ const Home = () => {
             <img
               src="/Imagenes_Diseño/mascota_riendo.png"
               alt="Mascota de Edu-Verse riendo"
-              className={`h-24 w-24 object-contain sm:h-28 sm:w-28 ${isMascotaBouncing ? 'mascota-rebote-suave' : ''}`}
+              className={`h-24 w-24 object-contain sm:h-28 sm:w-28 ${isMascotaBouncing ? 'ev-rebote-suave' : ''}`}
             />
           </h1>
           <p className="relative z-10 mt-4 text-xl text-blue-50 sm:text-2xl">
