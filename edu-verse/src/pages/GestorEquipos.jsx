@@ -1049,7 +1049,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                       value={nombreEquipo}
                       onChange={(e) => setNombreEquipo(e.target.value)}
                       aria-label="Nombre del equipo"
-                      className="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      className="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
                     />
                   </div>
                   <div className="mt-4 flex gap-2">
@@ -1069,7 +1069,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                       onChange={(e) => setCodigoUnirse(e.target.value.toUpperCase())}
                       maxLength={6}
                       aria-label="Código de invitación"
-                      className="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-center font-mono tracking-[0.35em] text-lg text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 uppercase"
+                      className="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-center font-mono tracking-[0.35em] text-lg text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 uppercase"
                     />
                   </div>
                   <div className="mt-4 flex gap-2">
@@ -1483,133 +1483,88 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                 </div>
               )}
 
-              <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
                   <button type="button" onClick={() => setSidebarMovil(true)} className="ev-focusable lg:hidden grid place-items-center w-10 h-10 rounded-xl bg-white/15 shrink-0" aria-label="Abrir panel de equipos">
                     <Icono nombre="menu" className="w-5 h-5" />
                   </button>
 
-                  {/* Volver a la lista de equipos. El boton "Equipos" del
-                      sidebar solo existe cuando el panel NO esta minimizado:
-                      con el panel colapsado, o en movil con el sidebar
-                      cerrado, no habia forma de salir del equipo sin abrir el
-                      panel primero. Este vive en el header, asi que esta
-                      siempre disponible. */}
-                  <button
-                    type="button"
-                    onClick={salirDeEquipo}
-                    className="ev-focusable inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-white/15 px-2.5 py-2 text-xs font-bold text-white transition-colors hover:bg-white/30 sm:text-sm"
-                    aria-label="Volver a la lista de equipos"
-                  >
-                    <Icono nombre="volver" className="h-4 w-4" />
-                    <span className="hidden sm:inline">Equipos</span>
-                  </button>
-
-                  {/* Salir del gestor y volver a la pantalla principal. Es
-                      distinto del boton de arriba: ese cierra el equipo y
-                      vuelve al selector de equipos, este sale de la aplicacion. */}
-                  <Link
-                    to="/"
-                    className="ev-focusable inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-white/15 px-2.5 py-2 text-xs font-bold text-white transition-colors hover:bg-white/30 sm:text-sm"
-                    aria-label="Volver al inicio"
-                  >
-                    <Icono nombre="inicio" className="h-4 w-4" />
-                    <span className="hidden sm:inline">Inicio</span>
-                  </Link>
-
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <h1 className="text-lg sm:text-2xl font-extrabold truncate">{equipoActivo.nombre}</h1>
-                      <span className="ev-online shrink-0" aria-hidden="true" />
-                    </div>
-                    <p className="text-blue-100 text-xs sm:text-sm">{miembros.length} {miembros.length === 1 ? 'miembro' : 'miembros'} · {metricas.total} tareas</p>
-                    {metricas.vencidas > 0 && (
+                  {/* Tabs */}
+                  <div role="tablist" aria-label="Vistas del equipo" className="flex gap-1 rounded-xl bg-white/15 p-1 w-full sm:w-auto">
+                    {[
+                      { id: 'dashboard', label: 'Resumen', icono: 'grafica' },
+                      { id: 'tablero', label: 'Tablero', icono: 'tablero' },
+                    ].map((t) => (
                       <button
+                        key={t.id}
                         type="button"
-                        onClick={() => { limpiarFiltros(); setVista('tablero'); setFiltroPrioridad('vencidas'); }}
-                        className="ev-chip ev-focusable mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-red-500/90 text-white text-[11px] font-bold hover:bg-red-500"
+                        role="tab"
+                        aria-selected={vista === t.id}
+                        onClick={() => cambiarVista(t.id)}
+                        className={`ev-tab ev-focusable flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold ${
+                          vista === t.id ? 'bg-white text-blue-700 shadow-sm' : 'text-white hover:bg-white/15'
+                        }`}
                       >
-                        <Icono nombre="alerta" className="w-3 h-3" />
-                        {metricas.vencidas} {metricas.vencidas === 1 ? 'tarea vencida' : 'tareas vencidas'}
+                        <Icono nombre={t.icono} className="w-4 h-4" />
+                        {t.label}
                       </button>
-                    )}
+                    ))}
                   </div>
                 </div>
 
-                {/* En escritorio el calendario va en la misma fila, entre el
-                    nombre y los botones. */}
-                {calendarioVisible && (
-                  <div className="hidden lg:block shrink-0 ev-enter ev-d-2">
-                    <CalendarioVencimientos
-                      tareas={tareas}
-                      prioridades={PRIORIDADES}
-                      onVerEnTablero={verFechaEnTablero}
-                    />
-                  </div>
-                )}
-
-                {/* Toggle del calendario. Va siempre visible (tb en movil) para
-                    que se pueda volver a mostrar sin entrar a otro equipo. */}
-                <button
-                  type="button"
-                  onClick={alternarCalendario}
-                  aria-pressed={calendarioVisible}
-                  aria-label={calendarioVisible ? 'Ocultar calendario' : 'Mostrar calendario'}
-                  title={calendarioVisible ? 'Ocultar calendario' : 'Mostrar calendario'}
-                  className={`ev-btn ev-focusable grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl transition-colors ${
-                    calendarioVisible
-                      ? 'bg-white/20 text-white hover:bg-white/30'
-                      : 'bg-white/10 text-white/50 hover:bg-white/20 hover:text-white'
-                  }`}
-                >
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5" aria-hidden="true">
-                    <rect x="3" y="4" width="18" height="17" rx="2.5" />
-                    <path d="M3 10h18M8 2v4M16 2v4" strokeLinecap="round" />
-                    {!calendarioVisible && (
-                      <path d="M4 20L20 4" strokeLinecap="round" strokeWidth="2.2" />
-                    )}
-                  </svg>
-                </button>
-
-                <button type="button" onClick={() => setShowCrearTarea(true)} className="ev-btn ev-shimmer ev-shimmer-claro ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-4 sm:px-5 py-2.5 rounded-xl font-bold shadow-md shrink-0">
-                  <Icono nombre="mas" className="w-4 h-4" />
-                  <span className="hidden sm:inline">Nueva tarea</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={abrirChatMovil}
-                  className="ev-focusable xl:hidden grid place-items-center w-10 h-10 rounded-xl bg-white/15 shrink-0"
-                  aria-label="Abrir chat del equipo"
-                >
-                  <Icono nombre="chat" className="w-5 h-5" />
-                  {mensajesNoLeidos > 0 && (
-                    <span className="absolute top-1.5 right-1.5 grid place-items-center min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-black">
-                      {Math.min(mensajesNoLeidos, 99)}
-                    </span>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  {/* En escritorio el calendario va en la misma fila */}
+                  {calendarioVisible && (
+                    <div className="hidden lg:block shrink-0 ev-enter ev-d-2">
+                      <CalendarioVencimientos
+                        tareas={tareas}
+                        prioridades={PRIORIDADES}
+                        onVerEnTablero={verFechaEnTablero}
+                      />
+                    </div>
                   )}
-                </button>
-              </div>
 
-              {/* Tabs: el chat ya no compite, vive en el panel derecho */}
-              <div role="tablist" aria-label="Vistas del equipo" className="mt-5 flex gap-1 rounded-xl bg-white/15 p-1 w-full sm:w-auto sm:inline-flex">
-                {[
-                  { id: 'dashboard', label: 'Resumen', icono: 'grafica' },
-                  { id: 'tablero', label: 'Tablero', icono: 'tablero' },
-                ].map((t) => (
+                  {/* Toggle del calendario. Va siempre visible (tb en movil) para
+                      que se pueda volver a mostrar sin entrar a otro equipo. */}
                   <button
-                    key={t.id}
                     type="button"
-                    role="tab"
-                    aria-selected={vista === t.id}
-                    onClick={() => cambiarVista(t.id)}
-                    className={`ev-tab ev-focusable flex-1 sm:flex-none inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-bold ${
-                      vista === t.id ? 'bg-white text-blue-700 shadow-sm' : 'text-white hover:bg-white/15'
+                    onClick={alternarCalendario}
+                    aria-pressed={calendarioVisible}
+                    aria-label={calendarioVisible ? 'Ocultar calendario' : 'Mostrar calendario'}
+                    title={calendarioVisible ? 'Ocultar calendario' : 'Mostrar calendario'}
+                    className={`ev-btn ev-focusable grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl transition-colors ${
+                      calendarioVisible
+                        ? 'bg-white/20 text-white hover:bg-white/30'
+                        : 'bg-white/10 text-white/50 hover:bg-white/20 hover:text-white'
                     }`}
                   >
-                    <Icono nombre={t.icono} className="w-4 h-4" />
-                    {t.label}
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5" aria-hidden="true">
+                      <rect x="3" y="4" width="18" height="17" rx="2.5" />
+                      <path d="M3 10h18M8 2v4M16 2v4" strokeLinecap="round" />
+                      {!calendarioVisible && (
+                        <path d="M4 20L20 4" strokeLinecap="round" strokeWidth="2.2" />
+                      )}
+                    </svg>
                   </button>
-                ))}
+
+                  <button type="button" onClick={() => setShowCrearTarea(true)} className="ev-btn ev-shimmer ev-shimmer-claro ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-4 sm:px-5 py-2.5 rounded-xl font-bold shadow-md shrink-0">
+                    <Icono nombre="mas" className="w-4 h-4" />
+                    <span className="hidden sm:inline">Nueva tarea</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={abrirChatMovil}
+                    className="ev-focusable xl:hidden grid place-items-center w-10 h-10 rounded-xl bg-white/15 shrink-0"
+                    aria-label="Abrir chat del equipo"
+                  >
+                    <Icono nombre="chat" className="w-5 h-5" />
+                    {mensajesNoLeidos > 0 && (
+                      <span className="absolute top-1.5 right-1.5 grid place-items-center min-w-4 h-4 px-1 rounded-full bg-red-500 text-white text-[9px] font-black">
+                        {Math.min(mensajesNoLeidos, 99)}
+                      </span>
+                    )}
+                  </button>
+                </div>
               </div>
             </div>
           </header>
@@ -1773,7 +1728,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                     onChange={(e) => setBusqueda(e.target.value)}
                     placeholder="Buscar tareas..."
                     aria-label="Buscar tareas"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
                   />
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -1955,7 +1910,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                 onKeyDown={(e) => { if (e.key === 'Enter') enviarMensaje(); }}
                 placeholder="Escribe un mensaje..."
                 aria-label="Mensaje de chat"
-                className="ev-field flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="ev-field flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
               />
               <button
                 type="button"
@@ -1990,7 +1945,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                   value={nuevaTarea.titulo}
                   onChange={(e) => setNuevaTarea({ ...nuevaTarea, titulo: e.target.value })}
                   placeholder="¿Qué hay que hacer?"
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
                 />
               </div>
               <div>
@@ -2000,7 +1955,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                   value={nuevaTarea.descripcion}
                   onChange={(e) => setNuevaTarea({ ...nuevaTarea, descripcion: e.target.value })}
                   rows={3}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 resize-none"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 resize-none"
                 />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -2017,7 +1972,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                       const prioridad = dias === null ? 'verde' : dias <= 2 ? 'rojo' : dias <= 5 ? 'amarillo' : 'verde';
                       setNuevaTarea((prev) => ({ ...prev, prioridad, fecha_entrega: fecha }));
                     }}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
                   />
                 </div>
                 <div>
@@ -2026,7 +1981,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                     id="nueva-asignado"
                     value={nuevaTarea.asignado_a}
                     onChange={(e) => setNuevaTarea({ ...nuevaTarea, asignado_a: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
                   >
                     <option value="">Sin asignar</option>
                     {miembros.map((m) => <option key={m.usuario_id} value={m.usuario_id}>{m.nombre}</option>)}
@@ -2082,7 +2037,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                   type="text"
                   value={tareaEditForm.titulo}
                   onChange={(e) => setTareaEditForm({ ...tareaEditForm, titulo: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
                 />
               </div>
               <div>
@@ -2092,7 +2047,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                   value={tareaEditForm.descripcion}
                   onChange={(e) => setTareaEditForm({ ...tareaEditForm, descripcion: e.target.value })}
                   rows={3}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 resize-none"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 resize-none"
                 />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -2103,7 +2058,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                     type="date"
                     value={tareaEditForm.fecha_entrega}
                     onChange={(e) => setTareaEditForm({ ...tareaEditForm, fecha_entrega: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
                   />
                 </div>
                 <div>
@@ -2112,7 +2067,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                     id="edit-asignado"
                     value={tareaEditForm.asignado_a}
                     onChange={(e) => setTareaEditForm({ ...tareaEditForm, asignado_a: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
                   >
                     <option value="">Sin asignar</option>
                     {miembros.map((m) => <option key={m.usuario_id} value={m.usuario_id}>{m.nombre}</option>)}
@@ -2187,7 +2142,7 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                     onKeyDown={(e) => { if (e.key === 'Enter') agregarComentario(); }}
                     placeholder="Escribe un comentario..."
                     aria-label="Comentario de la tarea"
-                    className="ev-field flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="ev-field flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
                   />
                   <button type="button" onClick={agregarComentario} disabled={!nuevoComentario.trim()} aria-label="Enviar comentario" className="ev-btn ev-focusable grid place-items-center w-11 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shrink-0 disabled:opacity-50">
                     <Icono nombre="enviar" className="w-4 h-4" />

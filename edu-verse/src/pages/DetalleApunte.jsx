@@ -293,7 +293,7 @@ const DetalleApunte = () => {
 
                 <div className="ev-field">
                   <textarea
-                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-4 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-base mb-4 transition-all"
+                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-4 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20 text-base mb-4 transition-all"
                     placeholder="¿Qué te pareció este apunte?"
                     rows="4"
                     value={comentario}

@@ -135,6 +135,27 @@ ahí hace pensar que algo va mal. Es ámbar, el mismo color de hover del navbar.
 ### `ErrorBoundary.jsx`
 Clase React con `getDerivedStateFromError` → si un hijo lanza, renderiza pantalla de error con botón que resetea el estado y navega a `/`.
 
+### `InfoModulo.jsx`
+Botón "i" con popover de texto extendido. Lo usa cada tarjeta de módulo del Home.
+
+- **El popover va en `createPortal` a `document.body`**, aunque el botón sí está dentro de la tarjeta. Motivo: el contenedor de las tarjetas tiene `overflow: hidden` y el popover se cortaría a la mitad. Mismo problema y misma solución que el calendario de vencimientos.
+- Se posiciona midiendo el botón, y **recalcula en `scroll` y `resize`**: es `position: fixed`, sin eso se despega al hacer scroll.
+- Cierra con `Escape` o clic fuera. El listener de clic fuera ignora los eventos dentro de `[data-info-modulo]` **y** dentro de `[data-info-popover]`, por la misma razón que el calendario: el popover es un portal a `document.body`, fuera del árbol de React pero dentro del árbol del DOM.
+- **El botón llama `preventDefault()` y `stopPropagation()`.** Vive dentro del `<Link>` que envuelve la tarjeta del módulo, así que sin esto el clic sube al `Link` y React Router navega: el usuario pulsaba "i" y lo mandaba a otra página.
+
+#### Botón dentro de un `Link`
+
+Regla general del proyecto: **un control interactivo anidado en un `Link` decide por evento.** Sin `stopPropagation`, el clic navega.
+
+Es fácil no verlo porque el control se ve correcto y el bug solo aparece al pulsarlo. `InfoModulo` nació con ese bug: en la tarjeta del Home el "i" funcionaba y además cambiaba de página.
+
+Relacionado: `stopPropagation` **no** protege al popover del listener de clic fuera. Ese listener está en `document`, y en el DOM los eventos no tienen tabú de propagación: `stopPropagation` corta el camino hacia abajo (hacia `document`) del evento *original*, pero no exime a los hijos que nazcan en otro lugar del árbol. Por eso el popover necesita marcador propio.
+- `aria-expanded` en el botón, `role="tooltip"` en el popover.
+- Entra con `ev-enter-pop`.
+
+### `CalendarioVencimientos.jsx`
+Calendario de vencimientos del equipo. Ver la sección de `GestorEquipos.jsx` para el detalle de comportamiento.
+
 ---
 
 ## 4. Páginas (`src/pages/`)
@@ -158,9 +179,27 @@ Clase React con `getDerivedStateFromError` → si un hijo lanza, renderiza panta
 
 ### `Home.jsx`
 1. Lee `localStorage.usuario` para el saludo.
-2. Array `modulos` con 3 tarjetas: Biblioteca (activo), Gestor de Equipos (activo), Tutor IA (`activo: false`).
+2. Array `modulos` con 3 tarjetas: Biblioteca (activo), Gestor de Equipos (activo), Tutor IA (`activo: false`). Cada una lleva `descripcion` (corta, siempre visible), `detalle` (larga, va en el popover de `InfoModulo`) y `demora` (`ev-d-N` para la entrada escalonada).
 3. Renderiza grid; las activas envuelven en `<Link>`, las inactivas muestran badge "Próximamente" y no navegan.
 4. El fondo va en `.ev-home-fondo` (no en `style`) para que pueda tener versión oscura.
+
+#### Animaciones del Home
+
+Todo con clases del sistema `ev-*`, sin `animate-*` de Tailwind ni CSS suelto:
+
+| Dónde | Clase | Qué hace |
+|---|---|---|
+| Racha (header) | `ev-enter ev-d-1` | Entrada coreografiada |
+| Tarjetas de módulo | `ev-enter` + `ev-d-2/3/4` | **Entran una tras otra** |
+| Tarjeta de módulo | `group` | Agrupa los hover del contenido |
+| Icono del módulo | `group-hover:scale-110 group-hover:-rotate-6` | Reacciona al hover de la tarjeta |
+| Botón "Entrar" | `ev-btn ev-shimmer` | Brillo que lo recorre al hover |
+| Mascota | `ev-float` + `ev-rebote-suave` | Flotación permanente + rebote cada 5 s |
+| Popover de info | `ev-enter-pop` | Entra con escala, no de golpe |
+
+La mascota lleva **las dos**: `ev-float` la mantiene siempre en movimiento (nunca queda quieta 5 segundos) y `ev-rebote-suave` se suma cada 5 s como refuerzo. Antes solo rebotaba, y entre rebotes la imagen se quedaba estática.
+
+Los `ev-d-N` solo declaran `animation-delay`: no animan por sí mismos, así que no necesitan entrada propia en el bloque `prefers-reduced-motion` (la animación base `ev-enter` ya está anulada ahí).
 
 #### Jerarquía de superficies del Home
 
@@ -174,7 +213,6 @@ se leen como agujeros y la página pierde profundidad.
 | Contenedor | `bg-white/60` | `dark:bg-slate-900/70` |
 | Tarjeta de módulo | `bg-white` | `dark:bg-slate-800` |
 | Tarjeta inactiva | `bg-slate-50/80` | `dark:bg-slate-800/60` |
-| Tarjeta de actividad | `bg-white/70` | `dark:bg-slate-800/70` |
 
 `border-white/80` no sirve en oscuro: un borde blanco al 80% sobre fondo oscuro
 es una línea brillante. Las tarjetas y el contenedor usan
@@ -323,6 +361,36 @@ redefine en `.dark`. Las clases `ev-*` las consumen:
 
 Con esto el tema oscuro cubre automáticamente el fondo de página, los paneles de
 vidrio, las barras y los bordes de **todas** las páginas.
+
+#### El detalle que más se olvida: `--ev-text` tiene que Consumirse
+
+Los tokens `--ev-text` existen en `:root` y en `.dark` desde el principio, pero
+**si el `body` no los aplica, no hace nada**:
+
+```css
+body { color: var(--ev-text); }
+```
+
+Sin esa línea, el texto hereda el default del navegador — **negro**. El fondo sí
+cambiaba con `--ev-bg`, así que en modo oscuro quedaba **negro sobre azul casi
+negro**, y cualquier elemento sin `text-*` propio era ilegible: inputs,
+textareas y selects. El del chat del gestor fue el primer caso visible, pero
+afectaba a toda la columna de formularios del proyecto.
+
+No es un bug de un componente: es un token definido y sin usar. Para detectarlo,
+hay que buscar en el CSS compilado que el `body` tenga `color:var(--ev-text)`,
+no solo que la variable esté declarada.
+
+Los elementos que sí declaran su color no se ven afectados: `body` es el
+ancestro y cualquier clase de Tailwind tiene mayor especificidad. El cambio solo
+toca a los que heredaban, que son exactamente los que estaban rotos.
+
+#### `focus:ring-blue-100`: un anillo claro que no funciona en oscuro
+
+Los campos usaban `focus:ring-4 focus:ring-blue-100`. `blue-100` es casi blanco:
+sobre un input oscuro en modo oscuro, el foco se ve como una mancha clara
+mal formada. Se cambió a `focus:ring-blue-500/20`, un halo azul suave que
+funciona en los dos temas. Aplicado a los 25 campos del proyecto.
 
 #### El detalle que más se olvida
 
@@ -691,10 +759,18 @@ quitando claves específicas.
    - El color del punto en cada día codifica **urgencia**, no estado: rojo = vencida o vence hoy, ámbar = 1 a 3 días, azul = 4+ días. Reutiliza los tres colores que el usuario ya aprendió a leer en las tarjetas y en el resumen; no introduce un color nuevo.
    - Las tareas completadas y las que no tienen fecha no aparecen en la grilla.
    - Los puntos rojos laten (`ev-punto-critico`) para que el ojo los encuentre sin leer los números.
+   - **"Hoy" es un anillo, no un bloque sólido.** Antes era `bg-white text-blue-700`, y dentro de una grícula casi toda translúcida competía con el punto de urgencia, que es justo el dato que hay que leer. Ahora es `bg-white/15 ring-2 ring-white`: marca el día sin tapar el indicador.
+   - **Un día con más de 2 tareas muestra el número, no el punto.** El color del punto solo codifica urgencia, así que un día con 1 tarea y otro con 5 se veían idénticos. El badge (`bg-{red|amber|sky}-500`) usa un tono más saturado que el punto para marcar el cambio de forma.
+   - **El badge numérico NO lleva `ev-punto-critico`.** Esa animación baja la opacidad a 0.45 y escala 1.35: sobre un punto de 1.5px da un "latido" nice, pero sobre un número lo vuelve borroso justo cuando más importa leerlo. El latido queda solo en el punto chico.
+   - **Botón "Hoy"** junto al nombre del mes, visible solo cuando el mes mostrado no es el actual. Un atajo que no lleva a ningún lado solo suma ruido.
+   - El popover lleva un acento de 4px en el borde superior (`from-blue-500 to-indigo-500`) para que se lea como algo que cuelga del día pulsado.
+   - La lista de tareas del popover tiene `max-h-64 overflow-y-auto`: con muchas tareas en un día, el popover se salía de la pantalla y "Ver en el tablero" quedaba inalcanzable.
    - Al hacer clic en un día con vencimientos se abre un popover con las tareas, su prioridad, el plazo ("Vence hoy", "Mañana", "En 3 d") y el responsable.
      - **El popover se monta en un portal (`createPortal` a `document.body`).** El header que lo contiene tiene `overflow: hidden` para recortar sus círculos decorativos: si el popover quedara en el árbol normal, el navegador lo cortaría a la altura del header y nunca se vería. Al ser `position: fixed`, hay que recalcular su posición en `scroll` y `resize`, y limitar el borde izquierdo con `window.innerWidth` para que no se salga en móvil.
      - "Ver en el tablero" salta a la vista `tablero` con el filtro por fecha aplicado. El filtro se marca con un chip en la barra del tablero que lo quita.
-     - Cierra con `Escape` o clic fuera. El listener de clic fuera ignora los eventos que caen dentro de `[data-calendario]`: se registra en el mismo tick del clic que lo abrió y cerraría el popover de inmediato.
+     - Cierra con `Escape` o clic fuera. El listener de clic fuera ignora los eventos dentro de `[data-calendario]` **y** dentro de `[data-calendario-popover]`:
+   - El primero porque se registra en el mismo tick del clic que lo abrió y cerraría de inmediato.
+   - El segundo porque **el popover sale del árbol de React pero no del árbol del DOM**. Un portal a `document.body` deja de propagar por React, pero el listener está en `document`, así que lo ve igual: sin su propio marcador, cualquier clic dentro del popover lo cerraba.
      - **Se puede ocultar** con el botón de calendario del header. La preferencia se guarda en `eduverse_calendario_visible` (por defecto visible). El botón queda siempre visible, también con el calendario oculto, para poder volver a mostrarlo sin cambiar de equipo.
 2. **Kanban:** 3 columnas por `ESTADOS` (`pendiente`, `en_progreso`, `completada`) con drag-and-drop nativo (`onDragStart` / `onDrop` / `onDragOver`).
 3. **Tarjeta de tarea:** prioridad (`verde`/`amarillo`/`rojo`), días restantes calculados, asignado, botones rápidos de cambio de estado, botón eliminar (abre modal).

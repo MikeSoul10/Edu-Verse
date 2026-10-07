@@ -162,7 +162,7 @@ const Apuntes = () => {
                   onChange={(e) => setBusqueda(e.target.value)}
                   placeholder="Buscar por título, materia o autor..."
                   aria-label="Buscar apuntes"
-                  className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 py-3.5 sm:py-4 pl-11 sm:pl-12 pr-4 text-base sm:text-lg text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 py-3.5 sm:py-4 pl-11 sm:pl-12 pr-4 text-base sm:text-lg text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
                 />
               </div>
             </div>

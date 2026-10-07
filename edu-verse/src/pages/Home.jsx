@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
+import InfoModulo from '../components/InfoModulo';
 
 const CLAVE_RACHA = 'eduverse_racha';
 
@@ -92,29 +93,35 @@ const Home = () => {
     {
       titulo: 'Biblioteca',
       descripcion: 'Explora y comparte apuntes, documentos y materiales de estudio con tu comunidad.',
+      detalle: 'Sube tus apuntes en PDF o imagen, explora los que comparten tus compañeros, filtra por materia, guarda favoritos y califica cada material con estrellas. Todo el contenido queda organizado y se puede buscar por nombre.',
       icono: '/Iconos/libros.png',
       link: '/biblioteca',
       activo: true,
       color: 'from-blue-600 to-indigo-600',
       iconBg: 'bg-blue-50 dark:bg-blue-500/15',
+      demora: 'ev-d-2',
     },
     {
       titulo: 'Gestor de Equipos',
       descripcion: 'Organiza tu equipo de estudio, asigna tareas y colabora en tiempo real.',
+      detalle: 'Crea un equipo o únete con un código, organiza el trabajo en un tablero kanban, chatea con tu equipo en tiempo real, asigna tareas con fecha de entrega y revisa el avance en un dashboard con métricas y calendario de vencimientos.',
       icono: '/Iconos/grupo2.png',
       link: '/gestor-equipos',
       activo: true,
       color: 'from-indigo-600 to-violet-600',
       iconBg: 'bg-indigo-50 dark:bg-indigo-500/15',
+      demora: 'ev-d-3',
     },
     {
       titulo: 'Tutor IA',
       descripcion: 'Aprende con inteligencia artificial: resuelve dudas, genera resúmenes y más.',
+      detalle: 'Próximamente. Un asistente que responde dudas sobre tu materia, genera resúmenes a partir de tus apuntes y te sugiere ejercicios para practicar antes del examen.',
       icono: '/Iconos/mascota_robot.png',
       link: null,
       activo: false,
       color: '',
       iconBg: 'bg-slate-100 dark:bg-slate-800',
+      demora: 'ev-d-4',
     },
   ];
 
@@ -156,7 +163,7 @@ const Home = () => {
             <img
               src="/Imagenes_Diseño/mascota_riendo.png"
               alt="Mascota de Edu-Verse riendo"
-              className={`h-20 w-20 object-contain sm:h-28 sm:w-28 ${isMascotaBouncing ? 'ev-rebote-suave' : ''}`}
+              className={`ev-float h-20 w-20 object-contain sm:h-28 sm:w-28 ${isMascotaBouncing ? 'ev-rebote-suave' : ''}`}
             />
           </h1>
           <p className="relative z-10 mt-4 text-base text-blue-50 sm:text-2xl">
@@ -167,19 +174,22 @@ const Home = () => {
         <section aria-label="Módulos educativos" className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {modulos.map((modulo) => {
             const cardContent = (
-              <article className={`relative flex h-full min-h-[17rem] sm:min-h-[21rem] flex-col items-center rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white dark:bg-slate-800 p-6 text-center shadow-sm transition-all duration-300 sm:p-9 ${modulo.activo ? 'hover:-translate-y-1 hover:shadow-xl' : 'bg-slate-50/80 dark:bg-slate-800/60 opacity-65'}`}>
-                {!modulo.activo && (
-                  <span className="absolute right-4 top-4 rounded-full bg-slate-200 dark:bg-slate-700 px-3.5 py-1.5 text-sm font-bold tracking-wider text-slate-500 dark:text-slate-400">
-                    PRÓXIMAMENTE
-                  </span>
-                )}
+              <article className={`ev-enter ${modulo.demora} group relative flex h-full min-h-[17rem] sm:min-h-[21rem] flex-col items-center rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white dark:bg-slate-800 p-6 text-center shadow-sm transition-all duration-300 sm:p-9 ${modulo.activo ? 'hover:-translate-y-1 hover:shadow-xl' : 'bg-slate-50/80 dark:bg-slate-800/60 opacity-65'}`}>
+                <div className="absolute right-4 top-4 flex items-center gap-2">
+                  {!modulo.activo && (
+                    <span className="rounded-full bg-slate-200 px-3.5 py-1.5 text-sm font-bold tracking-wider text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                      PRÓXIMAMENTE
+                    </span>
+                  )}
+                  <InfoModulo texto={modulo.detalle} etiqueta={modulo.titulo} />
+                </div>
 
                 <div className={`mb-4 sm:mb-6 flex items-center justify-center rounded-full ${modulo.icono === '/Iconos/grupo2.png' || modulo.icono === '/Iconos/libros.png' || modulo.icono === '/Iconos/mascota_robot.png' ? 'h-24 w-24 sm:h-36 sm:w-36' : 'h-20 w-20 sm:h-32 sm:w-32'} ${modulo.iconBg}`}>
                   {modulo.icono ? (
                     <img
                       src={modulo.icono}
                       alt=""
-                      className={`object-contain ${modulo.icono === '/Iconos/grupo2.png' || modulo.icono === '/Iconos/libros.png' || modulo.icono === '/Iconos/mascota_robot.png' ? 'h-20 w-20 sm:h-32 sm:w-32' : 'h-16 w-16 sm:h-24 sm:w-24'}`}
+                      className={`object-contain transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 ${modulo.icono === '/Iconos/grupo2.png' || modulo.icono === '/Iconos/libros.png' || modulo.icono === '/Iconos/mascota_robot.png' ? 'h-20 w-20 sm:h-32 sm:w-32' : 'h-16 w-16 sm:h-24 sm:w-24'}`}
                     />
                   ) : (
                     <span aria-hidden="true" className="text-5xl sm:text-6xl">🤖</span>
@@ -194,7 +204,7 @@ const Home = () => {
                 </p>
 
                 {modulo.activo ? (
-                  <span className={`inline-flex items-center rounded-xl bg-gradient-to-r ${modulo.color} px-6 sm:px-7 py-3 text-lg sm:text-xl font-semibold text-white shadow-md transition-all hover:shadow-lg`}>
+                  <span className={`ev-btn ev-shimmer inline-flex items-center overflow-hidden rounded-xl bg-gradient-to-r ${modulo.color} px-6 sm:px-7 py-3 text-lg sm:text-xl font-semibold text-white shadow-md transition-all hover:shadow-lg`}>
                     Entrar →
                   </span>
                 ) : (
@@ -213,19 +223,6 @@ const Home = () => {
               <div key={modulo.titulo} className="h-full">{cardContent}</div>
             );
           })}
-        </section>
-
-        <section aria-label="Actividad reciente" className="mt-6 sm:mt-10 border-t border-slate-200 dark:border-slate-700 pt-6 sm:pt-8">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <article className="rounded-2xl border border-white/80 dark:border-slate-700/60 bg-white/70 dark:bg-slate-800/70 p-5">
-              <p className="text-base font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-400">Último apunte visto</p>
-              <p className="mt-2 text-xl font-semibold text-slate-700 dark:text-slate-300">Cálculo II - Resumen.pdf</p>
-            </article>
-            <article className="rounded-2xl border border-white/80 dark:border-slate-700/60 bg-white/70 dark:bg-slate-800/70 p-5">
-              <p className="text-base font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-400">Equipos activos</p>
-              <p className="mt-2 text-xl font-semibold text-slate-700 dark:text-slate-300">2 Grupos de estudio</p>
-            </article>
-          </div>
         </section>
       </div>
     </main>

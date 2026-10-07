@@ -17,6 +17,19 @@
     font-family: 'Fredoka', 'Nunito', system-ui, -apple-system, sans-serif;
   }
 
+  /* El color de texto del body sale del token `--ev-text`.
+
+     Sin esto, el texto hereda el default del navegador, que es NEGRO. El
+     fondo si cambiaba con `--ev-bg`, asi que en modo oscuro quedaba negro
+     sobre azul casi negro: los inputs y textareas que no declaran su propio
+     `text-*` se volvian ilegibles (el del chat fue el primer caso visible).
+
+     `--ev-text` ya existia en `:root` y en `.dark` desde el principio, pero
+     ningun selector lo consumia: el token estaba definido y sin usar. */
+  body {
+    color: var(--ev-text);
+  }
+
   /* El fondo del <html> se pinta antes de que monte React (script inline
      en index.html). Sin esto hay un destello blanco en cada recarga al
      entrar en modo oscuro. */

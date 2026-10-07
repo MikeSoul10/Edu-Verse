@@ -108,7 +108,7 @@ const Login = () => {
     ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
     : emailValido
       ? 'border-emerald-400 focus:border-emerald-500 focus:ring-emerald-100'
-      : 'border-gray-200 focus:border-blue-500 focus:ring-blue-100';
+      : 'border-gray-200 focus:border-blue-500 focus:ring-blue-500/20';
 
   return (
     <div className="ev-mesh-bg min-h-[88vh] flex items-center justify-center p-4 sm:p-6 lg:p-10 relative overflow-hidden font-['Fredoka',sans-serif]">
@@ -264,7 +264,7 @@ const Login = () => {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   value={formData.password}
-                  className="w-full pl-12 pr-12 px-5 py-4 rounded-2xl bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 text-lg font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full pl-12 pr-12 px-5 py-4 rounded-2xl bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 text-lg font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
                   placeholder="••••••••"
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 />

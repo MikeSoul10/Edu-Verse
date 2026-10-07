@@ -190,7 +190,7 @@ const Signup = () => {
                   type="text"
                   autoComplete="name"
                   value={formData.nombre}
-                  className="w-full pl-12 pr-5 px-5 py-4 rounded-2xl bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 text-lg font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full pl-12 pr-5 px-5 py-4 rounded-2xl bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 text-lg font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
                   placeholder="Ej. Miguel Pérez"
                   onChange={handleChange('nombre')}
                 />
@@ -220,7 +220,7 @@ const Signup = () => {
                       ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
                       : emailInstitucional
                         ? 'border-emerald-400 focus:border-emerald-500 focus:ring-emerald-100'
-                        : 'border-gray-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-100'
+                        : 'border-gray-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
                   }`}
                   placeholder="tu@alumnos.udg.mx"
                   onChange={handleChange('email')}
@@ -265,7 +265,7 @@ const Signup = () => {
                   className={`w-full pl-12 pr-12 px-5 py-4 rounded-2xl bg-gray-50 dark:bg-slate-900 border text-gray-900 dark:text-slate-100 text-lg font-medium outline-none focus:ring-4 ${
                     passwordInvalida
                       ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
-                      : 'border-gray-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-100'
+                      : 'border-gray-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-500/20'
                   }`}
                   placeholder="Mínimo 6 caracteres"
                   onChange={handleChange('password')}
