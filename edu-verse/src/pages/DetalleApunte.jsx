@@ -7,12 +7,12 @@ import { API_URL } from '../config';
 const CLAVE_ULTIMO = 'eduverse_ultimo_apunte';
 
 const paletaTono = (materia = '') => {
-  const t = [{ f: 'from-blue-500 to-indigo-600', c: 'bg-blue-50 text-blue-700', p: '#3b82f6' },
-             { f: 'from-violet-500 to-purple-600', c: 'bg-violet-50 text-violet-700', p: '#8b5cf6' },
-             { f: 'from-emerald-500 to-teal-600', c: 'bg-emerald-50 text-emerald-700', p: '#10b981' },
-             { f: 'from-amber-500 to-orange-600', c: 'bg-amber-50 text-amber-700', p: '#f59e0b' },
-             { f: 'from-rose-500 to-red-600', c: 'bg-rose-50 text-rose-700', p: '#ec4899' },
-             { f: 'from-cyan-500 to-sky-600', c: 'bg-cyan-50 text-cyan-700', p: '#06b6d4' }];
+  const t = [{ f: 'from-blue-500 to-indigo-600', c: 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300', p: '#3b82f6' },
+             { f: 'from-violet-500 to-purple-600', c: 'bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300', p: '#8b5cf6' },
+             { f: 'from-emerald-500 to-teal-600', c: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300', p: '#10b981' },
+             { f: 'from-amber-500 to-orange-600', c: 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300', p: '#f59e0b' },
+             { f: 'from-rose-500 to-red-600', c: 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300', p: '#ec4899' },
+             { f: 'from-cyan-500 to-sky-600', c: 'bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300', p: '#06b6d4' }];
   let h = 0;
   for (let i = 0; i < materia.length; i++) h = (h * 31 + materia.charCodeAt(i)) % 9973;
   return t[h % t.length];
@@ -126,7 +126,7 @@ const DetalleApunte = () => {
         <button
           type="button"
           onClick={() => navigate('/biblioteca')}
-          className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 mb-5 text-slate-600 hover:text-blue-700 font-bold"
+          className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 mb-5 text-slate-600 dark:text-slate-400 hover:text-blue-700 font-bold"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-4 h-4" aria-hidden="true">
             <path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
@@ -183,7 +183,7 @@ const DetalleApunte = () => {
                 href={`${API_URL}${apunte.archivo_url}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="ev-btn ev-shimmer inline-flex items-center gap-2 rounded-2xl bg-white text-blue-700 px-6 sm:px-8 py-3.5 text-lg font-bold shadow-md"
+                className="ev-btn ev-shimmer ev-shimmer-claro inline-flex items-center gap-2 rounded-2xl bg-white text-blue-700 px-6 sm:px-8 py-3.5 text-lg font-bold shadow-md"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-5 h-5" aria-hidden="true">
                   <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" strokeLinejoin="round" />
@@ -204,10 +204,10 @@ const DetalleApunte = () => {
               <div aria-hidden="true" className="pointer-events-none absolute -top-14 -right-10 h-36 w-36 rounded-full bg-blue-200/30 blur-2xl" />
               <span aria-hidden="true" className="ev-esquina" />
 
-              <h2 className="relative text-base font-black uppercase tracking-widest text-slate-500">
+              <h2 className="relative text-base font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Sobre este material
               </h2>
-              <p className="relative mt-3 text-slate-700 leading-relaxed">
+              <p className="relative mt-3 text-slate-700 dark:text-slate-300 leading-relaxed">
                 {apunte.descripcion || 'Sin descripción proporcionada.'}
               </p>
             </section>
@@ -216,39 +216,39 @@ const DetalleApunte = () => {
             <section className="ev-panel-glass ev-card-dash relative overflow-hidden rounded-2xl p-6 sm:p-7 ev-enter ev-d-3">
               <div aria-hidden="true" className="pointer-events-none absolute -bottom-16 -left-10 h-36 w-36 rounded-full bg-amber-300/20 blur-2xl" />
 
-              <h2 className="relative text-base font-black uppercase tracking-widest text-slate-500">
+              <h2 className="relative text-base font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Comunidades y dudas ({comentarios.length})
               </h2>
 
               {comentarios.length === 0 ? (
-                <div className="relative mt-6 rounded-2xl border-2 border-dashed border-blue-100 py-10 text-center ev-view">
-                  <span className="mx-auto grid w-14 h-14 place-items-center rounded-2xl bg-blue-50 text-blue-400">
+                <div className="relative mt-6 rounded-2xl border-2 border-dashed border-blue-100 dark:border-blue-500/30 py-10 text-center ev-view">
+                  <span className="mx-auto grid w-14 h-14 place-items-center rounded-2xl bg-blue-50 dark:bg-blue-500/15 text-blue-400">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="w-7 h-7" aria-hidden="true">
                       <path d="M21 12a8 8 0 0 1-8 8H7l-4 3v-5.5A8 8 0 0 1 13 4a8 8 0 0 1 8 8z" strokeLinejoin="round" />
                     </svg>
                   </span>
-                  <p className="mt-4 font-bold text-slate-700">Nadie ha comentado todavía</p>
-                  <p className="mt-1 text-sm text-slate-500">Sé la primera persona en compartir sus dudas con la comunidad.</p>
+                  <p className="mt-4 font-bold text-slate-700 dark:text-slate-300">Nadie ha comentado todavía</p>
+                  <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">Sé la primera persona en compartir sus dudas con la comunidad.</p>
                 </div>
               ) : (
                 <ul className="relative mt-6 space-y-4">
                   {comentarios.map((c, i) => (
                     <li
                       key={c.comentario_id}
-                      className={`rounded-2xl border border-white/70 bg-white/85 p-5 ev-enter ${['ev-d-0', 'ev-d-1', 'ev-d-2'][i % 3]}`}
+                      className={`rounded-2xl border border-white/70 bg-white/85 dark:bg-slate-800/85 p-5 ev-enter ${['ev-d-0', 'ev-d-1', 'ev-d-2'][i % 3]}`}
                     >
                       <div className="flex items-center justify-between gap-3 mb-2.5">
                         <span className="flex items-center gap-3 min-w-0">
                           <span className={`grid place-items-center w-9 h-9 shrink-0 rounded-full bg-gradient-to-br ${tono.f} text-xs font-bold text-white`}>
                             {(c.nombre || '?').charAt(0).toUpperCase()}
                           </span>
-                          <span className="truncate font-bold text-slate-800 text-sm">{c.nombre}</span>
+                          <span className="truncate font-bold text-slate-800 dark:text-slate-200 text-sm">{c.nombre}</span>
                         </span>
-                        <span className="shrink-0 text-xs font-medium text-slate-400">
+                        <span className="shrink-0 text-xs font-medium text-slate-400 dark:text-slate-400">
                           {new Date(c.fecha_creacion).toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       </div>
-                      <p className="text-slate-600 text-sm leading-relaxed">{c.texto}</p>
+                      <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed">{c.texto}</p>
                     </li>
                   ))}
                 </ul>
@@ -262,12 +262,12 @@ const DetalleApunte = () => {
             <span aria-hidden="true" className="ev-esquina" />
 
             <div className="relative">
-              <h2 className="text-base font-black uppercase tracking-widest text-slate-500">
+              <h2 className="text-base font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
                 Tu opinión importa
               </h2>
 
               <form onSubmit={enviarComentario} className="mt-5">
-                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
+                <label className="block text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
                   Califica la calidad
                 </label>
                 <div className="flex items-center gap-1 mb-5">
@@ -293,7 +293,7 @@ const DetalleApunte = () => {
 
                 <div className="ev-field">
                   <textarea
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 p-4 text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-base mb-4 transition-all"
+                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 p-4 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 text-base mb-4 transition-all"
                     placeholder="¿Qué te pareció este apunte?"
                     rows="4"
                     value={comentario}
@@ -302,7 +302,7 @@ const DetalleApunte = () => {
                   />
                 </div>
 
-                <button className="ev-btn ev-shimmer w-full cursor-pointer rounded-2xl bg-blue-600 py-3.5 text-lg font-bold text-white shadow-md hover:bg-blue-700">
+                <button type="submit" className="ev-btn ev-shimmer ev-focusable w-full cursor-pointer rounded-2xl bg-blue-600 py-3.5 text-lg font-bold text-white shadow-md hover:bg-blue-700">
                   Publicar comentario
                 </button>
               </form>

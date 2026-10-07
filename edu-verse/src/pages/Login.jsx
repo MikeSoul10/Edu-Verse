@@ -199,19 +199,19 @@ const Login = () => {
         </div>
 
         {/* LADO DERECHO: FORMULARIO */}
-        <div className="md:w-1/2 p-6 sm:p-10 flex flex-col justify-center bg-white">
+        <div className="md:w-1/2 p-6 sm:p-10 flex flex-col justify-center bg-white dark:bg-slate-900">
           <div className="mb-6 sm:mb-8 ev-enter ev-d-1">
-            <h2 className="text-3xl sm:text-5xl font-extrabold text-gray-900 tracking-tight mb-2">
+            <h2 className="text-3xl sm:text-5xl font-extrabold text-gray-900 dark:text-slate-100 tracking-tight mb-2">
               Hola de nuevo
             </h2>
-            <p className="text-gray-500 text-base sm:text-lg font-medium">
+            <p className="text-gray-500 dark:text-slate-400 text-base sm:text-lg font-medium">
               Entra a tu cuenta de <span className="text-blue-600 font-bold">EduVers</span>
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div className={camposInvalidos ? 'ev-shake ev-enter ev-d-2' : 'ev-enter ev-d-2'}>
-              <label htmlFor="login-email" className="ev-field-label block text-base font-bold text-gray-700 mb-1.5 ml-1">
+              <label htmlFor="login-email" className="ev-field-label block text-base font-bold text-gray-700 dark:text-slate-300 mb-1.5 ml-1">
                 Correo institucional
               </label>
               <div className="ev-field relative">
@@ -222,7 +222,7 @@ const Login = () => {
                   value={formData.email}
                   aria-invalid={emailInvalido || emailVacio && enviado}
                   aria-describedby={emailInvalido ? 'login-email-error' : undefined}
-                  className={`w-full pl-12 pr-11 px-5 py-4 rounded-2xl bg-gray-50 border text-gray-900 text-lg font-medium outline-none focus:ring-4 ${bordeEmail}`}
+                  className={`w-full pl-12 pr-11 px-5 py-4 rounded-2xl bg-gray-50 dark:bg-slate-900 border text-gray-900 dark:text-slate-100 text-lg font-medium outline-none focus:ring-4 ${bordeEmail}`}
                   placeholder="tu@alumnos.udg.mx"
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 />
@@ -251,7 +251,7 @@ const Login = () => {
 
             <div className="ev-enter ev-d-3">
               <div className="flex justify-between items-center mb-1.5 ml-1">
-                <label htmlFor="login-password" className="ev-field-label text-base font-bold text-gray-700">
+                <label htmlFor="login-password" className="ev-field-label text-base font-bold text-gray-700 dark:text-slate-300">
                   Contraseña
                 </label>
                 <a href="#" className="ev-focusable text-sm font-bold text-blue-600 hover:underline">
@@ -264,7 +264,7 @@ const Login = () => {
                   type={showPassword ? 'text' : 'password'}
                   autoComplete="current-password"
                   value={formData.password}
-                  className="w-full pl-12 pr-12 px-5 py-4 rounded-2xl bg-gray-50 border border-gray-200 text-gray-900 text-lg font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full pl-12 pr-12 px-5 py-4 rounded-2xl bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 text-lg font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   placeholder="••••••••"
                   onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 />
@@ -279,7 +279,7 @@ const Login = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   aria-pressed={showPassword}
-                  className="ev-eye-btn ev-focusable absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center w-11 h-11 text-gray-400"
+                  className="ev-eye-btn ev-focusable absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center w-11 h-11 text-gray-400 dark:text-slate-500"
                 >
                   <img
                     src="/Iconos/ojo.png"
@@ -300,14 +300,14 @@ const Login = () => {
             <button
               type="submit"
               disabled={cargando}
-              className="ev-btn ev-shimmer ev-enter ev-d-4 w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-xl cursor-pointer mt-4 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+              className="ev-btn ev-shimmer ev-enter ev-d-4 w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-xl cursor-pointer mt-4 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
             >
               {cargando ? 'Entrando…' : 'Entrar a mi cuenta'}
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-gray-200/70 text-center ev-enter ev-d-5">
-            <p className="text-base text-gray-600 font-medium">
+          <div className="mt-8 pt-6 border-t border-gray-200/70 dark:border-slate-700/70 text-center ev-enter ev-d-5">
+            <p className="text-base text-gray-600 dark:text-slate-400 font-medium">
               ¿No tienes cuenta?{' '}
               <Link to="/signup" className="ev-focusable text-blue-600 font-bold hover:underline ml-1">
                 Regístrate gratis

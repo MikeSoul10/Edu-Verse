@@ -13,14 +13,14 @@ import { API_URL } from '../config';
 // de marca del proyecto. Con más de 6 materias se recorta a "Otras" para no
 // agregar un color que ya no se distingue del sexto.
 const TONOS_MATERIA = [
-  { fondo: 'from-blue-500 to-indigo-600', chip: 'bg-blue-50 text-blue-700', punto: '#3b82f6' },
-  { fondo: 'from-violet-500 to-purple-600', chip: 'bg-violet-50 text-violet-700', punto: '#8b5cf6' },
-  { fondo: 'from-emerald-500 to-teal-600', chip: 'bg-emerald-50 text-emerald-700', punto: '#10b981' },
-  { fondo: 'from-amber-500 to-orange-600', chip: 'bg-amber-50 text-amber-700', punto: '#f59e0b' },
-  { fondo: 'from-rose-500 to-red-600', chip: 'bg-rose-50 text-rose-700', punto: '#ec4899' },
-  { fondo: 'from-cyan-500 to-sky-600', chip: 'bg-cyan-50 text-cyan-700', punto: '#06b6d4' },
+  { fondo: 'from-blue-500 to-indigo-600', chip: 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300', punto: '#3b82f6' },
+  { fondo: 'from-violet-500 to-purple-600', chip: 'bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300', punto: '#8b5cf6' },
+  { fondo: 'from-emerald-500 to-teal-600', chip: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300', punto: '#10b981' },
+  { fondo: 'from-amber-500 to-orange-600', chip: 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300', punto: '#f59e0b' },
+  { fondo: 'from-rose-500 to-red-600', chip: 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300', punto: '#ec4899' },
+  { fondo: 'from-cyan-500 to-sky-600', chip: 'bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300', punto: '#06b6d4' },
 ];
-const TONO_OTRAS = { fondo: 'from-slate-500 to-slate-600', chip: 'bg-slate-100 text-slate-700', punto: '#64748b' };
+const TONO_OTRAS = { fondo: 'from-slate-500 to-slate-600', chip: 'bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300', punto: '#64748b' };
 
 // Hash estable: mismo nombre, mismo avatar y mismo color de materia.
 const hash = (texto = '') => {
@@ -376,13 +376,13 @@ const Biblioteca = () => {
 
   const SkeletonCard = () => (
     <div className="ev-panel-glass overflow-hidden rounded-2xl" aria-hidden="true">
-      <div className="h-36 bg-slate-200/70 animate-pulse" />
+      <div className="h-36 bg-slate-200/70 dark:bg-slate-700/70 animate-pulse" />
       <div className="p-5">
-        <div className="h-5 w-3/4 rounded-full bg-slate-200 animate-pulse mb-3" />
-        <div className="h-3.5 w-1/2 rounded-full bg-slate-100 animate-pulse mb-5" />
-        <div className="flex items-center justify-between pt-4 border-t border-slate-200/60">
-          <div className="h-9 w-9 rounded-full bg-slate-200 animate-pulse" />
-          <div className="h-8 w-20 rounded-xl bg-slate-100 animate-pulse" />
+        <div className="h-5 w-3/4 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse mb-3" />
+        <div className="h-3.5 w-1/2 rounded-full bg-slate-100 dark:bg-slate-800 animate-pulse mb-5" />
+        <div className="flex items-center justify-between pt-4 border-t border-slate-200/60 dark:border-slate-700/60">
+          <div className="h-9 w-9 rounded-full bg-slate-200 dark:bg-slate-700 animate-pulse" />
+          <div className="h-8 w-20 rounded-xl bg-slate-100 dark:bg-slate-800 animate-pulse" />
         </div>
       </div>
     </div>
@@ -418,7 +418,7 @@ const Biblioteca = () => {
                 onPreview?.(apunte);
               }}
               aria-label={`Ver vista previa de ${apunte.titulo}`}
-              className="ev-focusable group block w-full cursor-pointer overflow-hidden bg-slate-200"
+              className="ev-focusable group block w-full cursor-pointer overflow-hidden bg-slate-200 dark:bg-slate-700"
             >
               <iframe
                 src={`${urlArchivo(apunte)}#page=1&view=FitH`}
@@ -461,22 +461,22 @@ const Biblioteca = () => {
             {apunte.materia || 'Sin materia'}
           </span>
 
-          <h3 className={`mt-2.5 font-extrabold leading-snug text-slate-900 group-hover:text-blue-700 transition-colors ${destacada ? 'text-lg line-clamp-2' : 'text-base line-clamp-2'}`}>
+          <h3 className={`mt-2.5 font-extrabold leading-snug text-slate-900 dark:text-slate-100 group-hover:text-blue-700 transition-colors ${destacada ? 'text-lg line-clamp-2' : 'text-base line-clamp-2'}`}>
             <Link to={`/apunte/${apunte.apunte_id}`} className="ev-focusable">
               {apunte.titulo}
             </Link>
           </h3>
 
           {apunte.descripcion && (
-            <p className="mt-1.5 line-clamp-2 text-sm text-slate-500">{apunte.descripcion}</p>
+            <p className="mt-1.5 line-clamp-2 text-sm text-slate-500 dark:text-slate-400">{apunte.descripcion}</p>
           )}
 
-          <div className="mt-auto pt-4 flex items-center justify-between gap-3 border-t border-slate-200/60">
+          <div className="mt-auto pt-4 flex items-center justify-between gap-3 border-t border-slate-200/60 dark:border-slate-700/60">
             <span className="flex min-w-0 items-center gap-2">
               <span className={`ev-avatar grid place-items-center w-8 h-8 shrink-0 rounded-full bg-gradient-to-br ${tono.fondo} text-[11px] font-bold text-white`}>
                 {iniciales(apunte.autor)}
               </span>
-              <span className="truncate text-xs font-semibold text-slate-600">{apunte.autor || 'Anónimo'}</span>
+              <span className="truncate text-xs font-semibold text-slate-600 dark:text-slate-400">{apunte.autor || 'Anónimo'}</span>
             </span>
 
             <span className="flex shrink-0 items-center gap-2">
@@ -490,7 +490,7 @@ const Biblioteca = () => {
                 aria-pressed={esFav}
                 aria-label={esFav ? `Quitar ${apunte.titulo} de favoritos` : `Guardar ${apunte.titulo} en favoritos`}
                 className={`ev-focusable ev-favorito grid place-items-center w-9 h-9 rounded-xl transition-colors ${
-                  esFav ? 'bg-amber-50 text-amber-500' : 'text-slate-400 hover:bg-amber-50 hover:text-amber-500'
+                  esFav ? 'bg-amber-50 dark:bg-amber-500/15 text-amber-500' : 'text-slate-400 dark:text-slate-400 hover:bg-amber-50 dark:hover:bg-amber-500/15 hover:text-amber-500'
                 }`}
               >
                 <Icono nombre={esFav ? 'estrellaLlena' : 'estrella'} relleno={esFav} className="w-4 h-4" />
@@ -503,7 +503,7 @@ const Biblioteca = () => {
                   type="button"
                   onClick={() => onPreview?.(apunte)}
                   aria-label={`Ver vista previa de ${apunte.titulo}`}
-                  className="ev-focusable grid h-9 w-9 cursor-pointer place-items-center rounded-xl text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
+                  className="ev-focusable grid h-9 w-9 cursor-pointer place-items-center rounded-xl text-slate-400 dark:text-slate-400 transition-colors hover:bg-blue-50 hover:text-blue-600"
                 >
                   <Icono nombre="documento" className="w-4 h-4" />
                 </button>
@@ -610,7 +610,7 @@ const Biblioteca = () => {
           {!cargando && apuntes.length > 0 && (
             <a
               href="#explorar"
-              className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 sm:gap-2.5 rounded-2xl border border-blue-200 bg-white px-5 sm:px-7 py-3.5 sm:py-4 text-lg sm:text-xl font-bold text-blue-700 hover:border-blue-400 hover:bg-blue-50"
+              className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 sm:gap-2.5 rounded-2xl border border-blue-200 dark:border-blue-500/35 bg-white px-5 sm:px-7 py-3.5 sm:py-4 text-lg sm:text-xl font-bold text-blue-700 hover:border-blue-400 hover:bg-blue-50"
             >
               <Icono nombre="capas" className="w-5 sm:w-6 h-5 sm:h-6" />
               Explorar apuntes
@@ -624,7 +624,7 @@ const Biblioteca = () => {
             <button
               type="button"
               onClick={() => setModalFavoritos(true)}
-              className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 sm:gap-2.5 rounded-2xl border border-amber-300 bg-amber-50 px-5 sm:px-7 py-3.5 sm:py-4 text-lg sm:text-xl font-bold text-amber-800 hover:border-amber-400 hover:bg-amber-100"
+              className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 sm:gap-2.5 rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-500/15 px-5 sm:px-7 py-3.5 sm:py-4 text-lg sm:text-xl font-bold text-amber-800 dark:text-amber-200 hover:border-amber-400 hover:bg-amber-100"
             >
               <Icono nombre="estrella" relleno className="w-5 sm:w-6 h-5 sm:h-6 text-amber-500" />
               Mis favoritos
@@ -633,6 +633,18 @@ const Biblioteca = () => {
               </span>
             </button>
           )}
+
+          {/* Volver al inicio. Sin esto, desde la biblioteca no hay salida al
+              Home salvo el logo de la navbar. `Link` y no `navigate(-1)`: si
+              el usuario abrio la biblioteca en una pestana nueva, atras lo
+              saca de la aplicacion. */}
+          <Link
+            to="/"
+            className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 sm:gap-2.5 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 sm:px-7 py-3.5 sm:py-4 text-lg sm:text-xl font-bold text-slate-600 dark:text-slate-300 hover:border-blue-300 hover:text-blue-700 dark:hover:border-blue-500/40 dark:hover:bg-slate-800"
+          >
+            <Icono nombre="volver" className="w-5 sm:w-6 h-5 sm:h-6" />
+            Volver al inicio
+          </Link>
         </div>
 
         {/* ---------------- CARRUSEL ---------------- */}
@@ -645,8 +657,8 @@ const Biblioteca = () => {
           >
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div>
-                <h2 className="text-base sm:text-lg font-black uppercase tracking-widest text-slate-500">Recién subidos</h2>
-                <p className="mt-0.5 text-xs sm:text-sm text-slate-500">Lo último que compartieron tus compañeros</p>
+                <h2 className="text-base sm:text-lg font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Recién subidos</h2>
+                <p className="mt-0.5 text-xs sm:text-sm text-slate-500 dark:text-slate-400">Lo último que compartieron tus compañeros</p>
               </div>
 
               <div className="flex shrink-0 items-center gap-2">
@@ -656,7 +668,7 @@ const Biblioteca = () => {
                       type="button"
                       onClick={carruselAnterior}
                       aria-label="Anterior"
-                      className="ev-btn ev-focusable grid place-items-center w-10 h-10 rounded-xl bg-white text-slate-500 border border-blue-100 shadow-sm hover:text-blue-700"
+                      className="ev-btn ev-focusable grid place-items-center w-10 h-10 rounded-xl bg-white text-slate-500 dark:text-slate-400 border border-blue-100 dark:border-blue-500/30 shadow-sm hover:text-blue-700"
                     >
                       <Icono nombre="izquierda" className="w-4 h-4" />
                     </button>
@@ -670,7 +682,7 @@ const Biblioteca = () => {
                           aria-label={`Ir a la página ${i + 1}`}
                           aria-current={i === carruselIndice}
                           className={`h-2.5 rounded-full transition-all duration-300 ${
-                            i === carruselIndice ? 'w-7 bg-blue-600' : 'w-2.5 bg-blue-200 hover:bg-blue-400'
+                            i === carruselIndice ? 'w-7 bg-blue-600' : 'w-2.5 bg-blue-200 dark:bg-blue-500/25 hover:bg-blue-400'
                           }`}
                         />
                       ))}
@@ -680,7 +692,7 @@ const Biblioteca = () => {
                       type="button"
                       onClick={carruselSiguiente}
                       aria-label="Siguiente"
-                      className="ev-btn ev-focusable grid place-items-center w-10 h-10 rounded-xl bg-white text-slate-500 border border-blue-100 shadow-sm hover:text-blue-700"
+                      className="ev-btn ev-focusable grid place-items-center w-10 h-10 rounded-xl bg-white text-slate-500 dark:text-slate-400 border border-blue-100 dark:border-blue-500/30 shadow-sm hover:text-blue-700"
                     >
                       <Icono nombre="derecha" className="w-4 h-4" />
                     </button>
@@ -722,19 +734,19 @@ const Biblioteca = () => {
                   Último visto
                 </span>
 
-                <h2 className="mt-3 text-lg sm:text-xl font-extrabold text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2">
+                <h2 className="mt-3 text-lg sm:text-xl font-extrabold text-slate-900 dark:text-slate-100 group-hover:text-blue-700 transition-colors line-clamp-2">
                   {ultimoApunte.titulo}
                 </h2>
 
-                <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500">
-                  <span className="rounded-full bg-slate-100 px-2.5 py-1 font-bold text-slate-700">
+                <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-500 dark:text-slate-400">
+                  <span className="rounded-full bg-slate-100 dark:bg-slate-800 px-2.5 py-1 font-bold text-slate-700 dark:text-slate-300">
                     {ultimoApunte.materia || 'Sin materia'}
                   </span>
                   <span>por {ultimoApunte.autor || 'Anónimo'}</span>
                 </p>
               </div>
 
-              <span className="ev-btn relative inline-flex shrink-0 items-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-base font-bold text-white shadow-md">
+              <span className="ev-btn relative inline-flex shrink-0 items-center gap-2 rounded-2xl bg-blue-600 px-5 py-3 text-base font-bold text-white shadow-md transition-colors group-hover:bg-blue-700">
                 Seguir leyendo
                 <Icono nombre="derecha" className="w-4 h-4" />
               </span>
@@ -748,7 +760,7 @@ const Biblioteca = () => {
             <form onSubmit={handleSearch} className="ev-panel-glass ev-card-dash rounded-2xl p-4 sm:p-5 ev-enter ev-d-2">
               <div className="flex flex-col gap-3 sm:flex-row">
                 <div className="ev-field relative flex-1">
-                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                  <span className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400">
                     <Icono nombre="buscar" className="w-5 h-5" />
                   </span>
                   <input
@@ -757,7 +769,7 @@ const Biblioteca = () => {
                     aria-label="Buscar apuntes"
                     value={busqueda}
                     onChange={(e) => setBusqueda(e.target.value)}
-                    className="w-full rounded-2xl border border-slate-200 bg-slate-50 py-3.5 sm:py-4 pl-11 sm:pl-12 pr-3 sm:pr-4 text-base sm:text-lg text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 py-3.5 sm:py-4 pl-11 sm:pl-12 pr-3 sm:pr-4 text-base sm:text-lg text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   />
                 </div>
 
@@ -774,7 +786,7 @@ const Biblioteca = () => {
                     type="button"
                     onClick={limpiarBusqueda}
                     aria-label="Limpiar filtros"
-                    className="ev-focusable inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-slate-200 bg-white px-5 py-3.5 sm:py-4 text-lg font-bold text-slate-600 hover:bg-slate-50"
+                    className="ev-focusable inline-flex shrink-0 cursor-pointer items-center justify-center gap-2 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-3.5 sm:py-4 text-lg font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800"
                   >
                     <Icono nombre="volver" className="w-5 h-5" />
                     <span className="hidden sm:inline">Limpiar</span>
@@ -784,8 +796,8 @@ const Biblioteca = () => {
 
               {/* Filtro por materia: cliente, el endpoint de busqueda no lo acepta */}
               {categorias.length > 1 && (
-                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200/60 pt-4">
-                  <span className="text-xs font-black uppercase tracking-widest text-slate-500">Materia</span>
+                <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200/60 dark:border-slate-700/60 pt-4">
+                  <span className="text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Materia</span>
 
                   <button
                     type="button"
@@ -793,8 +805,8 @@ const Biblioteca = () => {
                     aria-pressed={materiaActiva === 'todas'}
                     className={`ev-chip ev-focusable rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors ${
                       materiaActiva === 'todas'
-                        ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700'
+                        ? 'border-blue-600 bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                        : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-blue-300 hover:text-blue-700'
                     }`}
                   >
                     Todas
@@ -808,8 +820,8 @@ const Biblioteca = () => {
                       aria-pressed={materiaActiva === c.materia}
                       className={`ev-chip ev-focusable inline-flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-colors ${
                         materiaActiva === c.materia
-                          ? 'border-blue-600 bg-blue-600 text-white shadow-sm'
-                          : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:text-blue-700'
+                          ? 'border-blue-600 bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                          : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 hover:border-blue-300 hover:text-blue-700'
                       }`}
                     >
                       <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: c.tono.punto }} />
@@ -824,10 +836,10 @@ const Biblioteca = () => {
             {/* ---------------- GRID DE APUNTES ---------------- */}
             <section id="explorar" className="mt-8 scroll-mt-20" aria-label="Apuntes">
               <div className="mb-5 flex items-center justify-between gap-4">
-                <h2 className="text-base font-black uppercase tracking-widest text-slate-500">
+                <h2 className="text-base font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">
                   {materiaActiva === 'todas' ? 'Explorar apuntes' : materiaActiva === '__otras__' ? 'Otras materias' : apuntesFiltrados[0]?.materia}
                 </h2>
-                <span className="rounded-full bg-blue-50 px-4 py-1.5 text-sm font-bold text-blue-700 tabular-nums">
+                <span className="rounded-full bg-blue-50 dark:bg-blue-500/15 px-4 py-1.5 text-sm font-bold text-blue-700 dark:text-blue-300 tabular-nums">
                   {apuntesFiltrados.length} {apuntesFiltrados.length === 1 ? 'archivo' : 'archivos'}
                 </span>
               </div>
@@ -843,13 +855,13 @@ const Biblioteca = () => {
                   <div aria-hidden="true" className="ev-dotfield absolute inset-0 opacity-40 pointer-events-none" />
 
                   <div className="relative">
-                    <span className="mx-auto grid w-16 h-16 place-items-center rounded-2xl bg-blue-50 text-blue-400">
+                    <span className="mx-auto grid w-16 h-16 place-items-center rounded-2xl bg-blue-50 dark:bg-blue-500/15 text-blue-400">
                       <Icono nombre="capas" className="w-8 h-8" />
                     </span>
-                    <h3 className="mt-6 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+                    <h3 className="mt-6 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
                       {tieneFiltro ? 'No encontramos ese apunte' : 'La biblioteca está vacía'}
                     </h3>
-                    <p className="mt-2 text-slate-500 text-lg font-medium max-w-lg mx-auto">
+                    <p className="mt-2 text-slate-500 dark:text-slate-400 text-lg font-medium max-w-lg mx-auto">
                       {tieneFiltro
                         ? 'Prueba con otro término o quita los filtros para ver todo lo que hay.'
                         : 'Sé la primera persona en compartir material con tu comunidad.'}
@@ -860,7 +872,7 @@ const Biblioteca = () => {
                         <button
                           type="button"
                           onClick={limpiarBusqueda}
-                          className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-lg font-bold text-blue-700 border border-blue-200 hover:border-blue-400 hover:bg-blue-50"
+                          className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-white px-6 py-3.5 text-lg font-bold text-blue-700 border border-blue-200 dark:border-blue-500/35 hover:border-blue-400 hover:bg-blue-50"
                         >
                           <Icono nombre="volver" className="w-5 h-5" />
                           Ver todos los apuntes
@@ -895,7 +907,7 @@ const Biblioteca = () => {
               <span aria-hidden="true" className="ev-esquina" />
 
               <div className="relative">
-                <h2 className="text-sm sm:text-base font-black uppercase tracking-widest text-slate-500">Tu biblioteca</h2>
+                <h2 className="text-sm sm:text-base font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Tu biblioteca</h2>
 
                 <div className="mt-4 sm:mt-5 space-y-3">
                   {[
@@ -904,14 +916,14 @@ const Biblioteca = () => {
                     { etiqueta: 'Autores', valor: resumen.autores, gradiente: 'from-emerald-500 to-teal-600', icono: 'usuarios' },
                     { etiqueta: 'Subidos hoy', valor: resumen.hoy, gradiente: 'from-amber-500 to-orange-600', icono: 'reloj' },
                   ].map((s) => (
-                    <div key={s.etiqueta} className="flex items-center gap-3 sm:gap-3.5 rounded-xl border border-white/70 bg-white/85 px-3.5 sm:px-4 py-3">
+                    <div key={s.etiqueta} className="flex items-center gap-3 sm:gap-3.5 rounded-xl border border-white/70 bg-white/85 dark:bg-slate-800/85 px-3.5 sm:px-4 py-3">
                       <span className={`ev-stat-icon grid w-9 h-9 shrink-0 place-items-center rounded-lg bg-gradient-to-br ${s.gradiente} text-white shadow-sm`}>
                         <Icono nombre={s.icono} className="w-5 h-5" />
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-500">{s.etiqueta}</span>
+                        <span className="block text-[11px] sm:text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{s.etiqueta}</span>
                       </span>
-                      <span className="text-xl sm:text-2xl font-extrabold tabular-nums text-slate-900 leading-none">{s.valor}</span>
+                      <span className="text-xl sm:text-2xl font-extrabold tabular-nums text-slate-900 dark:text-slate-100 leading-none">{s.valor}</span>
                     </div>
                   ))}
                 </div>
@@ -924,7 +936,7 @@ const Biblioteca = () => {
               <div className="ev-panel-glass ev-card-dash ev-slide-right ev-sr-1 relative overflow-hidden rounded-2xl p-5 sm:p-6">
                 <span aria-hidden="true" className="ev-esquina" />
 
-                <h2 className="text-sm sm:text-base font-black uppercase tracking-widest text-slate-500">Materias con más apuntes</h2>
+                <h2 className="text-sm sm:text-base font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Materias con más apuntes</h2>
 
                 <ul className="mt-4 sm:mt-5 space-y-3.5">
                   {categorias.map((c) => {
@@ -933,10 +945,10 @@ const Biblioteca = () => {
                     return (
                       <li key={c.materia}>
                         <div className="mb-1.5 flex items-baseline justify-between gap-2 text-sm">
-                          <span className="truncate font-bold text-slate-700">
+                          <span className="truncate font-bold text-slate-700 dark:text-slate-300">
                             {c.materia === '__otras__' ? 'Otras' : truncar(c.materia, 20)}
                           </span>
-                          <span className="shrink-0 tabular-nums font-extrabold text-slate-900">{c.total}</span>
+                          <span className="shrink-0 tabular-nums font-extrabold text-slate-900 dark:text-slate-100">{c.total}</span>
                         </div>
                         <div className="ev-bar-track" role="img" aria-label={`${c.materia}: ${c.total} apuntes`}>
                           <div className="ev-bar-fill" style={{ width: `${pct}%`, backgroundColor: c.tono.punto }} />
@@ -963,7 +975,7 @@ const Biblioteca = () => {
                 </p>
                 <Link
                   to="/upload"
-                  className="ev-btn ev-shimmer mt-4 inline-flex w-full items-center justify-center gap-2.5 rounded-xl bg-white px-5 py-3.5 text-base font-bold text-blue-700 shadow-md"
+                  className="ev-btn ev-shimmer ev-shimmer-claro mt-4 inline-flex w-full items-center justify-center gap-2.5 rounded-xl bg-white px-5 py-3.5 text-base font-bold text-blue-700 shadow-md"
                 >
                   <Icono nombre="mas" className="w-5 h-5" />
                   Subir material
@@ -1013,9 +1025,9 @@ const Biblioteca = () => {
               </div>
 
               {/* max-h y overflow: con 20+ favoritos la lista scrollea sola */}
-              <div className="min-h-0 flex-1 overflow-y-auto bg-white/95 p-4 sm:p-5">
+              <div className="min-h-0 flex-1 overflow-y-auto bg-white/95 dark:bg-slate-800/95 p-4 sm:p-5">
                 {listaFavoritos.length === 0 ? (
-                  <p className="rounded-xl border-2 border-dashed border-amber-200 bg-amber-50/40 px-4 py-8 text-center text-sm font-medium text-slate-500">
+                  <p className="rounded-xl border-2 border-dashed border-amber-200 dark:border-amber-500/35 bg-amber-50/40 px-4 py-8 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
                     Ya no tenés favoritos guardados.
                   </p>
                 ) : (
@@ -1027,7 +1039,7 @@ const Biblioteca = () => {
                         <li
                           key={f.apunte_id}
                           className={`ev-enter flex items-center gap-3 rounded-xl border px-3 py-3 ${
-                            esUltimo ? 'border-amber-300 bg-amber-50/60' : 'border-slate-200 bg-white'
+                            esUltimo ? 'border-amber-300 dark:border-amber-500/40 bg-amber-50/60 dark:bg-amber-500/10' : 'border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900'
                           } ${['ev-d-0', 'ev-d-1', 'ev-d-2'][i % 3]}`}
                         >
                           <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br ${tonoFav.fondo} text-white`}>
@@ -1035,10 +1047,10 @@ const Biblioteca = () => {
                           </span>
 
                           <Link to={`/apunte/${f.apunte_id}`} className="ev-focusable min-w-0 flex-1">
-                            <span className={`block truncate text-sm font-bold ${esUltimo ? 'text-amber-800' : 'text-slate-800'}`}>
+                            <span className={`block truncate text-sm font-bold ${esUltimo ? 'text-amber-800' : 'text-slate-800 dark:text-slate-200'}`}>
                               {f.titulo}
                             </span>
-                            <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-semibold text-slate-500">
+                            <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] font-semibold text-slate-500 dark:text-slate-400">
                               <span className="inline-flex items-center gap-1.5">
                                 <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: tonoFav.punto }} />
                                 {f.materia || 'Sin materia'}
@@ -1062,7 +1074,7 @@ const Biblioteca = () => {
                 )}
               </div>
 
-              <div className="border-t border-slate-200 bg-white px-5 py-3 sm:px-6">
+              <div className="border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-3 sm:px-6">
                 <button
                   type="button"
                   onClick={() => setModalFavoritos(false)}
@@ -1119,12 +1131,12 @@ const Biblioteca = () => {
 
               {/* min-h-0 + flex-1 + overflow: el iframe scrollea internamente
                   sin estirar el modal mas alla del max-h de la pantalla. */}
-              <div className="min-h-0 flex-1 overflow-hidden bg-slate-100">
+              <div className="min-h-0 flex-1 overflow-hidden bg-slate-100 dark:bg-slate-800">
                 {esPdfUrl(apuntePreview.archivo_url) ? (
                   <iframe
                     src={urlArchivo(apuntePreview)}
                     title={`Vista previa de ${apuntePreview.titulo}`}
-                    className="h-full min-h-[24rem] w-full bg-white"
+                    className="h-full min-h-[24rem] w-full bg-white dark:bg-slate-900"
                   />
                 ) : (
                   <img
@@ -1135,12 +1147,12 @@ const Biblioteca = () => {
                 )}
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 bg-white px-5 py-3 sm:px-6">
+              <div className="flex flex-wrap items-center gap-3 border-t border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 px-5 py-3 sm:px-6">
                 <a
                   href={urlArchivo(apuntePreview)}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ev-btn inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-blue-200 bg-white px-4 py-3 text-sm font-bold text-blue-700 hover:bg-blue-50"
+                  className="ev-btn inline-flex flex-1 items-center justify-center gap-2 rounded-xl border border-blue-200 dark:border-blue-500/35 bg-white px-4 py-3 text-sm font-bold text-blue-700 hover:bg-blue-50"
                 >
                   <Icono nombre="derecha" className="w-4 h-4" />
                   Abrir en pestaña nueva

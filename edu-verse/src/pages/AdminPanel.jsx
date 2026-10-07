@@ -147,20 +147,20 @@ const AdminPanel = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-8">
+    <div className="min-h-screen bg-gray-50 dark:bg-slate-900 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900">Panel de Administración</h1>
-          <p className="text-gray-500 mt-1">Gestiona usuarios, contenido y configuración de Edu-Verse</p>
+          <h1 className="text-3xl font-bold text-gray-900 dark:text-slate-100">Panel de Administración</h1>
+          <p className="text-gray-500 dark:text-slate-400 mt-1">Gestiona usuarios, contenido y configuración de Edu-Verse</p>
         </div>
 
-        <div className="flex space-x-1 bg-white rounded-xl p-1 shadow-sm border border-gray-200 mb-6 overflow-x-auto">
+        <div className="flex space-x-1 bg-white dark:bg-slate-900 rounded-xl p-1 shadow-sm border border-gray-200 dark:border-slate-700 mb-6 overflow-x-auto">
           {tabs.map(tab => (
             <button
               key={tab.id}
               onClick={() => handleTabChange(tab.id)}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-lg font-medium text-sm transition-all whitespace-nowrap ${
-                activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 hover:bg-gray-100'
+                activeTab === tab.id ? 'bg-blue-600 text-white shadow-md' : 'text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700'
               }`}
             >
               <span>{tab.icon}</span>
@@ -211,25 +211,25 @@ const AdminPanel = () => {
                 rows={filteredUsuarios.map(u => ({
                   key: u.usuario_id,
                   cells: [
-                    <span className="text-gray-500">{u.usuario_id}</span>,
+                    <span className="text-gray-500 dark:text-slate-400">{u.usuario_id}</span>,
                     <div className="flex items-center gap-3">
                       <img src={u.foto_url ? `${API_URL}${u.foto_url}` : `https://ui-avatars.com/api/?name=${u.nombre}&background=0D8ABC&color=fff`} className="w-8 h-8 rounded-full object-cover" alt="" onError={(e) => { e.target.src = `https://ui-avatars.com/api/?name=${u.nombre}&background=ccc`; }} />
-                      <span className="font-medium text-gray-900">{u.nombre}</span>
+                      <span className="font-medium text-gray-900 dark:text-slate-100">{u.nombre}</span>
                     </div>,
-                    <span className="text-gray-600">{u.email}</span>,
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${u.rol === 'admin' ? 'bg-red-100 text-red-700' : baneados.some(b => b.email === u.email) ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-600'}`}>{baneados.some(b => b.email === u.email) ? 'Baneado' : u.rol}</span>,
-                    <span className="text-gray-500">{new Date(u.fecha_registro).toLocaleDateString()}</span>,
+                    <span className="text-gray-600 dark:text-slate-400">{u.email}</span>,
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${u.rol === 'admin' ? 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300' : baneados.some(b => b.email === u.email) ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300' : 'bg-gray-100 dark:bg-slate-800 text-gray-600 dark:text-slate-400'}`}>{baneados.some(b => b.email === u.email) ? 'Baneado' : u.rol}</span>,
+                    <span className="text-gray-500 dark:text-slate-400">{new Date(u.fecha_registro).toLocaleDateString()}</span>,
                     <div className="flex items-center justify-end gap-2">
                       {u.rol !== 'admin' ? (
                         <>
                           {baneados.some(b => b.email === u.email) ? (
-                            <button onClick={() => handleUnban(u.email)} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 text-xs font-medium transition-colors">Desbanear</button>
+                            <button onClick={() => handleUnban(u.email)} className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-xs font-medium transition-colors">Desbanear</button>
                           ) : (
-                            <button onClick={() => setBanModal({ open: true, usuario: u })} className="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg hover:bg-amber-100 text-xs font-medium transition-colors">Banear</button>
+                            <button onClick={() => setBanModal({ open: true, usuario: u })} className="px-3 py-1.5 bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 rounded-lg hover:bg-amber-100 text-xs font-medium transition-colors">Banear</button>
                           )}
                           <button onClick={() => handleDeleteUser(u.usuario_id, u.nombre)} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-xs font-medium transition-colors">Eliminar</button>
                         </>
-                      ) : <span className="text-xs text-gray-400 italic">Admin</span>}
+                      ) : <span className="text-xs text-gray-400 dark:text-slate-500 italic">Admin</span>}
                     </div>
                   ]
                 }))}
@@ -249,13 +249,13 @@ const AdminPanel = () => {
                 rows={filteredApuntes.map(a => ({
                   key: a.apunte_id,
                   cells: [
-                    <span className="text-gray-500">{a.apunte_id}</span>,
-                    <span className="font-medium text-gray-900 max-w-[200px] truncate block">{a.titulo}</span>,
-                    <span className="px-2 py-0.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-medium">{a.materia}</span>,
-                    <span className="text-gray-600">{a.autor}</span>,
-                    <span className="text-gray-500 text-xs">{new Date(a.fecha_subida).toLocaleDateString()}</span>,
+                    <span className="text-gray-500 dark:text-slate-400">{a.apunte_id}</span>,
+                    <span className="font-medium text-gray-900 dark:text-slate-100 max-w-[200px] truncate block">{a.titulo}</span>,
+                    <span className="px-2 py-0.5 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-full text-xs font-medium">{a.materia}</span>,
+                    <span className="text-gray-600 dark:text-slate-400">{a.autor}</span>,
+                    <span className="text-gray-500 dark:text-slate-400 text-xs">{new Date(a.fecha_subida).toLocaleDateString()}</span>,
                     <div className="flex items-center justify-end gap-2">
-                      <a href={`${API_URL}${a.archivo_url}`} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 bg-blue-50 text-blue-700 rounded-lg hover:bg-blue-100 text-xs font-medium transition-colors">Ver</a>
+                      <a href={`${API_URL}${a.archivo_url}`} target="_blank" rel="noopener noreferrer" className="px-3 py-1.5 bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-500/20 text-xs font-medium transition-colors">Ver</a>
                       <button onClick={() => handleDeleteApunte(a.apunte_id)} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-xs font-medium transition-colors">Eliminar</button>
                     </div>
                   ]
@@ -276,11 +276,11 @@ const AdminPanel = () => {
                 rows={filteredComentarios.map(c => ({
                   key: c.comentario_id,
                   cells: [
-                    <span className="text-gray-500">{c.comentario_id}</span>,
-                    <span className="text-gray-900 max-w-[300px] truncate block">{c.texto}</span>,
-                    <span className="text-gray-600 font-medium">{c.autor}</span>,
+                    <span className="text-gray-500 dark:text-slate-400">{c.comentario_id}</span>,
+                    <span className="text-gray-900 dark:text-slate-100 max-w-[300px] truncate block">{c.texto}</span>,
+                    <span className="text-gray-600 dark:text-slate-400 font-medium">{c.autor}</span>,
                     <span className="text-blue-600 text-xs">{c.apunte_titulo}</span>,
-                    <span className="text-gray-500 text-xs">{new Date(c.fecha_creacion).toLocaleDateString()}</span>,
+                    <span className="text-gray-500 dark:text-slate-400 text-xs">{new Date(c.fecha_creacion).toLocaleDateString()}</span>,
                     <div className="flex items-center justify-end">
                       <button onClick={() => handleDeleteComentario(c.comentario_id)} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-xs font-medium transition-colors">Eliminar</button>
                     </div>
@@ -302,13 +302,13 @@ const AdminPanel = () => {
                 rows={filteredEquipos.map(e => ({
                   key: e.equipo_id,
                   cells: [
-                    <span className="text-gray-500">{e.equipo_id}</span>,
-                    <span className="font-medium text-gray-900">{e.nombre}</span>,
+                    <span className="text-gray-500 dark:text-slate-400">{e.equipo_id}</span>,
+                    <span className="font-medium text-gray-900 dark:text-slate-100">{e.nombre}</span>,
                     <span className="px-2 py-0.5 bg-purple-50 text-purple-700 rounded text-xs font-mono font-bold">{e.codigo_invitacion}</span>,
-                    <span className="text-gray-600">{e.creador_nombre}</span>,
-                    <span className="text-center bg-gray-100 rounded-full px-2 py-0.5 text-xs font-bold">{e.total_miembros}</span>,
-                    <span className="text-center bg-gray-100 rounded-full px-2 py-0.5 text-xs font-bold">{e.total_tareas}</span>,
-                    <span className="text-gray-500 text-xs">{new Date(e.fecha_creacion).toLocaleDateString()}</span>,
+                    <span className="text-gray-600 dark:text-slate-400">{e.creador_nombre}</span>,
+                    <span className="text-center bg-gray-100 dark:bg-slate-800 rounded-full px-2 py-0.5 text-xs font-bold">{e.total_miembros}</span>,
+                    <span className="text-center bg-gray-100 dark:bg-slate-800 rounded-full px-2 py-0.5 text-xs font-bold">{e.total_tareas}</span>,
+                    <span className="text-gray-500 dark:text-slate-400 text-xs">{new Date(e.fecha_creacion).toLocaleDateString()}</span>,
                     <div className="flex items-center justify-end">
                       <button onClick={() => handleDeleteEquipo(e.equipo_id)} className="px-3 py-1.5 bg-red-50 text-red-700 rounded-lg hover:bg-red-100 text-xs font-medium transition-colors">Eliminar</button>
                     </div>
@@ -319,16 +319,16 @@ const AdminPanel = () => {
 
             {/* TAB: Baneados */}
             {activeTab === 'baneados' && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
                 {baneados.length === 0 ? (
-                  <div className="py-16 text-center text-gray-400">
+                  <div className="py-16 text-center text-gray-400 dark:text-slate-500">
                     <p className="text-4xl mb-2">✅</p>
                     <p className="font-medium">No hay usuarios baneados</p>
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
                     <table className="w-full text-sm">
-                      <thead className="bg-gray-50 text-gray-600">
+                      <thead className="bg-gray-50 dark:bg-slate-900 text-gray-600 dark:text-slate-400">
                         <tr>
                           <th className="text-left px-4 py-3 font-medium">Email</th>
                           <th className="text-left px-4 py-3 font-medium">Motivo</th>
@@ -339,13 +339,13 @@ const AdminPanel = () => {
                       </thead>
                       <tbody className="divide-y divide-gray-100">
                         {baneados.map(b => (
-                          <tr key={b.baneo_id} className="hover:bg-gray-50">
-                            <td className="px-4 py-3 font-medium text-gray-900">{b.email}</td>
-                            <td className="px-4 py-3 text-gray-600">{b.motivo}</td>
-                            <td className="px-4 py-3 text-gray-500">{b.admin_nombre || 'N/A'}</td>
-                            <td className="px-4 py-3 text-gray-500">{new Date(b.fecha_baneo).toLocaleDateString()}</td>
+                          <tr key={b.baneo_id} className="hover:bg-gray-50 dark:hover:bg-slate-800">
+                            <td className="px-4 py-3 font-medium text-gray-900 dark:text-slate-100">{b.email}</td>
+                            <td className="px-4 py-3 text-gray-600 dark:text-slate-400">{b.motivo}</td>
+                            <td className="px-4 py-3 text-gray-500 dark:text-slate-400">{b.admin_nombre || 'N/A'}</td>
+                            <td className="px-4 py-3 text-gray-500 dark:text-slate-400">{new Date(b.fecha_baneo).toLocaleDateString()}</td>
                             <td className="px-4 py-3 text-right">
-                              <button onClick={() => handleUnban(b.email)} className="px-3 py-1.5 bg-emerald-50 text-emerald-700 rounded-lg hover:bg-emerald-100 text-xs font-medium transition-colors">Desbanear</button>
+                              <button onClick={() => handleUnban(b.email)} className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 rounded-lg hover:bg-emerald-100 dark:hover:bg-emerald-500/20 text-xs font-medium transition-colors">Desbanear</button>
                             </td>
                           </tr>
                         ))}
@@ -358,25 +358,25 @@ const AdminPanel = () => {
 
             {/* TAB: Logs */}
             {activeTab === 'logs' && (
-              <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
                 {logs.length === 0 ? (
-                  <div className="py-16 text-center text-gray-400">
+                  <div className="py-16 text-center text-gray-400 dark:text-slate-500">
                     <p className="text-4xl mb-2">📋</p>
                     <p className="font-medium">No hay actividad registrada</p>
                   </div>
                 ) : (
                   <div className="divide-y divide-gray-100">
                     {logs.map(log => (
-                      <div key={log.log_id} className="px-4 py-3 hover:bg-gray-50">
+                      <div key={log.log_id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-800">
                         <div className="flex items-center justify-between">
                           <div>
-                            <span className="font-medium text-gray-900">{log.admin_nombre}</span>
-                            <span className="mx-2 text-gray-400">•</span>
-                            <span className="text-gray-600">{log.accion.replace(/_/g, ' ')}</span>
+                            <span className="font-medium text-gray-900 dark:text-slate-100">{log.admin_nombre}</span>
+                            <span className="mx-2 text-gray-400 dark:text-slate-500">•</span>
+                            <span className="text-gray-600 dark:text-slate-400">{log.accion.replace(/_/g, ' ')}</span>
                           </div>
-                          <span className="text-xs text-gray-400">{new Date(log.fecha).toLocaleString()}</span>
+                          <span className="text-xs text-gray-400 dark:text-slate-500">{new Date(log.fecha).toLocaleString()}</span>
                         </div>
-                        {log.detalle && <p className="text-sm text-gray-500 mt-1 ml-0.5">{log.detalle}</p>}
+                        {log.detalle && <p className="text-sm text-gray-500 dark:text-slate-400 mt-1 ml-0.5">{log.detalle}</p>}
                       </div>
                     ))}
                   </div>
@@ -390,20 +390,20 @@ const AdminPanel = () => {
       {/* Ban Modal */}
       {banModal.open && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 w-full max-w-md shadow-2xl">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Banear usuario</h3>
-            <p className="text-sm text-gray-500 mb-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+            <h3 className="text-lg font-bold text-gray-900 dark:text-slate-100 mb-1">Banear usuario</h3>
+            <p className="text-sm text-gray-500 dark:text-slate-400 mb-4">
               <strong>{banModal.usuario?.nombre}</strong> no podrá iniciar sesión en la plataforma.
             </p>
             <textarea
               placeholder="Motivo del baneo (opcional)"
               value={banMotivo}
               onChange={(e) => setBanMotivo(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-200 rounded-lg resize-none focus:ring-2 focus:ring-amber-500 outline-none"
+              className="w-full px-3 py-2 border border-gray-200 dark:border-slate-700 rounded-lg resize-none focus:ring-2 focus:ring-amber-500 outline-none"
               rows={3}
             />
             <div className="flex justify-end gap-3 mt-4">
-              <button onClick={() => { setBanModal({ open: false, usuario: null }); setBanMotivo(''); }} className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg text-sm font-medium transition-colors">Cancelar</button>
+              <button onClick={() => { setBanModal({ open: false, usuario: null }); setBanMotivo(''); }} className="px-4 py-2 text-gray-600 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700 rounded-lg text-sm font-medium transition-colors">Cancelar</button>
               <button onClick={handleBan} className="px-4 py-2 bg-amber-500 text-white rounded-lg text-sm font-medium hover:bg-amber-600 transition-colors">Banear</button>
             </div>
           </div>
@@ -414,25 +414,25 @@ const AdminPanel = () => {
 };
 
 const ContentTable = ({ search, onSearch, placeholder, isEmpty, emptyIcon, emptyText, headers, rows }) => (
-  <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+  <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
     <div className="p-4 border-b border-gray-100">
       <input
         type="text"
         placeholder={placeholder}
         value={search}
         onChange={(e) => onSearch(e.target.value)}
-        className="w-full md:w-96 px-4 py-2.5 rounded-lg border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+        className="w-full md:w-96 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-slate-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
       />
     </div>
     {isEmpty ? (
-      <div className="py-16 text-center text-gray-400">
+      <div className="py-16 text-center text-gray-400 dark:text-slate-500">
         <p className="text-4xl mb-2">{emptyIcon}</p>
         <p className="font-medium">{emptyText}</p>
       </div>
     ) : (
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-gray-50 text-gray-600">
+          <thead className="bg-gray-50 dark:bg-slate-900 text-gray-600 dark:text-slate-400">
             <tr>
               {headers.map((h, i) => (
                 <th key={i} className={`px-4 py-3 font-medium ${i === headers.length - 1 ? 'text-right' : 'text-left'}`}>{h}</th>
@@ -441,7 +441,7 @@ const ContentTable = ({ search, onSearch, placeholder, isEmpty, emptyIcon, empty
           </thead>
           <tbody className="divide-y divide-gray-100">
             {rows.map(row => (
-              <tr key={row.key} className="hover:bg-gray-50">
+              <tr key={row.key} className="hover:bg-gray-50 dark:hover:bg-slate-800">
                 {row.cells.map((cell, i) => (
                   <td key={i} className={`px-4 py-3 ${i === row.cells.length - 1 ? 'text-right' : ''}`}>{cell}</td>
                 ))}
@@ -456,11 +456,11 @@ const ContentTable = ({ search, onSearch, placeholder, isEmpty, emptyIcon, empty
 
 const StatCard = ({ title, value, color }) => {
   const colors = {
-    blue: 'bg-blue-50 text-blue-700 ring-blue-100',
-    emerald: 'bg-emerald-50 text-emerald-700 ring-emerald-100',
+    blue: 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 ring-blue-100 dark:ring-blue-500/25',
+    emerald: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 ring-emerald-100 dark:ring-emerald-500/25',
     purple: 'bg-purple-50 text-purple-700 ring-purple-100',
-    amber: 'bg-amber-50 text-amber-700 ring-amber-100',
-    rose: 'bg-rose-50 text-rose-700 ring-rose-100',
+    amber: 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300 ring-amber-100 dark:ring-amber-500/25',
+    rose: 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300 ring-rose-100 dark:ring-rose-500/25',
     red: 'bg-red-50 text-red-700 ring-red-100',
   };
   return (
@@ -477,21 +477,21 @@ const ChartCard = ({ title, data, color }) => {
   const maxVal = safeData.length > 0 ? Math.max(...safeData.map(d => parseInt(d?.total || 0)), 1) : 1;
 
   return (
-    <div className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm">
-      <h3 className="font-semibold text-gray-800 mb-4">{title}</h3>
+    <div className="bg-white dark:bg-slate-900 rounded-xl p-5 border border-gray-200 dark:border-slate-700 shadow-sm">
+      <h3 className="font-semibold text-gray-800 dark:text-slate-200 mb-4">{title}</h3>
       {safeData.length === 0 ? (
-        <p className="text-gray-400 text-sm text-center py-8">Sin datos recientes</p>
+        <p className="text-gray-400 dark:text-slate-500 text-sm text-center py-8">Sin datos recientes</p>
       ) : (
         <div className="space-y-2">
           {safeData.map((d, i) => (
             <div key={i} className="flex items-center gap-3">
-              <span className="text-xs text-gray-500 w-20 shrink-0">
+              <span className="text-xs text-gray-500 dark:text-slate-400 w-20 shrink-0">
                 {d?.dia ? new Date(d.dia).toLocaleDateString('es-MX', { month: 'short', day: 'numeric' }) : '—'}
               </span>
-              <div className="flex-1 bg-gray-100 rounded-full h-5 overflow-hidden">
+              <div className="flex-1 bg-gray-100 dark:bg-slate-800 rounded-full h-5 overflow-hidden">
                 <div className={`h-full rounded-full ${barColors[color]} transition-all duration-500`} style={{ width: `${(parseInt(d?.total || 0) / maxVal) * 100}%` }} />
               </div>
-              <span className="text-xs font-bold text-gray-700 w-6 text-right">{d?.total || 0}</span>
+              <span className="text-xs font-bold text-gray-700 dark:text-slate-300 w-6 text-right">{d?.total || 0}</span>
             </div>
           ))}
         </div>

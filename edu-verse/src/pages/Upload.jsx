@@ -138,7 +138,7 @@ const Upload = () => {
         <button
           type="button"
           onClick={() => navigate('/biblioteca')}
-          className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 mb-5 text-sm font-bold text-slate-600 hover:text-blue-700"
+          className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 mb-5 text-sm font-bold text-slate-600 dark:text-slate-400 hover:text-blue-700"
         >
           <Icono nombre="volver" className="w-4 h-4" />
           Volver a la biblioteca
@@ -178,7 +178,7 @@ const Upload = () => {
             <div className="grid gap-5 lg:grid-cols-2">
               {/* Zona de carga */}
               <div>
-                <span className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
+                <span className="block text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
                   Archivo
                 </span>
 
@@ -195,30 +195,30 @@ const Upload = () => {
                       errorArchivo
                         ? 'border-red-300 bg-red-50/50'
                         : arrastrando
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-slate-300 bg-slate-50 hover:border-blue-400 hover:bg-blue-50/40'
+                          ? 'border-blue-500 bg-blue-50 dark:bg-blue-500/15'
+                          : 'border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-900 hover:border-blue-400 hover:bg-blue-50/40 dark:hover:bg-blue-500/10'
                     }`}
                   >
-                    <span className={`grid w-14 h-14 place-items-center rounded-2xl ${errorArchivo ? 'bg-red-100 text-red-500' : 'bg-blue-50 text-blue-500'}`}>
+                    <span className={`grid w-14 h-14 place-items-center rounded-2xl ${errorArchivo ? 'bg-red-100 dark:bg-red-500/20 text-red-500 dark:text-red-400' : 'bg-blue-50 dark:bg-blue-500/15 text-blue-500'}`}>
                       <Icono nombre={errorArchivo ? 'alerta' : 'subir'} className="w-7 h-7" />
                     </span>
 
-                    <p className="mt-4 text-base font-bold text-slate-700">
+                    <p className="mt-4 text-base font-bold text-slate-700 dark:text-slate-300">
                       {errorArchivo ? 'Ese archivo no sirve' : 'Arrastrá tu archivo o hacé clic'}
                     </p>
-                    <p className="mt-1 text-sm text-slate-500">PDF, PNG o JPG (máx. {MAX_SIZE_MB} MB)</p>
+                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">PDF, PNG o JPG (máx. {MAX_SIZE_MB} MB)</p>
                     {errorArchivo && (
                       <p className="mt-2 text-sm font-semibold text-red-600">{errorArchivo}</p>
                     )}
                   </div>
                 ) : (
-                  <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 bg-emerald-50/50 px-4 py-3.5">
+                  <div className="flex items-center gap-3 rounded-2xl border border-emerald-200 dark:border-emerald-500/35 bg-emerald-50/50 px-4 py-3.5">
                     <span className="grid w-10 h-10 shrink-0 place-items-center rounded-xl bg-emerald-500 text-white">
                       <Icono nombre="check" className="w-5 h-5" />
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-bold text-slate-800">{file.name}</span>
-                      <span className="mt-0.5 block text-xs font-semibold text-slate-500">
+                      <span className="block truncate text-sm font-bold text-slate-800 dark:text-slate-200">{file.name}</span>
+                      <span className="mt-0.5 block text-xs font-semibold text-slate-500 dark:text-slate-400">
                         {formatoBytes(file.size)}
                       </span>
                     </span>
@@ -226,7 +226,7 @@ const Upload = () => {
                       type="button"
                       onClick={quitarArchivo}
                       aria-label="Quitar archivo"
-                      className="ev-focusable grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
+                      className="ev-focusable grid h-9 w-9 shrink-0 cursor-pointer place-items-center rounded-lg text-slate-400 dark:text-slate-400 transition-colors hover:bg-red-50 hover:text-red-600"
                     >
                       <Icono nombre="cerrar" className="w-4 h-4" />
                     </button>
@@ -244,32 +244,32 @@ const Upload = () => {
 
               {/* Preview */}
               <div>
-                <span className="block text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
+                <span className="block text-xs font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2">
                   Vista previa
                 </span>
 
                 {file ? (
-                  <div className="ev-view overflow-hidden rounded-2xl border border-slate-200 bg-slate-100">
+                  <div className="ev-view overflow-hidden rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-100 dark:bg-slate-800">
                     {esPdf(file) ? (
                       <iframe
                         src={previewUrl}
                         title={`Vista previa de ${file.name}`}
-                        className="h-64 sm:h-72 w-full bg-white"
+                        className="h-64 sm:h-72 w-full bg-white dark:bg-slate-900"
                       />
                     ) : (
                       <img
                         src={previewUrl}
                         alt={`Vista previa de ${file.name}`}
-                        className="h-64 sm:h-72 w-full object-contain bg-slate-100"
+                        className="h-64 sm:h-72 w-full object-contain bg-slate-100 dark:bg-slate-800"
                       />
                     )}
                   </div>
                 ) : (
-                  <div className="flex h-64 sm:h-72 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 bg-slate-50 text-center">
-                    <span className="grid w-14 h-14 place-items-center rounded-2xl bg-slate-100 text-slate-300">
+                  <div className="flex h-64 sm:h-72 flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 text-center">
+                    <span className="grid w-14 h-14 place-items-center rounded-2xl bg-slate-100 dark:bg-slate-800 text-slate-300">
                       <Icono nombre="documento" className="w-7 h-7" />
                     </span>
-                    <p className="mt-3 text-sm font-medium text-slate-400">
+                    <p className="mt-3 text-sm font-medium text-slate-400 dark:text-slate-400">
                       La vista previa aparece acá
                     </p>
                   </div>
@@ -282,7 +282,7 @@ const Upload = () => {
             {/* Título y materia */}
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
-                <label htmlFor="up-titulo" className="ev-field-label block text-sm font-bold text-slate-700 mb-1.5">
+                <label htmlFor="up-titulo" className="ev-field-label block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Título del apunte
                 </label>
                 <div className="ev-field">
@@ -292,14 +292,14 @@ const Upload = () => {
                     placeholder="Ej: Resumen de Álgebra Lineal"
                     value={formData.titulo}
                     onChange={(e) => setFormData({ ...formData, titulo: e.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-4 py-3 text-base text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     required
                   />
                 </div>
               </div>
 
               <div>
-                <label htmlFor="up-materia" className="ev-field-label block text-sm font-bold text-slate-700 mb-1.5">
+                <label htmlFor="up-materia" className="ev-field-label block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">
                   Materia
                 </label>
                 <div className="ev-field">
@@ -309,7 +309,7 @@ const Upload = () => {
                     placeholder="Ej: Matemáticas II"
                     value={formData.materia}
                     onChange={(e) => setFormData({ ...formData, materia: e.target.value })}
-                    className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-4 py-3 text-base text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     required
                   />
                 </div>
@@ -318,8 +318,8 @@ const Upload = () => {
 
             {/* Descripción */}
             <div>
-              <label htmlFor="up-descripcion" className="ev-field-label block text-sm font-bold text-slate-700 mb-1.5">
-                Descripción <span className="font-normal text-slate-400">(opcional)</span>
+              <label htmlFor="up-descripcion" className="ev-field-label block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">
+                Descripción <span className="font-normal text-slate-400 dark:text-slate-400">(opcional)</span>
               </label>
               <div className="ev-field">
                 <textarea
@@ -328,7 +328,7 @@ const Upload = () => {
                   placeholder="¿De qué trata este apunte? ¿Qué temas cubre?"
                   value={formData.descripcion}
                   onChange={(e) => setFormData({ ...formData, descripcion: e.target.value })}
-                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-base text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-900 px-4 py-3 text-base text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
             </div>
@@ -338,14 +338,14 @@ const Upload = () => {
               type="submit"
               disabled={cargando || !file}
               className={`ev-btn ev-shimmer inline-flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-2xl py-4 text-lg font-bold shadow-md ${
-                cargando || !file ? 'bg-slate-300 text-slate-500' : 'bg-blue-600 text-white hover:bg-blue-700'
+                cargando || !file ? 'bg-slate-300 dark:bg-slate-700 text-slate-500 dark:text-slate-400' : 'bg-blue-600 text-white hover:bg-blue-700'
               }`}
             >
               <Icono nombre="subir" className="w-5 h-5" />
               {cargando ? 'Subiendo…' : 'Publicar apunte'}
             </button>
 
-            <p className="text-center text-xs font-medium text-slate-400">
+            <p className="text-center text-xs font-medium text-slate-400 dark:text-slate-400">
               Al publicar, el apunte queda visible para toda la comunidad de Edu-Verse.
             </p>
           </div>

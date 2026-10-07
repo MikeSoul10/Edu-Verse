@@ -1,7 +1,21 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import axios from 'axios';
 import { io } from 'socket.io-client';
+import { Link } from 'react-router-dom';
 import { API_URL } from '../config';
+import CalendarioVencimientos from '../components/CalendarioVencimientos';
+
+const CLAVE_CALENDARIO = 'eduverse_calendario_visible';
+
+// Si el usuario lo oculto, no se vuelve a dibujar en cada carga.
+const leerCalendarioVisible = () => {
+  try {
+    const guardado = localStorage.getItem(CLAVE_CALENDARIO);
+    return guardado === null ? true : guardado === '1';
+  } catch {
+    return true;
+  }
+};
 import toast from 'react-hot-toast';
 
 // Resumen global del selector de equipos. El backend no expone un endpoint
@@ -10,15 +24,15 @@ import toast from 'react-hot-toast';
 const ETIQUETA_ROL = { admin: 'Administrador', miembro: 'Miembro' };
 
 const PRIORIDADES = {
-  verde: { label: 'No urgente', color: '#22c55e', bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-300' },
-  amarillo: { label: 'Urgente', color: '#eab308', bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-300' },
-  rojo: { label: 'Pocos días', color: '#ef4444', bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-300' },
+  verde: { label: 'No urgente', color: '#22c55e', bg: 'bg-emerald-50 dark:bg-emerald-500/15', text: 'text-emerald-700 dark:text-emerald-300', border: 'border-emerald-300 dark:border-emerald-500/40' },
+  amarillo: { label: 'Urgente', color: '#eab308', bg: 'bg-amber-50 dark:bg-amber-500/15', text: 'text-amber-700 dark:text-amber-300', border: 'border-amber-300 dark:border-amber-500/40' },
+  rojo: { label: 'Pocos días', color: '#ef4444', bg: 'bg-red-50 dark:bg-red-500/15', text: 'text-red-700 dark:text-red-300', border: 'border-red-300 dark:border-red-500/40' },
 };
 
 const ESTADOS = {
-  pendiente: { label: 'Pendiente', icon: 'clipboard', bg: 'bg-blue-50', text: 'text-blue-700', punto: '#3b82f6' },
-  en_progreso: { label: 'En progreso', icon: 'spinner', bg: 'bg-indigo-50', text: 'text-indigo-700', punto: '#6366f1' },
-  completada: { label: 'Completada', icon: 'check', bg: 'bg-emerald-50', text: 'text-emerald-700', punto: '#10b981' },
+  pendiente: { label: 'Pendiente', icon: 'clipboard', bg: 'bg-blue-50 dark:bg-blue-500/15', text: 'text-blue-700 dark:text-blue-300', punto: '#3b82f6' },
+  en_progreso: { label: 'En progreso', icon: 'spinner', bg: 'bg-indigo-50 dark:bg-indigo-500/15', text: 'text-indigo-700 dark:text-indigo-300', punto: '#6366f1' },
+  completada: { label: 'Completada', icon: 'check', bg: 'bg-emerald-50 dark:bg-emerald-500/15', text: 'text-emerald-700 dark:text-emerald-300', punto: '#10b981' },
 };
 
 const ORDEN_ESTADOS = ['pendiente', 'en_progreso', 'completada'];
@@ -45,6 +59,7 @@ const Icono = ({ nombre, className = 'w-5 h-5' }) => {
     filtro: <><path d="M3 5h18M6 12h12M10 19h4" strokeLinecap="round" /></>,
     buscar: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" strokeLinecap="round" /></>,
     volver: <><path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" /></>,
+    inicio: <><path d="M3 10.5 12 3l9 7.5" strokeLinecap="round" strokeLinejoin="round" /><path d="M5 9.5V20a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1V9.5" strokeLinecap="round" strokeLinejoin="round" /></>,
     cerrar: <><path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" /></>,
     check: <><path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" /></>,
     circulo: <circle cx="12" cy="12" r="9" />,
@@ -107,13 +122,18 @@ const getDiasRestantes = (fecha) => {
 
 const pct = (parte, total) => (total === 0 ? 0 : Math.round((parte / total) * 100));
 
+// Clave YYYY-MM-DD en hora local, para comparar contra filtroFecha sin que
+// el UTC corra el dia. Debe coincidir con la que genera el calendario.
+const claveDiaLocal = (fecha) =>
+  `${fecha.getFullYear()}-${String(fecha.getMonth() + 1).padStart(2, '0')}-${String(fecha.getDate()).padStart(2, '0')}`;
+
 const StatCard = ({ etiqueta, valor, detalle, icono, gradiente, anillo, delay }) => (
   <article className={`ev-stat ev-panel-glass rounded-2xl p-5 ev-enter ${delay || ''}`}>
     <div className="flex items-start justify-between gap-3">
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-slate-500">{etiqueta}</p>
-        <p className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900">{valor}</p>
-        {detalle && <p className="mt-1 text-xs font-medium text-slate-400">{detalle}</p>}
+        <p className="text-sm font-semibold text-slate-500 dark:text-slate-400">{etiqueta}</p>
+        <p className="mt-1 text-3xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">{valor}</p>
+        {detalle && <p className="mt-1 text-xs font-medium text-slate-400 dark:text-slate-400">{detalle}</p>}
       </div>
       <span className={`grid place-items-center w-11 h-11 rounded-xl bg-gradient-to-br ${gradiente} text-white shadow-md shrink-0`}>
         <Icono nombre={icono} className="w-5 h-5" />
@@ -130,9 +150,9 @@ const StatCard = ({ etiqueta, valor, detalle, icono, gradiente, anillo, delay })
 const Donut = ({ segmentos, total }) => {
   if (total === 0) {
     return (
-      <div className="ev-donut h-40 w-40 grid place-items-center" style={{ background: 'conic-gradient(rgba(226,232,240,0.7) 0deg 360deg)' }}>
+      <div className="ev-donut ev-donut-vacio h-40 w-40 grid place-items-center">
         <div className="ev-donut-hueco h-28 w-28 grid place-items-center">
-          <span className="text-xs font-semibold text-slate-400">Sin datos</span>
+          <span className="text-xs font-semibold text-slate-400 dark:text-slate-400">Sin datos</span>
         </div>
       </div>
     );
@@ -159,8 +179,8 @@ const Donut = ({ segmentos, total }) => {
     >
       <div className="ev-donut-hueco h-28 w-28 grid place-items-center">
         <div className="text-center">
-          <p className="text-2xl font-extrabold text-slate-900">{total}</p>
-          <p className="text-[11px] font-semibold text-slate-400">tareas</p>
+          <p className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">{total}</p>
+          <p className="text-[11px] font-semibold text-slate-400 dark:text-slate-400">tareas</p>
         </div>
       </div>
     </div>
@@ -174,7 +194,7 @@ const Chip = ({ activo, onClick, children, ariaLabel }) => (
     aria-pressed={activo}
     aria-label={ariaLabel}
     className={`ev-chip ev-focusable inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border ${
-      activo ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white/80 text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-700'
+      activo ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600 shadow-sm' : 'bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border-slate-200 dark:border-slate-700 hover:border-blue-300 hover:text-blue-700'
     }`}
   >
     {children}
@@ -187,9 +207,8 @@ const GestorEquipos = () => {
   const chatAbiertoRef = useRef(false);
   const tareaEditandoRef = useRef(null);
   const rafRef = useRef(0);
-  // Contador de dragenter/dragleave: sin el, el highlight parpadea
-  // porque ambos eventos se disparan al cruzar elementos hijos.
-  const contadorDrag = useRef(0);
+  // Tarea en curso de arrastre. Ref y no estado: ver handleDragStart.
+  const tareaArrastradaRef = useRef(null);
 
   // Hero del selector de equipos: la frase rota sola y el glow sigue al mouse.
   const heroRef = useRef(null);
@@ -232,10 +251,13 @@ const GestorEquipos = () => {
   const [comentariosTarea, setComentariosTarea] = useState([]);
   const [nuevoComentario, setNuevoComentario] = useState('');
 
-  const [draggedTask, setDraggedTask] = useState(null);
   const [columnaSobre, setColumnaSobre] = useState(null);
+  const [calendarioVisible, setCalendarioVisible] = useState(leerCalendarioVisible);
   const [filtroPrioridad, setFiltroPrioridad] = useState('todas');
   const [filtroMiembro, setFiltroMiembro] = useState('todos');
+  // Clave YYYY-MM-DD. Viene del calendario: al elegir un dia, el tablero
+  // queda reducido a las tareas que vencen ese dia.
+  const [filtroFecha, setFiltroFecha] = useState('');
   const [busqueda, setBusqueda] = useState('');
 
   /* ---------------- datos ---------------- */
@@ -537,10 +559,15 @@ const GestorEquipos = () => {
       } else if (filtroPrioridad !== 'todas' && (t.prioridad || 'verde') !== filtroPrioridad) return false;
       if (filtroMiembro === 'sin_asignar' && t.asignado_a) return false;
       if (filtroMiembro !== 'todos' && filtroMiembro !== 'sin_asignar' && String(t.asignado_a) !== filtroMiembro) return false;
+      if (filtroFecha) {
+        const f = new Date(t.fecha_entrega);
+        if (Number.isNaN(f.getTime())) return false;
+        if (claveDiaLocal(f) !== filtroFecha) return false;
+      }
       if (q && !`${t.titulo} ${t.descripcion || ''}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [tareas, filtroPrioridad, filtroMiembro, busqueda]);
+  }, [tareas, filtroPrioridad, filtroMiembro, filtroFecha, busqueda]);
 
   /* ---------------- acciones ---------------- */
 
@@ -551,7 +578,27 @@ const GestorEquipos = () => {
   const limpiarFiltros = () => {
     setFiltroPrioridad('todas');
     setFiltroMiembro('todos');
+    setFiltroFecha('');
     setBusqueda('');
+  };
+
+  // El calendario pide filtrar por un dia concreto y saltar al tablero.
+  const verFechaEnTablero = (clave) => {
+    limpiarFiltros();
+    setFiltroFecha(clave);
+    setVista('tablero');
+  };
+
+  const alternarCalendario = () => {
+    setCalendarioVisible((prev) => {
+      const siguiente = !prev;
+      try {
+        localStorage.setItem(CLAVE_CALENDARIO, siguiente ? '1' : '0');
+      } catch {
+        // Sin permiso de escritura: el toggle funciona igual en esta sesion.
+      }
+      return siguiente;
+    });
   };
 
   // El ref lo lee el listener del socket. El chat ya no es un tab: esta
@@ -579,6 +626,7 @@ const GestorEquipos = () => {
     setMensajesNoLeidos(0);
     setFiltroPrioridad('todas');
     setFiltroMiembro('todos');
+    setFiltroFecha('');
     setBusqueda('');
     socketRef.current?.emit('unirse-equipo', equipo.equipo_id);
     await Promise.all([
@@ -768,37 +816,55 @@ const GestorEquipos = () => {
 
   /* ---------------- drag and drop ---------------- */
 
+  // El id de la tarea arrastrada vive en un REF, no en estado. Si estuviera
+  // en un useState, el setState de dragstart provocaria un re-render que
+  // cambia la clase del elemento que se esta arrastrando (opacity y
+  // transform). El navegador ya tomo su drag image, y mutar el nodo origen
+  // a mitad de arrastre es exactamente lo que hace que el primer arrastre
+  // quede trabado y el drop nunca dispare.
   const handleDragStart = (e, tarea) => {
-    setDraggedTask(tarea);
+    tareaArrastradaRef.current = tarea;
     e.dataTransfer.effectAllowed = 'move';
-    // Firefox/Chrome necesitan datos para que el drop se dispare
     e.dataTransfer.setData('text/plain', String(tarea.tarea_id));
+
+    // Feedback visual imperativo: marcar la tarjeta con la misma clase que
+    // usaba el estado, pero sin pasar por React.
+    e.currentTarget.classList.add('ev-tarea-arrastrando');
+  };
+
+  const limpiarArrastre = () => {
+    tareaArrastradaRef.current = null;
+    setColumnaSobre(null);
+  };
+
+  const handleDragEnd = (e) => {
+    e.currentTarget.classList.remove('ev-tarea-arrastrando');
+    limpiarArrastre();
   };
 
   const handleDrop = (e, estado) => {
     e.preventDefault();
     e.stopPropagation();
-    contadorDrag.current = 0;
-    setColumnaSobre(null);
-    if (draggedTask && draggedTask.estado !== estado) moverTarea(draggedTask.tarea_id, estado);
-    setDraggedTask(null);
+    const tarea = tareaArrastradaRef.current;
+    limpiarArrastre();
+    if (tarea && tarea.estado !== estado) moverTarea(tarea.tarea_id, estado);
   };
 
-const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onEliminar, onMover }) => {
+const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMover }) => {
   const pri = PRIORIDADES[tarea.prioridad] || PRIORIDADES.verde;
   const dias = getDiasRestantes(tarea.fecha_entrega);
 
-  let claseFecha = 'bg-slate-100 text-slate-600';
+  let claseFecha = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400';
   let textoFecha = null;
   if (dias !== null) {
     if (dias < 0) {
-      claseFecha = 'bg-red-100 text-red-700';
+      claseFecha = 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300';
       textoFecha = dias === -1 ? 'Venció ayer' : `Venció hace ${Math.abs(dias)} d`;
     } else if (dias === 0) {
-      claseFecha = 'bg-red-100 text-red-700';
+      claseFecha = 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300';
       textoFecha = 'Vence hoy';
     } else if (dias <= 2) {
-      claseFecha = 'bg-amber-100 text-amber-800';
+      claseFecha = 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300';
       textoFecha = `${dias} d`;
     } else {
       textoFecha = `${dias} d`;
@@ -811,10 +877,10 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
       onDragStart={(e) => onDragStart(e, tarea)}
       onDragEnd={onDragEnd}
       onClick={() => onAbrir(tarea)}
-      className={`ev-tarea cursor-grab active:cursor-grabbing rounded-xl border border-slate-200/80 bg-white p-3.5 shadow-sm ${arrastrando ? 'ev-tarea-arrastrando' : ''}`}
+      className="ev-tarea cursor-grab active:cursor-grabbing rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900 p-3.5 shadow-sm"
     >
       <div className="flex items-start justify-between gap-2">
-        <h4 className="font-bold text-sm leading-snug text-slate-800 flex-1">{tarea.titulo}</h4>
+        <h4 className="font-bold text-sm leading-snug text-slate-800 dark:text-slate-200 flex-1">{tarea.titulo}</h4>
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); onEliminar(tarea); }}
@@ -825,7 +891,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
         </button>
       </div>
 
-      {tarea.descripcion && <p className="mt-1.5 text-xs text-slate-500 line-clamp-2">{tarea.descripcion}</p>}
+      {tarea.descripcion && <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{tarea.descripcion}</p>}
 
       <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
         <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${pri.bg} ${pri.text}`}>
@@ -845,7 +911,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
           <span className={`ev-avatar grid place-items-center w-5 h-5 rounded-full bg-gradient-to-br ${tonoDesdeNombre(tarea.asignado_nombre)} text-white text-[9px] font-bold`}>
             {tarea.asignado_nombre.charAt(0).toUpperCase()}
           </span>
-          <span className="text-[10px] text-slate-500 font-medium truncate">{tarea.asignado_nombre}</span>
+          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">{tarea.asignado_nombre}</span>
         </div>
       )}
 
@@ -855,7 +921,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
             key={est}
             type="button"
             onClick={(e) => { e.stopPropagation(); onMover(tarea.tarea_id, est); }}
-            className="ev-focusable text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 text-slate-500 hover:bg-blue-100 hover:text-blue-700 transition-colors"
+            className="ev-focusable text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 hover:text-blue-700 transition-colors"
             aria-label={`Mover a ${ESTADOS[est].label}`}
           >
             → {ESTADOS[est].label}
@@ -935,7 +1001,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                     </span>
 
                     {/* Pista de que la imagen es accionable */}
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-white text-blue-700 text-xs sm:text-base font-black px-3 sm:px-4 py-1.5 sm:py-2 shadow-lg border border-blue-100 whitespace-nowrap">
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 sm:gap-2 rounded-full bg-white text-blue-700 text-xs sm:text-base font-black px-3 sm:px-4 py-1.5 sm:py-2 shadow-lg border border-blue-100 dark:border-blue-500/30 whitespace-nowrap">
                       <Icono nombre="mas" className="w-3.5 sm:w-4 h-3.5 sm:h-4" />
                       Crear equipo
                     </span>
@@ -948,22 +1014,34 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
           {/* BARRA DE ACCIONES: fuera del header, sobre el fondo blanco.
               Aqui viven las dos vias de entrada al gestor. */}
           <div className="mt-5 sm:mt-6 flex flex-wrap items-center justify-center gap-3 sm:gap-4 ev-enter ev-d-2">
-            <button type="button" onClick={() => { setShowCrearEquipo(true); setShowUnirse(false); }} className="ev-btn ev-shimmer ev-focusable inline-flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-5 sm:px-7 py-3.5 sm:py-4 rounded-2xl font-bold text-lg sm:text-xl shadow-md hover:bg-blue-700">
+            <button type="button" onClick={() => { setShowCrearEquipo(true); setShowUnirse(false); }} className="ev-btn ev-shimmer ev-focusable inline-flex cursor-pointer items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 sm:px-7 py-3.5 sm:py-4 rounded-2xl font-bold text-lg sm:text-xl shadow-md hover:bg-blue-700">
               <Icono nombre="mas" className="w-5 sm:w-6 h-5 sm:h-6" />
               Crear equipo
             </button>
-            <button type="button" onClick={() => { setShowUnirse(true); setShowCrearEquipo(false); }} className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-5 sm:px-7 py-3.5 sm:py-4 rounded-2xl font-bold text-lg sm:text-xl border border-blue-200 hover:border-blue-400 hover:bg-blue-50">
+            <button type="button" onClick={() => { setShowUnirse(true); setShowCrearEquipo(false); }} className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-5 sm:px-7 py-3.5 sm:py-4 rounded-2xl font-bold text-lg sm:text-xl border border-blue-200 dark:border-blue-500/35 hover:border-blue-400 hover:bg-blue-50">
               <Icono nombre="copiar" className="w-5 sm:w-6 h-5 sm:h-6" />
               Unirme con código
             </button>
+
+            {/* Salir del gestor. Mismo destino que el boton del header de la
+                vista de equipo, para que las dos pantallas ofrezcan la misma
+                salida. */}
+            <Link
+              to="/"
+              className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-slate-600 px-5 sm:px-7 py-3.5 sm:py-4 rounded-2xl font-bold text-lg sm:text-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 hover:border-blue-300 hover:text-blue-700 dark:hover:bg-slate-800"
+              aria-label="Volver al inicio"
+            >
+              <Icono nombre="inicio" className="w-5 sm:w-6 h-5 sm:h-6" />
+              Volver al inicio
+            </Link>
           </div>
 
           {(showCrearEquipo || showUnirse) && (
             <div className="ev-panel-glass rounded-2xl p-5 sm:p-7 mt-5 ev-view max-w-md">
               {showCrearEquipo ? (
                 <>
-                  <h2 className="text-lg font-extrabold text-slate-900">Nuevo equipo</h2>
-                  <p className="text-sm text-slate-500 mt-1">Genera un código para invitar a tus compañeros.</p>
+                  <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">Nuevo equipo</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Genera un código para invitar a tus compañeros.</p>
                   <div className="ev-field relative mt-4">
                     <input
                       type="text"
@@ -971,18 +1049,18 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       value={nombreEquipo}
                       onChange={(e) => setNombreEquipo(e.target.value)}
                       aria-label="Nombre del equipo"
-                      className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                      className="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                     />
                   </div>
                   <div className="mt-4 flex gap-2">
-                    <button type="button" onClick={crearEquipo} className="ev-btn ev-focusable flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold">Crear equipo</button>
-                    <button type="button" onClick={() => setShowCrearEquipo(false)} className="ev-focusable px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors">Cancelar</button>
+                    <button type="button" onClick={crearEquipo} className="ev-btn ev-focusable flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold">Crear equipo</button>
+                    <button type="button" onClick={() => setShowCrearEquipo(false)} className="ev-focusable px-4 py-3 rounded-xl font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Cancelar</button>
                   </div>
                 </>
               ) : (
                 <>
-                  <h2 className="text-lg font-extrabold text-slate-900">Unirme a un equipo</h2>
-                  <p className="text-sm text-slate-500 mt-1">Pide el código de 6 caracteres a quien administra el equipo.</p>
+                  <h2 className="text-lg font-extrabold text-slate-900 dark:text-slate-100">Unirme a un equipo</h2>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">Pide el código de 6 caracteres a quien administra el equipo.</p>
                   <div className="ev-field relative mt-4">
                     <input
                       type="text"
@@ -991,12 +1069,12 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       onChange={(e) => setCodigoUnirse(e.target.value.toUpperCase())}
                       maxLength={6}
                       aria-label="Código de invitación"
-                      className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 text-center font-mono tracking-[0.35em] text-lg text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 uppercase"
+                      className="w-full px-4 py-3 rounded-xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-center font-mono tracking-[0.35em] text-lg text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 uppercase"
                     />
                   </div>
                   <div className="mt-4 flex gap-2">
-                    <button type="button" onClick={unirseEquipo} className="ev-btn ev-focusable flex-1 py-3 rounded-xl bg-blue-600 text-white font-bold">Unirme</button>
-                    <button type="button" onClick={() => setShowUnirse(false)} className="ev-focusable px-4 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-100 transition-colors">Cancelar</button>
+                    <button type="button" onClick={unirseEquipo} className="ev-btn ev-focusable flex-1 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold">Unirme</button>
+                    <button type="button" onClick={() => setShowUnirse(false)} className="ev-focusable px-4 py-3 rounded-xl font-bold text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors">Cancelar</button>
                   </div>
                 </>
               )}
@@ -1006,7 +1084,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
           <section className="mt-6 sm:mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
             {/* COLUMNA IZQUIERDA: los equipos */}
             <div className="min-w-0">
-              <h2 className="text-sm sm:text-base font-black uppercase tracking-widest text-slate-500 mb-4 sm:mb-5">
+              <h2 className="text-sm sm:text-base font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-4 sm:mb-5">
                 Tus equipos ({equipos.length})
               </h2>
               {equipos.length === 0 ? (
@@ -1027,22 +1105,31 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                     />
                   </div>
 
-                  <h3 className="mt-5 sm:mt-7 text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
+                  <h3 className="mt-5 sm:mt-7 text-2xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100">
                     Tu primer equipo te espera
                   </h3>
-                  <p className="mt-2 sm:mt-3 text-slate-600 text-base sm:text-xl font-medium max-w-xl mx-auto">
+                  <p className="mt-2 sm:mt-3 text-slate-600 dark:text-slate-400 text-base sm:text-xl font-medium max-w-xl mx-auto">
                     Reúne a tus compañeros, reparte el trabajo y mira cómo avanza el proyecto en tiempo real.
                   </p>
 
                   <div className="mt-6 sm:mt-8 flex flex-wrap items-center justify-center gap-3 sm:gap-4">
-                    <button type="button" onClick={() => { setShowCrearEquipo(true); setShowUnirse(false); }} className="ev-btn ev-shimmer ev-focusable inline-flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-5 sm:px-7 py-3.5 sm:py-4 rounded-2xl font-bold text-lg sm:text-xl shadow-md hover:bg-blue-700">
+                    <button type="button" onClick={() => { setShowCrearEquipo(true); setShowUnirse(false); }} className="ev-btn ev-shimmer ev-focusable inline-flex cursor-pointer items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 sm:px-7 py-3.5 sm:py-4 rounded-2xl font-bold text-lg sm:text-xl shadow-md hover:bg-blue-700">
                       <Icono nombre="mas" className="w-5 sm:w-6 h-5 sm:h-6" />
                       Crear mi primer equipo
                     </button>
-                    <button type="button" onClick={() => { setShowUnirse(true); setShowCrearEquipo(false); }} className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-5 sm:px-7 py-3.5 sm:py-4 rounded-2xl font-bold text-lg sm:text-xl border border-blue-200 hover:border-blue-400 hover:bg-blue-50">
+                    <button type="button" onClick={() => { setShowUnirse(true); setShowCrearEquipo(false); }} className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-5 sm:px-7 py-3.5 sm:py-4 rounded-2xl font-bold text-lg sm:text-xl border border-blue-200 dark:border-blue-500/35 hover:border-blue-400 hover:bg-blue-50">
                       <Icono nombre="copiar" className="w-5 sm:w-6 h-5 sm:h-6" />
                       Tengo un código
                     </button>
+
+                    <Link
+                      to="/"
+                      className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-slate-600 px-5 sm:px-7 py-3.5 sm:py-4 rounded-2xl font-bold text-lg sm:text-xl border border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 hover:border-blue-300 hover:text-blue-700 dark:hover:bg-slate-800"
+                      aria-label="Volver al inicio"
+                    >
+                      <Icono nombre="inicio" className="w-5 sm:w-6 h-5 sm:h-6" />
+                      Volver al inicio
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -1059,16 +1146,16 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       <span className="grid place-items-center w-10 sm:w-12 h-10 sm:h-12 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md shrink-0">
                         <Icono nombre="usuarios" className="w-5 sm:w-6 h-5 sm:h-6" />
                       </span>
-                      <span className="text-[10px] sm:text-xs font-black uppercase px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-blue-50 text-blue-700 shrink-0">
+                      <span className="text-[10px] sm:text-xs font-black uppercase px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-full bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300 shrink-0">
                         {ETIQUETA_ROL[eq.rol] || eq.rol}
                       </span>
                     </div>
-                    <h3 className="mt-4 sm:mt-5 font-extrabold text-lg sm:text-xl text-slate-900 leading-tight">{eq.nombre}</h3>
+                    <h3 className="mt-4 sm:mt-5 font-extrabold text-lg sm:text-xl text-slate-900 dark:text-slate-100 leading-tight">{eq.nombre}</h3>
 
                     {/* Avance del equipo, sin necesidad de entrar */}
                     <div className="mt-3.5 sm:mt-4">
                       <div className="flex items-baseline justify-between text-xs font-bold mb-2">
-                        <span className="text-slate-500 uppercase tracking-wider">
+                        <span className="text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           {total === 0 ? 'Sin tareas' : `${avance}% completado`}
                         </span>
                         {urgente && (
@@ -1086,7 +1173,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       </div>
                     </div>
 
-                    <div className="mt-3.5 sm:mt-4 flex items-center justify-between rounded-xl bg-blue-50/70 border border-blue-100 px-3.5 sm:px-4 py-2 sm:py-2.5">
+                    <div className="mt-3.5 sm:mt-4 flex items-center justify-between rounded-xl bg-blue-50/70 border border-blue-100 dark:border-blue-500/30 px-3.5 sm:px-4 py-2 sm:py-2.5">
                       <div>
                         <p className="text-[10px] font-bold uppercase text-blue-500 tracking-wider">Código</p>
                         <p className="font-mono font-black text-blue-800 tracking-[0.25em] text-base sm:text-lg">{eq.codigo_invitacion}</p>
@@ -1111,7 +1198,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                   <span aria-hidden="true" className="ev-esquina" />
 
                   <div className="relative">
-                    <h3 className="text-sm sm:text-base font-black uppercase tracking-widest text-slate-500">Tu actividad</h3>
+                    <h3 className="text-sm sm:text-base font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Tu actividad</h3>
 
                     <div className="mt-4 sm:mt-5 grid grid-cols-2 gap-3 sm:gap-3.5">
                       {[
@@ -1120,12 +1207,12 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                         { etiqueta: 'Completadas', valor: cifras.completadas, gradiente: 'from-emerald-500 to-teal-600', icono: 'check' },
                         { etiqueta: 'Vencidas', valor: cifras.vencidas, gradiente: 'from-rose-500 to-red-600', icono: 'alerta' },
                       ].map((s) => (
-                        <div key={s.etiqueta} className="rounded-xl bg-white/85 border border-white/70 px-3.5 py-3">
+                        <div key={s.etiqueta} className="rounded-xl bg-white/85 dark:bg-slate-800/85 border border-white/70 px-3.5 py-3">
                           <span className={`ev-stat-icon grid place-items-center w-8 h-8 rounded-lg bg-gradient-to-br ${s.gradiente} text-white shadow-sm mb-2.5`}>
                             <Icono nombre={s.icono} className="w-5 h-5" />
                           </span>
-                          <p className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 leading-none tabular-nums">{s.valor}</p>
-                          <p className="mt-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">{s.etiqueta}</p>
+                          <p className="text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900 dark:text-slate-100 leading-none tabular-nums">{s.valor}</p>
+                          <p className="mt-1.5 text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">{s.etiqueta}</p>
                         </div>
                       ))}
                     </div>
@@ -1135,13 +1222,13 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                     {/* Avance global */}
                     <div>
                       <div className="flex items-baseline justify-between text-sm font-bold mb-2">
-                        <span className="text-slate-600">Avance global</span>
-                        <span className="text-slate-900 tabular-nums">{cifras.tasa}%</span>
+                        <span className="text-slate-600 dark:text-slate-400">Avance global</span>
+                        <span className="text-slate-900 dark:text-slate-100 tabular-nums">{cifras.tasa}%</span>
                       </div>
                       <div className="ev-progress-track ev-track-brillo" role="img" aria-label={`Avance global: ${resumenGlobal.tasa}%`}>
                         <div className="ev-progress-fill bg-gradient-to-r from-emerald-500 to-teal-600" style={{ width: `${resumenGlobal.tasa}%` }} />
                       </div>
-                      <p className="mt-2.5 text-sm font-medium text-slate-500">
+                      <p className="mt-2.5 text-sm font-medium text-slate-500 dark:text-slate-400">
                         {resumenGlobal.pendientes === 0
                           ? 'Todo al día, no te queda nada pendiente.'
                           : `${resumenGlobal.pendientes} ${resumenGlobal.pendientes === 1 ? 'tarea pendiente' : 'tareas pendientes'} en total.`}
@@ -1164,7 +1251,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-sm sm:text-base font-black uppercase tracking-widest text-slate-500">Próximas entregas</h3>
+                      <h3 className="text-sm sm:text-base font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">Próximas entregas</h3>
                       {resumenGlobal.hoy > 0 && (
                         <p className="mt-1 text-xs sm:text-sm font-bold text-red-600">
                           {resumenGlobal.hoy} {resumenGlobal.hoy === 1 ? 'vence hoy' : 'vencen hoy'}
@@ -1174,7 +1261,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                   </div>
 
                   {resumenGlobal.proximas.length === 0 ? (
-                    <p className="mt-5 text-base font-medium text-slate-500">
+                    <p className="mt-5 text-base font-medium text-slate-500 dark:text-slate-400">
                       Sin fechas de entrega próximas. Asigna una a una tarea para verla aquí.
                     </p>
                   ) : (
@@ -1189,21 +1276,21 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                             className={`rounded-xl border px-4 py-3 transition-colors ${
                               venceHoy
                                 ? 'bg-red-50 border-red-200 shadow-[0_0_0_3px_rgba(239,68,68,0.08)]'
-                                : 'bg-white/85 border-white/70 hover:border-blue-300'
+                                : 'bg-white/85 dark:bg-slate-800/85 border-white/70 hover:border-blue-300'
                             }`}
                           >
-                            <p className={`text-base font-bold leading-snug truncate ${venceHoy ? 'text-red-900' : 'text-slate-800'}`}>
+                            <p className={`text-base font-bold leading-snug truncate ${venceHoy ? 'text-red-900' : 'text-slate-800 dark:text-slate-200'}`}>
                               {p.titulo}
                             </p>
                             <div className="mt-1.5 flex items-center justify-between gap-2">
-                              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 truncate">{p.equipo_nombre}</span>
+                              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 truncate">{p.equipo_nombre}</span>
                               <span
                                 className={`shrink-0 inline-flex items-center gap-1 text-xs font-black px-2.5 py-1 rounded-full ${
                                   venceHoy
                                     ? 'ev-badge-urgente bg-red-600 text-white'
                                     : urgente
-                                      ? 'bg-amber-100 text-amber-800'
-                                      : 'bg-slate-100 text-slate-600'
+                                      ? 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-200'
+                                      : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400'
                                 }`}
                               >
                                 <Icono nombre={venceHoy ? 'alerta' : 'reloj'} className="w-3 h-3" />
@@ -1249,7 +1336,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
   /* ---------------- vista: dashboard del equipo ---------------- */
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-slate-50 font-['Fredoka',sans-serif]">
+    <div className="min-h-[calc(100vh-64px)] bg-slate-50 dark:bg-slate-900 font-['Fredoka',sans-serif]">
       <div className="flex">
         {sidebarMovil && <div className="fixed inset-0 bg-slate-900/40 z-40 lg:hidden ev-overlay" onClick={() => setSidebarMovil(false)} />}
         {chatMovil && <div className="fixed inset-0 bg-slate-900/40 z-40 xl:hidden ev-overlay" onClick={cerrarChatMovil} />}
@@ -1260,9 +1347,9 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
             ${sidebarMovil ? 'w-72 translate-x-0' : '-translate-x-full lg:translate-x-0'}
             ${sidebarMinimizado ? 'lg:w-16' : 'lg:w-64'}`}
         >
-          <div className={`${sidebarMinimizado ? 'p-2' : 'p-4'} flex items-center border-b border-slate-200/70 gap-2`}>
+          <div className={`${sidebarMinimizado ? 'p-2' : 'p-4'} flex items-center border-b border-slate-200/70 dark:border-slate-700/70 gap-2`}>
             {!sidebarMinimizado && (
-              <button type="button" onClick={salirDeEquipo} className="ev-focusable inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 hover:text-blue-700 transition-colors">
+              <button type="button" onClick={salirDeEquipo} className="ev-focusable inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-blue-700 transition-colors">
                 <Icono nombre="volver" className="w-4 h-4" />
                 Equipos
               </button>
@@ -1270,24 +1357,24 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
             <button
               type="button"
               onClick={() => setSidebarMinimizado(!sidebarMinimizado)}
-              className="ev-focusable hidden lg:grid place-items-center w-8 h-8 rounded-lg bg-slate-100 text-slate-500 hover:bg-blue-100 hover:text-blue-700 transition-colors shrink-0 ml-auto"
+              className="ev-focusable hidden lg:grid place-items-center w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 hover:text-blue-700 transition-colors shrink-0 ml-auto"
               aria-label={sidebarMinimizado ? 'Expandir panel' : 'Minimizar panel'}
             >
               <Icono nombre="menu" className="w-4 h-4" />
             </button>
-            <button type="button" onClick={() => setSidebarMovil(false)} className="ev-focusable lg:hidden grid place-items-center w-8 h-8 rounded-lg bg-slate-100 text-slate-500 shrink-0 ml-auto" aria-label="Cerrar panel">
+            <button type="button" onClick={() => setSidebarMovil(false)} className="ev-focusable lg:hidden grid place-items-center w-8 h-8 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 shrink-0 ml-auto" aria-label="Cerrar panel">
               <Icono nombre="cerrar" className="w-4 h-4" />
             </button>
           </div>
 
           {!sidebarMinimizado ? (
             <>
-              <div className="p-4 border-b border-slate-200/70">
-                <h2 className="font-extrabold text-slate-900 leading-tight">{equipoActivo.nombre}</h2>
+              <div className="p-4 border-b border-slate-200/70 dark:border-slate-700/70">
+                <h2 className="font-extrabold text-slate-900 dark:text-slate-100 leading-tight">{equipoActivo.nombre}</h2>
                 <button
                   type="button"
                   onClick={copiarCodigo}
-                  className="ev-focusable mt-2.5 w-full flex items-center justify-between rounded-xl bg-blue-50/80 border border-blue-100 px-3 py-2 hover:bg-blue-100 transition-colors"
+                  className="ev-focusable mt-2.5 w-full flex items-center justify-between rounded-xl bg-blue-50/80 border border-blue-100 dark:border-blue-500/30 px-3 py-2 hover:bg-blue-100 dark:hover:bg-blue-500/20 transition-colors"
                   aria-label="Copiar código de invitación"
                 >
                   <span className="text-left">
@@ -1299,7 +1386,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
               </div>
 
               <div className="p-4 flex-1 overflow-y-auto">
-                <h3 className="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-3 flex items-center justify-between">
+                <h3 className="text-[10px] font-black uppercase text-slate-400 dark:text-slate-400 tracking-widest mb-3 flex items-center justify-between">
                   <span>Miembros ({miembros.length})</span>
                   {filtroMiembro !== 'todos' && (
                     <button type="button" onClick={() => setFiltroMiembro('todos')} className="ev-focusable text-[10px] font-bold text-blue-600 hover:underline">
@@ -1319,7 +1406,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                           type="button"
                           onClick={() => setFiltroMiembro(filtroMiembro === String(m.usuario_id) ? 'todos' : String(m.usuario_id))}
                           className={`ev-chip ev-focusable w-full flex items-center gap-2.5 p-2 rounded-lg text-left ${
-                            filtroMiembro === String(m.usuario_id) ? 'bg-blue-50 border border-blue-200' : 'border border-transparent hover:bg-slate-100'
+                            filtroMiembro === String(m.usuario_id) ? 'bg-blue-50 dark:bg-blue-500/15 border border-blue-200 dark:border-blue-500/35' : 'border border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
                           }`}
                           aria-pressed={filtroMiembro === String(m.usuario_id)}
                         >
@@ -1328,16 +1415,16 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                           </span>
                           <span className="min-w-0 flex-1">
                             <span className="flex items-baseline gap-1.5">
-                              <span className="text-xs font-bold text-slate-800 truncate">{m.nombre}</span>
+                              <span className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{m.nombre}</span>
                               {m.rol === 'admin' && (
-                                <span className="text-[8px] font-black uppercase text-blue-600 bg-blue-50 px-1 rounded shrink-0">Admin</span>
+                                <span className="text-[8px] font-black uppercase text-blue-600 dark:text-blue-300 bg-blue-50 dark:bg-blue-500/15 px-1 rounded shrink-0">Admin</span>
                               )}
                             </span>
                             <span className="mt-1 flex items-center gap-1.5">
-                              <span className="ev-progress-mini flex-1" style={{ backgroundColor: 'rgba(226,232,240,0.8)' }}>
+                              <span className="ev-progress-mini flex-1">
                                 <span className="ev-progress-mini-fill block bg-gradient-to-r from-blue-500 to-indigo-500" style={{ width: `${pct(abiertas, maxAbiertas)}%` }} />
                               </span>
-                              <span className="text-[9px] font-bold text-slate-400 shrink-0 tabular-nums">
+                              <span className="text-[9px] font-bold text-slate-400 dark:text-slate-400 shrink-0 tabular-nums">
                                 {abiertas}/{total}
                               </span>
                             </span>
@@ -1353,13 +1440,13 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                     onClick={() => setFiltroMiembro(filtroMiembro === 'sin_asignar' ? 'todos' : 'sin_asignar')}
                     aria-pressed={filtroMiembro === 'sin_asignar'}
                     className={`ev-chip ev-focusable mt-2 w-full flex items-center gap-2.5 p-2 rounded-lg text-left ${
-                      filtroMiembro === 'sin_asignar' ? 'bg-amber-50 border border-amber-200' : 'border border-transparent hover:bg-slate-100'
+                      filtroMiembro === 'sin_asignar' ? 'bg-amber-50 dark:bg-amber-500/15 border border-amber-200 dark:border-amber-500/35' : 'border border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
                     }`}
                   >
-                    <span className="grid place-items-center w-9 h-9 rounded-full bg-slate-200 text-slate-500 text-xs font-bold shrink-0">?</span>
+                    <span className="grid place-items-center w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-xs font-bold shrink-0">?</span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-xs font-bold text-slate-700">Sin asignar</span>
-                      <span className="block text-[9px] text-slate-400">{metricas.sinAsignar} {metricas.sinAsignar === 1 ? 'tarea abierta' : 'tareas abiertas'}</span>
+                      <span className="block text-xs font-bold text-slate-700 dark:text-slate-300">Sin asignar</span>
+                      <span className="block text-[9px] text-slate-400 dark:text-slate-400">{metricas.sinAsignar} {metricas.sinAsignar === 1 ? 'tarea abierta' : 'tareas abiertas'}</span>
                     </span>
                   </button>
                 )}
@@ -1384,11 +1471,52 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
           <header className="ev-mesh text-white relative overflow-hidden">
             <div aria-hidden="true" className="absolute -top-16 -right-16 w-64 h-64 bg-white/10 rounded-full blur-2xl" />
             <div className="relative px-4 sm:px-6 py-5 sm:py-6">
+              {/* Calendario de vencimientos: va antes de la fila del nombre
+                  para que en movil quede arriba de todo sin scroll. */}
+              {calendarioVisible && (
+                <div className="flex justify-center lg:hidden mb-4 ev-enter ev-d-1">
+                  <CalendarioVencimientos
+                    tareas={tareas}
+                    prioridades={PRIORIDADES}
+                    onVerEnTablero={verFechaEnTablero}
+                  />
+                </div>
+              )}
+
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <button type="button" onClick={() => setSidebarMovil(true)} className="ev-focusable lg:hidden grid place-items-center w-10 h-10 rounded-xl bg-white/15 shrink-0" aria-label="Abrir panel de equipos">
                     <Icono nombre="menu" className="w-5 h-5" />
                   </button>
+
+                  {/* Volver a la lista de equipos. El boton "Equipos" del
+                      sidebar solo existe cuando el panel NO esta minimizado:
+                      con el panel colapsado, o en movil con el sidebar
+                      cerrado, no habia forma de salir del equipo sin abrir el
+                      panel primero. Este vive en el header, asi que esta
+                      siempre disponible. */}
+                  <button
+                    type="button"
+                    onClick={salirDeEquipo}
+                    className="ev-focusable inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-white/15 px-2.5 py-2 text-xs font-bold text-white transition-colors hover:bg-white/30 sm:text-sm"
+                    aria-label="Volver a la lista de equipos"
+                  >
+                    <Icono nombre="volver" className="h-4 w-4" />
+                    <span className="hidden sm:inline">Equipos</span>
+                  </button>
+
+                  {/* Salir del gestor y volver a la pantalla principal. Es
+                      distinto del boton de arriba: ese cierra el equipo y
+                      vuelve al selector de equipos, este sale de la aplicacion. */}
+                  <Link
+                    to="/"
+                    className="ev-focusable inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-xl bg-white/15 px-2.5 py-2 text-xs font-bold text-white transition-colors hover:bg-white/30 sm:text-sm"
+                    aria-label="Volver al inicio"
+                  >
+                    <Icono nombre="inicio" className="h-4 w-4" />
+                    <span className="hidden sm:inline">Inicio</span>
+                  </Link>
+
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <h1 className="text-lg sm:text-2xl font-extrabold truncate">{equipoActivo.nombre}</h1>
@@ -1407,7 +1535,43 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                     )}
                   </div>
                 </div>
-                <button type="button" onClick={() => setShowCrearTarea(true)} className="ev-btn ev-shimmer ev-focusable inline-flex items-center gap-2 bg-white text-blue-700 px-4 sm:px-5 py-2.5 rounded-xl font-bold shadow-md shrink-0">
+
+                {/* En escritorio el calendario va en la misma fila, entre el
+                    nombre y los botones. */}
+                {calendarioVisible && (
+                  <div className="hidden lg:block shrink-0 ev-enter ev-d-2">
+                    <CalendarioVencimientos
+                      tareas={tareas}
+                      prioridades={PRIORIDADES}
+                      onVerEnTablero={verFechaEnTablero}
+                    />
+                  </div>
+                )}
+
+                {/* Toggle del calendario. Va siempre visible (tb en movil) para
+                    que se pueda volver a mostrar sin entrar a otro equipo. */}
+                <button
+                  type="button"
+                  onClick={alternarCalendario}
+                  aria-pressed={calendarioVisible}
+                  aria-label={calendarioVisible ? 'Ocultar calendario' : 'Mostrar calendario'}
+                  title={calendarioVisible ? 'Ocultar calendario' : 'Mostrar calendario'}
+                  className={`ev-btn ev-focusable grid h-10 w-10 shrink-0 cursor-pointer place-items-center rounded-xl transition-colors ${
+                    calendarioVisible
+                      ? 'bg-white/20 text-white hover:bg-white/30'
+                      : 'bg-white/10 text-white/50 hover:bg-white/20 hover:text-white'
+                  }`}
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className="h-5 w-5" aria-hidden="true">
+                    <rect x="3" y="4" width="18" height="17" rx="2.5" />
+                    <path d="M3 10h18M8 2v4M16 2v4" strokeLinecap="round" />
+                    {!calendarioVisible && (
+                      <path d="M4 20L20 4" strokeLinecap="round" strokeWidth="2.2" />
+                    )}
+                  </svg>
+                </button>
+
+                <button type="button" onClick={() => setShowCrearTarea(true)} className="ev-btn ev-shimmer ev-shimmer-claro ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-4 sm:px-5 py-2.5 rounded-xl font-bold shadow-md shrink-0">
                   <Icono nombre="mas" className="w-4 h-4" />
                   <span className="hidden sm:inline">Nueva tarea</span>
                 </button>
@@ -1455,12 +1619,12 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
             <div className="ev-view p-4 sm:p-6 space-y-5">
               {metricas.total === 0 ? (
                 <div className="ev-panel-glass rounded-2xl py-20 text-center">
-                  <span className="mx-auto grid place-items-center w-16 h-16 rounded-2xl bg-blue-50 text-blue-400">
+                  <span className="mx-auto grid place-items-center w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-500/15 text-blue-400">
                     <Icono nombre="tablero" className="w-8 h-8" />
                   </span>
-                  <p className="mt-5 text-slate-700 font-bold text-lg">Este equipo todavía no tiene tareas</p>
-                  <p className="mt-1 text-slate-400 text-sm">Crea la primera para empezar a repartir el trabajo.</p>
-                  <button type="button" onClick={() => setShowCrearTarea(true)} className="ev-btn ev-focusable mt-6 inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-3 rounded-xl font-bold">
+                  <p className="mt-5 text-slate-700 dark:text-slate-300 font-bold text-lg">Este equipo todavía no tiene tareas</p>
+                  <p className="mt-1 text-slate-400 dark:text-slate-400 text-sm">Crea la primera para empezar a repartir el trabajo.</p>
+                  <button type="button" onClick={() => setShowCrearTarea(true)} className="ev-btn ev-focusable mt-6 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-bold">
                     <Icono nombre="mas" className="w-4 h-4" />
                     Nueva tarea
                   </button>
@@ -1477,13 +1641,13 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                   <div className="grid gap-4 lg:grid-cols-2">
                     {/* Estados */}
                     <section className="ev-panel-glass rounded-2xl p-5 ev-enter ev-d-2">
-                      <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Tareas por estado</h2>
+                      <h2 className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-400">Tareas por estado</h2>
                       <div className="mt-4 space-y-3.5">
                         {metricas.porEstado.map((e) => (
                           <div key={e.clave}>
                             <div className="flex items-center justify-between text-sm mb-1.5">
-                              <span className="font-bold text-slate-700">{e.label}</span>
-                              <span className="font-extrabold text-slate-900">{e.valor}</span>
+                              <span className="font-bold text-slate-700 dark:text-slate-300">{e.label}</span>
+                              <span className="font-extrabold text-slate-900 dark:text-slate-100">{e.valor}</span>
                             </div>
                             <div className="ev-bar-track">
                               <div className="ev-bar-fill" style={{ width: `${pct(e.valor, metricas.total)}%`, backgroundColor: e.punto }} />
@@ -1495,7 +1659,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
 
                     {/* Prioridad */}
                     <section className="ev-panel-glass rounded-2xl p-5 ev-enter ev-d-3">
-                      <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Tareas por prioridad</h2>
+                      <h2 className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-400">Tareas por prioridad</h2>
                       <div className="mt-4 flex flex-col sm:flex-row items-center gap-6">
                         <Donut segmentos={metricas.porPrioridad} total={metricas.total} />
                         <ul className="flex-1 w-full space-y-2.5">
@@ -1504,14 +1668,14 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                               <button
                                 type="button"
                                 onClick={() => { setFiltroPrioridad(filtroPrioridad === p.clave ? 'todas' : p.clave); setVista('tablero'); }}
-                                className="ev-focusable w-full flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-slate-50 transition-colors"
+                                className="ev-focusable w-full flex items-center justify-between gap-3 rounded-lg px-2 py-1.5 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                 aria-label={`Filtrar por ${p.label}`}
                               >
                                 <span className="flex items-center gap-2 min-w-0">
                                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
-                                  <span className="text-sm font-semibold text-slate-700 truncate">{p.label}</span>
+                                  <span className="text-sm font-semibold text-slate-700 dark:text-slate-300 truncate">{p.label}</span>
                                 </span>
-                                <span className="font-extrabold text-slate-900">{p.valor}</span>
+                                <span className="font-extrabold text-slate-900 dark:text-slate-100">{p.valor}</span>
                               </button>
                             </li>
                           ))}
@@ -1523,9 +1687,9 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                   <div className="grid gap-4 lg:grid-cols-2">
                     {/* Carga por miembro */}
                     <section className="ev-panel-glass rounded-2xl p-5 ev-enter ev-d-4">
-                      <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Carga por miembro</h2>
+                      <h2 className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-400">Carga por miembro</h2>
                       {metricas.carga.length === 0 ? (
-                        <p className="mt-4 text-sm text-slate-400">Sin miembros asignados todavía.</p>
+                        <p className="mt-4 text-sm text-slate-400 dark:text-slate-400">Sin miembros asignados todavía.</p>
                       ) : (
                         <ul className="mt-4 space-y-3">
                           {metricas.carga.map((c) => (
@@ -1535,8 +1699,8 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                               </span>
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center justify-between text-xs mb-1">
-                                  <span className="font-bold text-slate-700 truncate">{c.nombre}</span>
-                                  <span className="font-bold text-slate-400 shrink-0 ml-2">{c.abiertas} abiertas</span>
+                                  <span className="font-bold text-slate-700 dark:text-slate-300 truncate">{c.nombre}</span>
+                                  <span className="font-bold text-slate-400 dark:text-slate-400 shrink-0 ml-2">{c.abiertas} abiertas</span>
                                 </div>
                                 <div className="ev-bar-track" style={{ height: 8 }}>
                                   <div className="ev-bar-fill bg-gradient-to-r from-blue-500 to-indigo-500" style={{ width: `${pct(c.abiertas, Math.max(...metricas.carga.map((x) => x.abiertas), 1))}%` }} />
@@ -1545,11 +1709,11 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                             </li>
                           ))}
                           {metricas.sinAsignar > 0 && (
-                            <li className="flex items-center gap-3 pt-1 border-t border-slate-200/70">
-                              <span className="grid place-items-center w-8 h-8 rounded-full bg-slate-200 text-slate-500 text-xs font-bold shrink-0">?</span>
+                            <li className="flex items-center gap-3 pt-1 border-t border-slate-200/70 dark:border-slate-700/70">
+                              <span className="grid place-items-center w-8 h-8 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-500 dark:text-slate-400 text-xs font-bold shrink-0">?</span>
                               <div className="flex-1">
-                                <span className="text-xs font-bold text-slate-600">Sin asignar</span>
-                                <p className="text-[11px] text-slate-400">{metricas.sinAsignar} {metricas.sinAsignar === 1 ? 'tarea abierta' : 'tareas abiertas'}</p>
+                                <span className="text-xs font-bold text-slate-600 dark:text-slate-400">Sin asignar</span>
+                                <p className="text-[11px] text-slate-400 dark:text-slate-400">{metricas.sinAsignar} {metricas.sinAsignar === 1 ? 'tarea abierta' : 'tareas abiertas'}</p>
                               </div>
                             </li>
                           )}
@@ -1559,9 +1723,9 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
 
                     {/* Próximas entregas */}
                     <section className="ev-panel-glass rounded-2xl p-5 ev-enter ev-d-5">
-                      <h2 className="text-sm font-black uppercase tracking-widest text-slate-400">Próximas entregas</h2>
+                      <h2 className="text-sm font-black uppercase tracking-widest text-slate-400 dark:text-slate-400">Próximas entregas</h2>
                       {metricas.proximas.length === 0 ? (
-                        <p className="mt-4 text-sm text-slate-400">No hay tareas con fecha de entrega pendiente.</p>
+                        <p className="mt-4 text-sm text-slate-400 dark:text-slate-400">No hay tareas con fecha de entrega pendiente.</p>
                       ) : (
                         <ul className="mt-4 space-y-2">
                           {metricas.proximas.map((t) => {
@@ -1572,14 +1736,14 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                                 <button
                                   type="button"
                                   onClick={() => { abrirEditorTarea(t); }}
-                                  className="ev-focusable w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-slate-50 transition-colors"
+                                  className="ev-focusable w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
                                 >
                                   <span className={`w-2 h-2 rounded-full shrink-0 ${urgente ? 'bg-red-500' : 'bg-blue-500'}`} aria-hidden="true" />
                                   <span className="flex-1 min-w-0">
-                                    <span className="block text-sm font-bold text-slate-800 truncate">{t.titulo}</span>
-                                    <span className="block text-[11px] text-slate-400">{t.asignado_nombre || 'Sin asignar'}</span>
+                                    <span className="block text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{t.titulo}</span>
+                                    <span className="block text-[11px] text-slate-400 dark:text-slate-400">{t.asignado_nombre || 'Sin asignar'}</span>
                                   </span>
-                                  <span className={`shrink-0 text-xs font-black ${urgente ? 'text-red-600' : 'text-slate-500'}`}>
+                                  <span className={`shrink-0 text-xs font-black ${urgente ? 'text-red-600' : 'text-slate-500 dark:text-slate-400'}`}>
                                     {dias === 0 ? 'Hoy' : dias === 1 ? 'Mañana' : `${dias} d`}
                                   </span>
                                 </button>
@@ -1598,9 +1762,9 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
           {/* ---------------- TABLERO ---------------- */}
           {vista === 'tablero' && (
             <div className="ev-view flex-1 flex flex-col min-h-0">
-              <div className="px-4 sm:px-6 py-3 border-b border-slate-200 bg-white/80 backdrop-blur-xl flex flex-wrap items-center gap-2">
+              <div className="px-4 sm:px-6 py-3 border-b border-slate-200 dark:border-slate-700 bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl flex flex-wrap items-center gap-2">
                 <div className="ev-field relative flex-1 min-w-[180px]">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-400 pointer-events-none">
                     <Icono nombre="buscar" className="w-4 h-4" />
                   </span>
                   <input
@@ -1609,13 +1773,34 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                     onChange={(e) => setBusqueda(e.target.value)}
                     placeholder="Buscar tareas..."
                     aria-label="Buscar tareas"
-                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   />
                 </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
-                  <Chip activo={filtroPrioridad === 'todas'} onClick={limpiarFiltros} ariaLabel="Sin filtros">
+                  <Chip
+                    activo={filtroPrioridad === 'todas' && filtroMiembro === 'todos' && !filtroFecha && !busqueda}
+                    onClick={limpiarFiltros}
+                    ariaLabel="Sin filtros"
+                  >
                     Todas
                   </Chip>
+
+                  {/* Chip del filtro por fecha: lo inyecta el calendario y
+                      es la unica forma visible de loosen, porque el tablero
+                      no muestra ningun otro rastro de que esta filtrado. */}
+                  {filtroFecha && (
+                    <button
+                      type="button"
+                      onClick={() => setFiltroFecha('')}
+                      aria-pressed="true"
+                      aria-label="Quitar el filtro de fecha"
+                      className="ev-chip ev-focusable inline-flex cursor-pointer items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border border-blue-600 bg-blue-600 hover:bg-blue-700 text-white shadow-sm"
+                    >
+                      <Icono nombre="reloj" className="w-3 h-3" />
+                      {new Date(`${filtroFecha}T00:00:00`).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
+                      <Icono nombre="cerrar" className="w-3 h-3" />
+                    </button>
+                  )}
                   {metricas.vencidas > 0 && (
                     <Chip activo={filtroPrioridad === 'vencidas'} onClick={alternarVencidas} ariaLabel={`Mostrar solo tareas vencidas, ${metricas.vencidas} en total`}>
                       <Icono nombre="alerta" className="w-3 h-3" />
@@ -1632,7 +1817,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                     value={filtroMiembro}
                     onChange={(e) => setFiltroMiembro(e.target.value)}
                     aria-label="Filtrar por miembro"
-                    className="ev-focusable text-xs font-bold px-3 py-1.5 rounded-full bg-white/80 text-slate-600 border border-slate-200 outline-none"
+                    className="ev-focusable text-xs font-bold px-3 py-1.5 rounded-full bg-white/80 dark:bg-slate-800/80 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 outline-none"
                   >
                     <option value="todos">Todos los miembros</option>
                     <option value="sin_asignar">Sin asignar</option>
@@ -1651,12 +1836,15 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                   return (
                     <section
                       key={key}
-                      onDragEnter={(e) => { e.preventDefault(); contadorDrag.current += 1; setColumnaSobre(key); }}
+                      onDragEnter={() => setColumnaSobre(key)}
                       onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
                       onDragLeave={(e) => {
-                        e.preventDefault();
-                        contadorDrag.current -= 1;
-                        if (contadorDrag.current <= 0) { contadorDrag.current = 0; setColumnaSobre(null); }
+                        // relatedTarget es el elemento al que se entra. Si
+                        // sigue dentro de la columna, el evento se disparo
+                        // por cruzar un hijo y no hay que apagar nada.
+                        // relatedTarget llega como null al salir de la ventana.
+                        if (e.currentTarget.contains(e.relatedTarget)) return;
+                        setColumnaSobre((prev) => (prev === key ? null : prev));
                       }}
                       onDrop={(e) => handleDrop(e, key)}
                       className={`ev-columna flex-1 min-w-[264px] rounded-2xl ${est.bg} p-3 flex flex-col ${sobre ? 'ev-columna-sobre' : ''}`}
@@ -1665,7 +1853,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                         <div className="flex items-center gap-2">
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: est.punto }} aria-hidden="true" />
                           <h2 className={`font-extrabold text-sm ${est.text}`}>{est.label}</h2>
-                          <span className="ml-auto text-xs font-black text-slate-500 bg-white px-2 py-0.5 rounded-full">{lista.length}</span>
+                          <span className="ml-auto text-xs font-black text-slate-500 dark:text-slate-400 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-full">{lista.length}</span>
                         </div>
                         <div className="mt-2 ev-progress-mini" role="img" aria-label={`${est.label}: ${avance}% del total`}>
                           <div className="ev-progress-mini-fill" style={{ width: `${avance}%`, backgroundColor: est.punto }} />
@@ -1673,15 +1861,14 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       </div>
                       <div className="flex-1 overflow-y-auto space-y-2.5 min-h-[120px]">
                         {lista.length === 0 ? (
-                          <p className="text-center py-8 text-xs font-semibold text-slate-400">Arrastra tareas aquí</p>
+                          <p className="text-center py-8 text-xs font-semibold text-slate-400 dark:text-slate-400">Arrastra tareas aquí</p>
                         ) : (
                           lista.map((t) => (
                             <TarjetaTarea
                               key={t.tarea_id}
                               tarea={t}
-                              arrastrando={draggedTask?.tarea_id === t.tarea_id}
                               onDragStart={handleDragStart}
-                              onDragEnd={() => { setDraggedTask(null); contadorDrag.current = 0; setColumnaSobre(null); }}
+                              onDragEnd={handleDragEnd}
                               onAbrir={abrirEditorTarea}
                               onEliminar={setTareaAEliminar}
                               onMover={moverTarea}
@@ -1699,19 +1886,19 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
 
           {/* ---------------- CHAT: panel fijo derecho ---------------- */}
         <aside
-          className={`ev-panel-glass shrink-0 border-l border-slate-200/70 flex flex-col
+          className={`ev-panel-glass shrink-0 border-l border-slate-200/70 dark:border-slate-700/70 flex flex-col
             ${chatMovil ? 'fixed inset-y-0 right-0 z-50 w-full max-w-sm' : 'hidden xl:flex xl:w-[340px]'}`}
         >
-          <div className="p-4 border-b border-slate-200/70 flex items-center justify-between gap-2">
+          <div className="p-4 border-b border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <Icono nombre="chat" className="w-4 h-4 text-blue-600 shrink-0" />
-              <h2 className="font-extrabold text-sm text-slate-900 truncate">Chat del equipo</h2>
+              <h2 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 truncate">Chat del equipo</h2>
             </div>
-            <span className="text-[10px] font-bold text-slate-400 shrink-0">{mensajes.length} mensajes</span>
+            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 shrink-0">{mensajes.length} mensajes</span>
             <button
               type="button"
               onClick={cerrarChatMovil}
-              className="ev-focusable xl:hidden grid place-items-center w-9 h-9 rounded-lg bg-slate-100 text-slate-500 hover:bg-slate-200 transition-colors shrink-0"
+              className="ev-focusable xl:hidden grid place-items-center w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:bg-slate-700 transition-colors shrink-0"
               aria-label="Cerrar chat"
             >
               <Icono nombre="cerrar" className="w-4 h-4" />
@@ -1722,11 +1909,11 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
             {mensajes.length === 0 ? (
               <div className="h-full grid place-items-center text-center">
                 <div>
-                  <span className="mx-auto grid place-items-center w-14 h-14 rounded-2xl bg-blue-50 text-blue-400">
+                  <span className="mx-auto grid place-items-center w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-500/15 text-blue-400">
                     <Icono nombre="chat" className="w-7 h-7" />
                   </span>
-                  <p className="mt-4 font-bold text-slate-700">Sin mensajes todavía</p>
-                  <p className="mt-1 text-sm text-slate-400">Escribe el primero para coordinar al equipo.</p>
+                  <p className="mt-4 font-bold text-slate-700 dark:text-slate-300">Sin mensajes todavía</p>
+                  <p className="mt-1 text-sm text-slate-400 dark:text-slate-400">Escribe el primero para coordinar al equipo.</p>
                 </div>
               </div>
             ) : (
@@ -1746,10 +1933,10 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       {!mio && !agrupado && (
                         <p className="text-xs font-bold text-blue-600 mb-1">{msg.autor_nombre}</p>
                       )}
-                      <div className={`px-3.5 py-2.5 rounded-2xl ${mio ? 'bg-blue-600 text-white rounded-br-md' : 'bg-white text-slate-800 border border-slate-200 rounded-bl-md'}`}>
+                      <div className={`px-3.5 py-2.5 rounded-2xl ${mio ? 'bg-blue-600 hover:bg-blue-700 text-white rounded-br-md' : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-bl-md'}`}>
                         <p className="text-sm leading-relaxed break-words">{msg.texto}</p>
                       </div>
-                      <p className={`mt-1 text-[10px] text-slate-400 ${mio ? 'text-right' : ''}`}>
+                      <p className={`mt-1 text-[10px] text-slate-400 dark:text-slate-400 ${mio ? 'text-right' : ''}`}>
                         {new Date(msg.fecha_envio).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
                       </p>
                     </div>
@@ -1759,7 +1946,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
             )}
           </div>
 
-          <div className="p-3 border-t border-slate-200/70">
+          <div className="p-3 border-t border-slate-200/70 dark:border-slate-700/70">
             <div className="flex gap-2">
               <input
                 type="text"
@@ -1768,14 +1955,14 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                 onKeyDown={(e) => { if (e.key === 'Enter') enviarMensaje(); }}
                 placeholder="Escribe un mensaje..."
                 aria-label="Mensaje de chat"
-                className="ev-field flex-1 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                className="ev-field flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
               <button
                 type="button"
                 onClick={enviarMensaje}
                 disabled={!nuevoMensaje.trim()}
                 aria-label="Enviar mensaje"
-                className="ev-btn ev-focusable grid place-items-center w-11 h-11 rounded-xl bg-blue-600 text-white shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="ev-btn ev-focusable grid place-items-center w-11 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shrink-0 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Icono nombre="enviar" className="w-4 h-4" />
               </button>
@@ -1788,37 +1975,37 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
       {showCrearTarea && (
         <div className="fixed inset-0 bg-slate-900/40 grid place-items-center p-4 z-50 ev-overlay" onClick={() => setShowCrearTarea(false)}>
           <div className="ev-panel-glass rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto ev-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-slate-200/70 sticky top-0 bg-white/90 backdrop-blur-xl rounded-t-2xl z-10">
-              <h2 className="font-extrabold text-slate-900">Nueva tarea</h2>
-              <button type="button" onClick={() => setShowCrearTarea(false)} className="ev-focusable grid place-items-center w-9 h-9 rounded-lg bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors" aria-label="Cerrar">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200/70 dark:border-slate-700/70 sticky top-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-t-2xl z-10">
+              <h2 className="font-extrabold text-slate-900 dark:text-slate-100">Nueva tarea</h2>
+              <button type="button" onClick={() => setShowCrearTarea(false)} className="ev-focusable grid place-items-center w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors" aria-label="Cerrar">
                 <Icono nombre="cerrar" className="w-4 h-4" />
               </button>
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label htmlFor="nueva-titulo" className="block text-sm font-bold text-slate-700 mb-1.5">Título</label>
+                <label htmlFor="nueva-titulo" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Título</label>
                 <input
                   id="nueva-titulo"
                   type="text"
                   value={nuevaTarea.titulo}
                   onChange={(e) => setNuevaTarea({ ...nuevaTarea, titulo: e.target.value })}
                   placeholder="¿Qué hay que hacer?"
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
               <div>
-                <label htmlFor="nueva-desc" className="block text-sm font-bold text-slate-700 mb-1.5">Descripción <span className="font-normal text-slate-400">(opcional)</span></label>
+                <label htmlFor="nueva-desc" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Descripción <span className="font-normal text-slate-400 dark:text-slate-400">(opcional)</span></label>
                 <textarea
                   id="nueva-desc"
                   value={nuevaTarea.descripcion}
                   onChange={(e) => setNuevaTarea({ ...nuevaTarea, descripcion: e.target.value })}
                   rows={3}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 resize-none"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 resize-none"
                 />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="nueva-fecha" className="block text-sm font-bold text-slate-700 mb-1.5">Fecha de entrega</label>
+                  <label htmlFor="nueva-fecha" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Fecha de entrega</label>
                   <input
                     id="nueva-fecha"
                     type="date"
@@ -1830,16 +2017,16 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       const prioridad = dias === null ? 'verde' : dias <= 2 ? 'rojo' : dias <= 5 ? 'amarillo' : 'verde';
                       setNuevaTarea((prev) => ({ ...prev, prioridad, fecha_entrega: fecha }));
                     }}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   />
                 </div>
                 <div>
-                  <label htmlFor="nueva-asignado" className="block text-sm font-bold text-slate-700 mb-1.5">Asignar a</label>
+                  <label htmlFor="nueva-asignado" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Asignar a</label>
                   <select
                     id="nueva-asignado"
                     value={nuevaTarea.asignado_a}
                     onChange={(e) => setNuevaTarea({ ...nuevaTarea, asignado_a: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   >
                     <option value="">Sin asignar</option>
                     {miembros.map((m) => <option key={m.usuario_id} value={m.usuario_id}>{m.nombre}</option>)}
@@ -1847,7 +2034,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                 </div>
               </div>
               <div>
-                <span className="block text-sm font-bold text-slate-700 mb-1.5">Prioridad</span>
+                <span className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Prioridad</span>
                 <div className="flex gap-2">
                   {Object.entries(PRIORIDADES).map(([clave, p]) => (
                     <button
@@ -1856,7 +2043,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       onClick={() => setNuevaTarea({ ...nuevaTarea, prioridad: clave })}
                       aria-pressed={nuevaTarea.prioridad === clave}
                       className={`ev-chip ev-focusable flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold border ${
-                        nuevaTarea.prioridad === clave ? `${p.bg} ${p.text} border-current` : 'bg-slate-50 text-slate-400 border-slate-200'
+                        nuevaTarea.prioridad === clave ? `${p.bg} ${p.text} border-current` : 'bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700'
                       }`}
                     >
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
@@ -1866,9 +2053,9 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                 </div>
               </div>
             </div>
-            <div className="p-5 border-t border-slate-200/70 flex gap-3 sticky bottom-0 bg-white/90 backdrop-blur-xl rounded-b-2xl">
-              <button type="button" onClick={() => setShowCrearTarea(false)} className="ev-focusable flex-1 py-3 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
-              <button type="button" onClick={crearTarea} className="ev-btn ev-focusable flex-1 py-3 rounded-xl font-bold bg-blue-600 text-white">Crear tarea</button>
+            <div className="p-5 border-t border-slate-200/70 dark:border-slate-700/70 flex gap-3 sticky bottom-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-b-2xl">
+              <button type="button" onClick={() => setShowCrearTarea(false)} className="ev-focusable flex-1 py-3 rounded-xl font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:bg-slate-700 transition-colors">Cancelar</button>
+              <button type="button" onClick={crearTarea} className="ev-btn ev-focusable flex-1 py-3 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white">Crear tarea</button>
             </div>
           </div>
         </div>
@@ -1878,54 +2065,54 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
       {tareaEditando && (
         <div className="fixed inset-0 bg-slate-900/40 grid place-items-center p-4 z-50 ev-overlay" onClick={cerrarEditorTarea}>
           <div className="ev-panel-glass rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto ev-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-5 border-b border-slate-200/70 sticky top-0 bg-white/90 backdrop-blur-xl rounded-t-2xl z-10">
-              <h2 className="font-extrabold text-slate-900 flex items-center gap-2">
+            <div className="flex items-center justify-between p-5 border-b border-slate-200/70 dark:border-slate-700/70 sticky top-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-t-2xl z-10">
+              <h2 className="font-extrabold text-slate-900 dark:text-slate-100 flex items-center gap-2">
                 <Icono nombre="editar" className="w-4 h-4" />
                 Editar tarea
               </h2>
-              <button type="button" onClick={cerrarEditorTarea} className="ev-focusable grid place-items-center w-9 h-9 rounded-lg bg-slate-100 text-slate-500 hover:bg-red-50 hover:text-red-600 transition-colors" aria-label="Cerrar">
+              <button type="button" onClick={cerrarEditorTarea} className="ev-focusable grid place-items-center w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-red-50 hover:text-red-600 transition-colors" aria-label="Cerrar">
                 <Icono nombre="cerrar" className="w-4 h-4" />
               </button>
             </div>
             <div className="p-5 space-y-4">
               <div>
-                <label htmlFor="edit-titulo" className="block text-sm font-bold text-slate-700 mb-1.5">Título</label>
+                <label htmlFor="edit-titulo" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Título</label>
                 <input
                   id="edit-titulo"
                   type="text"
                   value={tareaEditForm.titulo}
                   onChange={(e) => setTareaEditForm({ ...tareaEditForm, titulo: e.target.value })}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                 />
               </div>
               <div>
-                <label htmlFor="edit-desc" className="block text-sm font-bold text-slate-700 mb-1.5">Descripción</label>
+                <label htmlFor="edit-desc" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Descripción</label>
                 <textarea
                   id="edit-desc"
                   value={tareaEditForm.descripcion}
                   onChange={(e) => setTareaEditForm({ ...tareaEditForm, descripcion: e.target.value })}
                   rows={3}
-                  className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 resize-none"
+                  className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 resize-none"
                 />
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="edit-fecha" className="block text-sm font-bold text-slate-700 mb-1.5">Fecha de entrega</label>
+                  <label htmlFor="edit-fecha" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Fecha de entrega</label>
                   <input
                     id="edit-fecha"
                     type="date"
                     value={tareaEditForm.fecha_entrega}
                     onChange={(e) => setTareaEditForm({ ...tareaEditForm, fecha_entrega: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   />
                 </div>
                 <div>
-                  <label htmlFor="edit-asignado" className="block text-sm font-bold text-slate-700 mb-1.5">Asignar a</label>
+                  <label htmlFor="edit-asignado" className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Asignar a</label>
                   <select
                     id="edit-asignado"
                     value={tareaEditForm.asignado_a}
                     onChange={(e) => setTareaEditForm({ ...tareaEditForm, asignado_a: e.target.value })}
-                    className="w-full px-4 py-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-900 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-slate-100 outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   >
                     <option value="">Sin asignar</option>
                     {miembros.map((m) => <option key={m.usuario_id} value={m.usuario_id}>{m.nombre}</option>)}
@@ -1933,7 +2120,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                 </div>
               </div>
               <div>
-                <span className="block text-sm font-bold text-slate-700 mb-1.5">Estado</span>
+                <span className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Estado</span>
                 <div className="flex gap-2">
                   {ORDEN_ESTADOS.map((key) => (
                     <button
@@ -1942,7 +2129,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       onClick={() => setTareaEditForm({ ...tareaEditForm, estado: key })}
                       aria-pressed={tareaEditForm.estado === key}
                       className={`ev-chip ev-focusable flex-1 px-3 py-2.5 rounded-xl text-xs font-bold border ${
-                        tareaEditForm.estado === key ? 'bg-blue-600 text-white border-blue-600' : 'bg-slate-50 text-slate-500 border-slate-200'
+                        tareaEditForm.estado === key ? 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600' : 'bg-slate-50 dark:bg-slate-900 text-slate-500 dark:text-slate-400 border-slate-200 dark:border-slate-700'
                       }`}
                     >
                       {ESTADOS[key].label}
@@ -1951,7 +2138,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                 </div>
               </div>
               <div>
-                <span className="block text-sm font-bold text-slate-700 mb-1.5">Prioridad</span>
+                <span className="block text-sm font-bold text-slate-700 dark:text-slate-300 mb-1.5">Prioridad</span>
                 <div className="flex gap-2">
                   {Object.entries(PRIORIDADES).map(([clave, p]) => (
                     <button
@@ -1960,7 +2147,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       onClick={() => setTareaEditForm({ ...tareaEditForm, prioridad: clave })}
                       aria-pressed={tareaEditForm.prioridad === clave}
                       className={`ev-chip ev-focusable flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-xs font-bold border ${
-                        tareaEditForm.prioridad === clave ? `${p.bg} ${p.text} border-current` : 'bg-slate-50 text-slate-400 border-slate-200'
+                        tareaEditForm.prioridad === clave ? `${p.bg} ${p.text} border-current` : 'bg-slate-50 dark:bg-slate-900 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700'
                       }`}
                     >
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
@@ -1970,20 +2157,20 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                 </div>
               </div>
 
-              <div className="border-t border-slate-200/70 pt-4">
-                <h3 className="text-sm font-bold text-slate-700 mb-2">Comentarios ({comentariosTarea.length})</h3>
+              <div className="border-t border-slate-200/70 dark:border-slate-700/70 pt-4">
+                <h3 className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2">Comentarios ({comentariosTarea.length})</h3>
                 <div className="max-h-44 overflow-y-auto space-y-2 mb-3 pr-1">
                   {comentariosTarea.length === 0 ? (
-                    <p className="text-xs text-slate-400">Sin comentarios todavía.</p>
+                    <p className="text-xs text-slate-400 dark:text-slate-400">Sin comentarios todavía.</p>
                   ) : (
                     comentariosTarea.map((c) => {
                       const mio = String(c.usuario_id) === String(usuario);
                       return (
                         <div key={c.comentario_id} className={`flex ${mio ? 'justify-end' : 'justify-start'}`}>
-                          <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${mio ? 'bg-blue-600 text-white rounded-br-md' : 'bg-slate-100 text-slate-800 rounded-bl-md'}`}>
+                          <div className={`max-w-[85%] rounded-2xl px-3 py-2 ${mio ? 'bg-blue-600 hover:bg-blue-700 text-white rounded-br-md' : 'bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-bl-md'}`}>
                             {!mio && <p className="text-[10px] font-bold text-blue-600 mb-0.5">{c.autor_nombre}</p>}
                             <p className="text-xs leading-relaxed break-words">{c.texto}</p>
-                            <p className={`text-[9px] mt-1 ${mio ? 'text-blue-200' : 'text-slate-400'}`}>
+                            <p className={`text-[9px] mt-1 ${mio ? 'text-blue-200' : 'text-slate-400 dark:text-slate-400'}`}>
                               {new Date(c.fecha).toLocaleString('es-MX', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                             </p>
                           </div>
@@ -2000,17 +2187,17 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                     onKeyDown={(e) => { if (e.key === 'Enter') agregarComentario(); }}
                     placeholder="Escribe un comentario..."
                     aria-label="Comentario de la tarea"
-                    className="ev-field flex-1 px-4 py-2.5 rounded-xl bg-slate-50 border border-slate-200 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    className="ev-field flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   />
-                  <button type="button" onClick={agregarComentario} disabled={!nuevoComentario.trim()} aria-label="Enviar comentario" className="ev-btn ev-focusable grid place-items-center w-11 h-11 rounded-xl bg-blue-600 text-white shrink-0 disabled:opacity-50">
+                  <button type="button" onClick={agregarComentario} disabled={!nuevoComentario.trim()} aria-label="Enviar comentario" className="ev-btn ev-focusable grid place-items-center w-11 h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-white shrink-0 disabled:opacity-50">
                     <Icono nombre="enviar" className="w-4 h-4" />
                   </button>
                 </div>
               </div>
             </div>
-            <div className="p-5 border-t border-slate-200/70 flex gap-3 sticky bottom-0 bg-white/90 backdrop-blur-xl rounded-b-2xl">
-              <button type="button" onClick={cerrarEditorTarea} className="ev-focusable flex-1 py-3 rounded-xl font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
-              <button type="button" onClick={guardarEdicionTarea} className="ev-btn ev-focusable flex-1 py-3 rounded-xl font-bold bg-blue-600 text-white">Guardar cambios</button>
+            <div className="p-5 border-t border-slate-200/70 dark:border-slate-700/70 flex gap-3 sticky bottom-0 bg-white/90 dark:bg-slate-800/90 backdrop-blur-xl rounded-b-2xl">
+              <button type="button" onClick={cerrarEditorTarea} className="ev-focusable flex-1 py-3 rounded-xl font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:bg-slate-700 transition-colors">Cancelar</button>
+              <button type="button" onClick={guardarEdicionTarea} className="ev-btn ev-focusable flex-1 py-3 rounded-xl font-bold bg-blue-600 hover:bg-blue-700 text-white">Guardar cambios</button>
             </div>
           </div>
         </div>
@@ -2023,12 +2210,12 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
             <span className="mx-auto grid place-items-center w-12 h-12 rounded-2xl bg-red-50 text-red-500">
               <Icono nombre="basura" className="w-6 h-6" />
             </span>
-            <h2 className="mt-4 text-center font-extrabold text-slate-900 text-lg">Eliminar tarea</h2>
-            <p className="mt-2 text-center text-sm text-slate-500">
-              ¿Seguro que quieres eliminar <span className="font-bold text-slate-700">"{tareaAEliminar.titulo}"</span>?
+            <h2 className="mt-4 text-center font-extrabold text-slate-900 dark:text-slate-100 text-lg">Eliminar tarea</h2>
+            <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">
+              ¿Seguro que quieres eliminar <span className="font-bold text-slate-700 dark:text-slate-300">"{tareaAEliminar.titulo}"</span>?
             </p>
             <div className="mt-6 flex gap-3">
-              <button type="button" onClick={() => setTareaAEliminar(null)} className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors">Cancelar</button>
+              <button type="button" onClick={() => setTareaAEliminar(null)} className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:bg-slate-700 transition-colors">Cancelar</button>
               <button type="button" onClick={() => { eliminarTarea(tareaAEliminar.tarea_id); setTareaAEliminar(null); }} className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 transition-colors">Eliminar</button>
             </div>
           </div>

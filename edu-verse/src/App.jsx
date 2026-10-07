@@ -22,7 +22,7 @@ function App() {
   return (
     <Router>
       <ErrorBoundary>
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 dark:bg-slate-900">
           <Toaster position="top-right" reverseOrder={false} /> 
           <Navbar />
           

@@ -96,7 +96,7 @@ const Home = () => {
       link: '/biblioteca',
       activo: true,
       color: 'from-blue-600 to-indigo-600',
-      iconBg: 'bg-blue-50',
+      iconBg: 'bg-blue-50 dark:bg-blue-500/15',
     },
     {
       titulo: 'Gestor de Equipos',
@@ -105,7 +105,7 @@ const Home = () => {
       link: '/gestor-equipos',
       activo: true,
       color: 'from-indigo-600 to-violet-600',
-      iconBg: 'bg-indigo-50',
+      iconBg: 'bg-indigo-50 dark:bg-indigo-500/15',
     },
     {
       titulo: 'Tutor IA',
@@ -114,20 +114,14 @@ const Home = () => {
       link: null,
       activo: false,
       color: '',
-      iconBg: 'bg-slate-100',
+      iconBg: 'bg-slate-100 dark:bg-slate-800',
     },
   ];
 
   return (
-    <main
-      className="relative isolate min-h-screen overflow-hidden px-4 py-8 sm:px-6 lg:px-8"
-      style={{
-        backgroundColor: '#f0f6ff',
-        backgroundImage: 'radial-gradient(ellipse at 25% 10%, rgba(96, 165, 250, 0.30), transparent 48%), radial-gradient(ellipse at 85% 55%, rgba(147, 197, 253, 0.34), transparent 45%)',
-      }}
-    >
+    <main className="ev-home-fondo relative isolate min-h-screen overflow-hidden px-4 py-8 sm:px-6 lg:px-8">
 
-      <div className="relative mx-auto max-w-[88rem] rounded-3xl border border-white/80 bg-white/60 p-4 shadow-2xl backdrop-blur-xl sm:p-10">
+      <div className="relative mx-auto max-w-[88rem] rounded-3xl border border-white/80 dark:border-slate-700/60 bg-white/60 dark:bg-slate-900/70 p-4 shadow-2xl backdrop-blur-xl sm:p-10">
         <header className="relative isolate mb-6 sm:mb-10 overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 px-4 py-10 text-center text-white shadow-lg sm:px-6 sm:py-16">
           <div aria-hidden="true" className="pointer-events-none absolute -left-12 -top-12 h-40 w-40 rounded-full bg-white/10 blur-xl" />
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-16 -right-12 h-56 w-56 rounded-full bg-purple-300/20 blur-2xl" />
@@ -173,9 +167,9 @@ const Home = () => {
         <section aria-label="Módulos educativos" className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {modulos.map((modulo) => {
             const cardContent = (
-              <article className={`relative flex h-full min-h-[17rem] sm:min-h-[21rem] flex-col items-center rounded-2xl border border-slate-200/80 bg-white p-6 text-center shadow-sm transition-all duration-300 sm:p-9 ${modulo.activo ? 'hover:-translate-y-1 hover:shadow-xl' : 'bg-slate-50/80 opacity-65'}`}>
+              <article className={`relative flex h-full min-h-[17rem] sm:min-h-[21rem] flex-col items-center rounded-2xl border border-slate-200/80 dark:border-slate-700/70 bg-white dark:bg-slate-800 p-6 text-center shadow-sm transition-all duration-300 sm:p-9 ${modulo.activo ? 'hover:-translate-y-1 hover:shadow-xl' : 'bg-slate-50/80 dark:bg-slate-800/60 opacity-65'}`}>
                 {!modulo.activo && (
-                  <span className="absolute right-4 top-4 rounded-full bg-slate-200 px-3.5 py-1.5 text-sm font-bold tracking-wider text-slate-500">
+                  <span className="absolute right-4 top-4 rounded-full bg-slate-200 dark:bg-slate-700 px-3.5 py-1.5 text-sm font-bold tracking-wider text-slate-500 dark:text-slate-400">
                     PRÓXIMAMENTE
                   </span>
                 )}
@@ -192,10 +186,10 @@ const Home = () => {
                   )}
                 </div>
 
-                <h2 className={`mb-3 text-2xl sm:text-3xl font-bold ${modulo.activo ? 'text-slate-800' : 'text-slate-500'}`}>
+                <h2 className={`mb-3 text-2xl sm:text-3xl font-bold ${modulo.activo ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>
                   {modulo.titulo}
                 </h2>
-                <p className="mb-5 sm:mb-7 flex-1 text-base leading-relaxed text-slate-500 sm:text-xl">
+                <p className="mb-5 sm:mb-7 flex-1 text-base leading-relaxed text-slate-500 dark:text-slate-400 sm:text-xl">
                   {modulo.descripcion}
                 </p>
 
@@ -204,7 +198,7 @@ const Home = () => {
                     Entrar →
                   </span>
                 ) : (
-                  <span className="inline-flex cursor-not-allowed items-center rounded-xl bg-slate-200 px-6 sm:px-7 py-3 text-lg sm:text-xl font-semibold text-slate-400">
+                  <span className="inline-flex cursor-not-allowed items-center rounded-xl bg-slate-200 dark:bg-slate-700 px-6 sm:px-7 py-3 text-lg sm:text-xl font-semibold text-slate-400 dark:text-slate-400">
                     Próximamente
                   </span>
                 )}
@@ -212,7 +206,7 @@ const Home = () => {
             );
 
             return modulo.activo && modulo.link ? (
-              <Link key={modulo.titulo} to={modulo.link} className="block h-full rounded-2xl focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300">
+              <Link key={modulo.titulo} to={modulo.link} className="block h-full rounded-2xl focus:outline-none focus-visible:ring-4 focus-visible:ring-blue-300 dark:focus-visible:ring-blue-600">
                 {cardContent}
               </Link>
             ) : (
@@ -221,15 +215,15 @@ const Home = () => {
           })}
         </section>
 
-        <section aria-label="Actividad reciente" className="mt-6 sm:mt-10 border-t border-slate-200 pt-6 sm:pt-8">
+        <section aria-label="Actividad reciente" className="mt-6 sm:mt-10 border-t border-slate-200 dark:border-slate-700 pt-6 sm:pt-8">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <article className="rounded-2xl border border-white/80 bg-white/70 p-5">
-              <p className="text-base font-semibold uppercase tracking-wide text-slate-400">Último apunte visto</p>
-              <p className="mt-2 text-xl font-semibold text-slate-700">Cálculo II - Resumen.pdf</p>
+            <article className="rounded-2xl border border-white/80 dark:border-slate-700/60 bg-white/70 dark:bg-slate-800/70 p-5">
+              <p className="text-base font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-400">Último apunte visto</p>
+              <p className="mt-2 text-xl font-semibold text-slate-700 dark:text-slate-300">Cálculo II - Resumen.pdf</p>
             </article>
-            <article className="rounded-2xl border border-white/80 bg-white/70 p-5">
-              <p className="text-base font-semibold uppercase tracking-wide text-slate-400">Equipos activos</p>
-              <p className="mt-2 text-xl font-semibold text-slate-700">2 Grupos de estudio</p>
+            <article className="rounded-2xl border border-white/80 dark:border-slate-700/60 bg-white/70 dark:bg-slate-800/70 p-5">
+              <p className="text-base font-semibold uppercase tracking-wide text-slate-400 dark:text-slate-400">Equipos activos</p>
+              <p className="mt-2 text-xl font-semibold text-slate-700 dark:text-slate-300">2 Grupos de estudio</p>
             </article>
           </div>
         </section>

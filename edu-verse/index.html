@@ -8,6 +8,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Nunito:ital,wght@0,400..900;1,400..900&display=swap" rel="stylesheet">
+    <script>
+      // Se aplica el tema ANTES de que React monte. Si se hiciera en un
+      // useEffect, la pagina se pintaria en claro un instante y despues
+      // saltaria a oscuro: un destello blanco en cada recarga.
+      (function () {
+        try {
+          var guardado = localStorage.getItem('eduverse_tema');
+          var oscuro = guardado
+            ? guardado === 'oscuro'
+            : window.matchMedia('(prefers-color-scheme: dark)').matches;
+          if (oscuro) document.documentElement.classList.add('dark');
+        } catch (e) {
+          // localStorage bloqueado: se deja el tema claro por defecto.
+        }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

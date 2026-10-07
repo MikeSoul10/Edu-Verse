@@ -169,19 +169,19 @@ const Signup = () => {
         </div>
 
         {/* LADO DERECHO: FORMULARIO DE REGISTRO */}
-        <div className="md:w-1/2 p-6 sm:p-10 flex flex-col justify-center bg-white">
+        <div className="md:w-1/2 p-6 sm:p-10 flex flex-col justify-center bg-white dark:bg-slate-900">
           <div className="mb-6 sm:mb-8 ev-enter ev-d-1">
-            <h2 className="text-3xl sm:text-5xl font-extrabold text-gray-900 tracking-tight mb-2">
+            <h2 className="text-3xl sm:text-5xl font-extrabold text-gray-900 dark:text-slate-100 tracking-tight mb-2">
               Crea tu cuenta
             </h2>
-            <p className="text-gray-500 text-base sm:text-lg font-medium">
+            <p className="text-gray-500 dark:text-slate-400 text-base sm:text-lg font-medium">
               Únete a la comunidad de <span className="text-blue-600 font-bold">EduVers</span>
             </p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-5" noValidate>
             <div className={camposInvalidos ? 'ev-shake ev-enter ev-d-2' : 'ev-enter ev-d-2'}>
-              <label htmlFor="signup-nombre" className="ev-field-label block text-base font-bold text-gray-700 mb-1.5 ml-1">
+              <label htmlFor="signup-nombre" className="ev-field-label block text-base font-bold text-gray-700 dark:text-slate-300 mb-1.5 ml-1">
                 Nombre completo
               </label>
               <div className="ev-field relative">
@@ -190,7 +190,7 @@ const Signup = () => {
                   type="text"
                   autoComplete="name"
                   value={formData.nombre}
-                  className="w-full pl-12 pr-5 px-5 py-4 rounded-2xl bg-gray-50 border border-gray-200 text-gray-900 text-lg font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                  className="w-full pl-12 pr-5 px-5 py-4 rounded-2xl bg-gray-50 dark:bg-slate-900 border border-gray-200 dark:border-slate-700 text-gray-900 dark:text-slate-100 text-lg font-medium outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
                   placeholder="Ej. Miguel Pérez"
                   onChange={handleChange('nombre')}
                 />
@@ -204,7 +204,7 @@ const Signup = () => {
             </div>
 
             <div className="ev-enter ev-d-3">
-              <label htmlFor="signup-email" className="ev-field-label block text-base font-bold text-gray-700 mb-1.5 ml-1">
+              <label htmlFor="signup-email" className="ev-field-label block text-base font-bold text-gray-700 dark:text-slate-300 mb-1.5 ml-1">
                 Correo institucional
               </label>
               <div className="ev-field relative">
@@ -215,12 +215,12 @@ const Signup = () => {
                   value={formData.email}
                   aria-invalid={emailInvalido}
                   aria-describedby={emailInvalido ? 'signup-email-error' : undefined}
-                  className={`w-full pl-12 pr-11 px-5 py-4 rounded-2xl bg-gray-50 border text-gray-900 text-lg font-medium outline-none focus:ring-4 ${
+                  className={`w-full pl-12 pr-11 px-5 py-4 rounded-2xl bg-gray-50 dark:bg-slate-900 border text-gray-900 dark:text-slate-100 text-lg font-medium outline-none focus:ring-4 ${
                     emailInvalido
                       ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
                       : emailInstitucional
                         ? 'border-emerald-400 focus:border-emerald-500 focus:ring-emerald-100'
-                        : 'border-gray-200 focus:border-blue-500 focus:ring-blue-100'
+                        : 'border-gray-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-100'
                   }`}
                   placeholder="tu@alumnos.udg.mx"
                   onChange={handleChange('email')}
@@ -251,7 +251,7 @@ const Signup = () => {
             </div>
 
             <div className="ev-enter ev-d-4">
-              <label htmlFor="signup-password" className="ev-field-label block text-base font-bold text-gray-700 mb-1.5 ml-1">
+              <label htmlFor="signup-password" className="ev-field-label block text-base font-bold text-gray-700 dark:text-slate-300 mb-1.5 ml-1">
                 Contraseña
               </label>
               <div className="ev-field relative">
@@ -262,10 +262,10 @@ const Signup = () => {
                   value={formData.password}
                   aria-invalid={passwordInvalida}
                   aria-describedby={passwordInvalida ? 'signup-password-error' : undefined}
-                  className={`w-full pl-12 pr-12 px-5 py-4 rounded-2xl bg-gray-50 border text-gray-900 text-lg font-medium outline-none focus:ring-4 ${
+                  className={`w-full pl-12 pr-12 px-5 py-4 rounded-2xl bg-gray-50 dark:bg-slate-900 border text-gray-900 dark:text-slate-100 text-lg font-medium outline-none focus:ring-4 ${
                     passwordInvalida
                       ? 'border-red-400 focus:border-red-500 focus:ring-red-100'
-                      : 'border-gray-200 focus:border-blue-500 focus:ring-blue-100'
+                      : 'border-gray-200 dark:border-slate-700 focus:border-blue-500 focus:ring-blue-100'
                   }`}
                   placeholder="Mínimo 6 caracteres"
                   onChange={handleChange('password')}
@@ -281,7 +281,7 @@ const Signup = () => {
                   onClick={() => setShowPassword(!showPassword)}
                   aria-label={showPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
                   aria-pressed={showPassword}
-                  className="ev-eye-btn ev-focusable absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center w-11 h-11 text-gray-400"
+                  className="ev-eye-btn ev-focusable absolute right-1 top-1/2 -translate-y-1/2 grid place-items-center w-11 h-11 text-gray-400 dark:text-slate-500"
                 >
                   <img
                     src="/Iconos/ojo.png"
@@ -307,14 +307,14 @@ const Signup = () => {
             <button
               type="submit"
               disabled={cargando}
-              className="ev-btn ev-shimmer ev-enter ev-d-5 w-full bg-blue-600 text-white py-4 rounded-2xl font-bold text-xl cursor-pointer mt-4 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
+              className="ev-btn ev-shimmer ev-enter ev-d-5 w-full bg-blue-600 hover:bg-blue-700 text-white py-4 rounded-2xl font-bold text-xl cursor-pointer mt-4 focus-visible:ring-2 focus-visible:ring-blue-600 focus-visible:ring-offset-2"
             >
               {cargando ? 'Creando cuenta…' : 'Registrarse ahora'}
             </button>
           </form>
 
-          <div className="mt-8 pt-6 border-t border-gray-200/70 text-center ev-enter ev-d-6">
-            <p className="text-base text-gray-600 font-medium">
+          <div className="mt-8 pt-6 border-t border-gray-200/70 dark:border-slate-700/70 text-center ev-enter ev-d-6">
+            <p className="text-base text-gray-600 dark:text-slate-400 font-medium">
               ¿Ya tienes cuenta?{' '}
               <Link to="/login" className="ev-focusable text-blue-600 font-bold hover:underline ml-1">
                 Inicia sesión

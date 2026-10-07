@@ -26,7 +26,7 @@ export const DonutEstados = ({ datos, total }) => {
             TAREAS
           </text>
         </svg>
-        <p className="text-xs text-gray-400 mt-2">Sin tareas para mostrar</p>
+        <p className="text-xs text-gray-400 dark:text-slate-500 mt-2">Sin tareas para mostrar</p>
       </div>
     );
   }
@@ -96,11 +96,11 @@ export const DonutEstados = ({ datos, total }) => {
                 transform: hover === d.clave ? 'scale(1.25)' : 'scale(1)',
               }}
             />
-            <span className={`font-medium truncate ${hover === d.clave ? 'text-gray-900' : 'text-gray-500'}`}>
+            <span className={`font-medium truncate ${hover === d.clave ? 'text-gray-900 dark:text-slate-100' : 'text-gray-500 dark:text-slate-400'}`}>
               {d.label}
             </span>
-            <span className="ml-auto font-black text-gray-800 shrink-0">{d.valor}</span>
-            <span className="text-gray-400 w-10 text-right shrink-0">
+            <span className="ml-auto font-black text-gray-800 dark:text-slate-200 shrink-0">{d.valor}</span>
+            <span className="text-gray-400 dark:text-slate-500 w-10 text-right shrink-0">
               {Math.round((d.valor / total) * 100)}%
             </span>
           </li>
@@ -117,7 +117,7 @@ export const BarrasEquipos = ({ equipos }) => {
   if (!equipos || equipos.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8">
-        <p className="text-xs text-gray-400">Sin datos de equipos</p>
+        <p className="text-xs text-gray-400 dark:text-slate-500">Sin datos de equipos</p>
       </div>
     );
   }
@@ -136,12 +136,12 @@ export const BarrasEquipos = ({ equipos }) => {
             style={{ animationDelay: `${i * 0.12}s` }}
           >
             <div className="flex items-baseline justify-between gap-2 mb-1.5">
-              <p className="text-xs font-bold text-gray-700 truncate">{eq.nombre}</p>
-              <p className="text-[10px] text-gray-400 shrink-0">
-                <span className="font-black text-gray-700">{eq.totalTareas}</span> tareas · {eq.progreso}%
+              <p className="text-xs font-bold text-gray-700 dark:text-slate-300 truncate">{eq.nombre}</p>
+              <p className="text-[10px] text-gray-400 dark:text-slate-500 shrink-0">
+                <span className="font-black text-gray-700 dark:text-slate-300">{eq.totalTareas}</span> tareas · {eq.progreso}%
               </p>
             </div>
-            <div className="w-full h-5 bg-gray-100 rounded-lg overflow-hidden">
+            <div className="w-full h-5 bg-gray-100 dark:bg-slate-800 rounded-lg overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-blue-400 to-indigo-500 rounded-lg bar-grow"
                 style={{
@@ -150,7 +150,7 @@ export const BarrasEquipos = ({ equipos }) => {
                 }}
               />
             </div>
-            <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden mt-1">
+            <div className="w-full h-1.5 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden mt-1">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-green-500 bar-grow"
                 style={{
@@ -181,7 +181,7 @@ export const SkeletonMetricas = ({ cantidad = 6 }) => (
     {Array.from({ length: cantidad }).map((_, i) => (
       <div
         key={i}
-        className="rounded-2xl p-4 border border-blue-100/60 bg-white/60 animate-fade-in-up"
+        className="rounded-2xl p-4 border border-blue-100/60 bg-white/60 dark:bg-slate-800/60 animate-fade-in-up"
         style={{ animationDelay: `${i * 0.06}s` }}
       >
         <Skeleton className="h-2.5 w-16 mb-3" rounded="rounded" />
@@ -195,7 +195,7 @@ export const SkeletonMetricas = ({ cantidad = 6 }) => (
  * Skeleton para la barra de progreso.
  */
 export const SkeletonBarra = () => (
-  <div className="rounded-2xl p-5 border border-blue-100/60 bg-white/60 mb-6 animate-fade-in-up">
+  <div className="rounded-2xl p-5 border border-blue-100/60 bg-white/60 dark:bg-slate-800/60 mb-6 animate-fade-in-up">
     <div className="flex items-center justify-between mb-3">
       <Skeleton className="h-3 w-32" rounded="rounded" />
       <Skeleton className="h-3 w-10" rounded="rounded" />
@@ -212,7 +212,7 @@ export const SkeletonEquipos = ({ cantidad = 3 }) => (
     {Array.from({ length: cantidad }).map((_, i) => (
       <div
         key={i}
-        className="rounded-2xl p-5 border border-blue-100/60 bg-white/60 animate-fade-in-up"
+        className="rounded-2xl p-5 border border-blue-100/60 bg-white/60 dark:bg-slate-800/60 animate-fade-in-up"
         style={{ animationDelay: `${i * 0.1}s` }}
       >
         <div className="flex items-center justify-between mb-3">
@@ -241,7 +241,7 @@ export const SkeletonKanban = ({ columnas = 3 }) => (
         <Skeleton className="h-5 w-28 mb-4" />
         <div className="space-y-3">
           {Array.from({ length: col === 0 ? 3 : 2 }).map((_, card) => (
-            <div key={card} className="rounded-2xl bg-white p-4 border border-blue-50">
+            <div key={card} className="rounded-2xl bg-white dark:bg-slate-900 p-4 border border-blue-50">
               <Skeleton className="h-4 w-full mb-2" />
               <Skeleton className="h-3 w-3/4 mb-3" />
               <div className="flex gap-2">
