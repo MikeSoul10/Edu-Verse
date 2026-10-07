@@ -114,15 +114,68 @@ Clase React con `getDerivedStateFromError` → si un hijo lanza, renderiza panta
 
 ### `Biblioteca.jsx` (explorar apuntes)
 1. `cargarApuntes()` con `useCallback` → `GET /apuntes`, estado `cargando` para skeletons.
-2. `guardarFavorito(id)` → `POST /favoritos` con `usuario_id` de `localStorage`; exige sesión.
-3. `handleSearch()` → `GET /apuntes/buscar?q=`.
-4. Render: header con botón *Subir Material*, buscador, grid con 3 estados → skeleton (6 tarjetas), vacío con botón "Ver todos", o tarjetas reales con botón favorito y link a detalle.
+2. `cargarFavoritos()` → `GET /favoritos/:usuario_id`; guarda un `Set` de `apunte_id` (para el estado de cada estrella) y `listaFavoritos` (los apuntes completos, para el panel lateral). Si no hay sesión, vacía ambos.
+3. `alternarFavorito(apunte)` → alterna entre `POST /favoritos` y `DELETE /favoritos` según el estado actual. Actualización optimista con reversión si el backend rechaza.
+4. `handleSearch()` → `GET /apuntes/buscar?q=`.
+5. Filtro por materia: se aplica en el cliente sobre `apuntes`, no va al backend (el endpoint de búsqueda no acepta ese parámetro).
+6. Carrusel "Recién subidos": `scroll-snap` nativo, flechas y puntos de navegación, auto-avance cada 6 s que se pausa al hover. Solo se renderiza con 4 apuntes o más.
+7. Tarjeta "Último visto": se lee de `localStorage` (`eduverse_ultimo_apunte`), que escribe `DetalleApunte.jsx` al abrir un apunte. Solo aparece si ese apunte sigue existiendo en la lista actual.
+8. **Vista previa de PDF**: dos lugares de acceso, ambos con un modal `ev-modal` compartido en `apuntePreview`.
+   - **Opción B — en el carrusel**: las tarjetas grandes (`w-64 sm:w-72`) embeben un `<iframe>` con `#page=1&view=FitH` en lugar del degradado de la materia. Al hacer hover se oscurece y aparece el rótulo "Ver vista previa".
+     - `loading="lazy"` es obligatorio: el carrusel monta hasta 8 iframes de PDF y sin lazy se descargan varios MB que el usuario ni está mirando.
+     - `pointer-events-none` sobre el iframe: si no, el scroll interno del visor de PDF captura el hover y el clic nunca llega al botón.
+   - **Opción C — en el grid chico**: las tarjetas de `sm:grid-cols-2 xl:grid-cols-3` no embeden nada (serían 20+ iframes). En su lugar hay un botón con ícono de documento que abre el mismo modal.
+   - El modal muestra el documento completo con scroll interno, más dos salidas: "Abrir en pestaña nueva" (`<a target="_blank">`) y "Ver detalle completo" (link al `DetalleApunte`).
+   - `esPdfUrl(url)` detecta el PDF por la extensión de `archivo_url` (`/uploads/<nombre>`), sin pedir el MIME type. Los PNG/JPG caen a un `<img>` y cualquier otro formato a la portada con degradado.
+   - Cierra con la X, con clic en el overlay o con `Escape`. El scroll del body se congela y el foco entra al diálogo.
+9. **Botón "Mis favoritos"**: vive en la barra de acciones, junto a *Subir
+   material* y *Explorar apuntes*. Muestra el total en una píldora ámbar y abre
+   el modal con la lista completa. Solo aparece con sesión iniciada y con al
+   menos un favorito.
+   - El modal reutiliza las clases `ev-modal` / `ev-overlay` que ya existían para los modales de tareas.
+   - Cierra con la X, con el botón "Cerrar", con clic en el overlay o con `Escape`.
+10. **Panel lateral**: dos tarjetas, "Tu biblioteca" con las cifras (apuntes,
+   materias, autores, subidos hoy) y "Materias con más apuntes" con barras
+   horizontales ordenadas por volumen.
+   - Ya **no** hay un panel de favoritos en el lateral. El acceso a favoritos
+     vive únicamente en el botón de la barra de acciones y en el modal.
+11. Render: header con contador de "subiste hoy" e ilustración, barra de acciones, buscador con filtros, grid de apuntes con 3 estados → skeleton, vacío con CTA, o tarjetas reales.
+
+#### Dos modales, un solo listener de Escape
+
+Favoritos y preview comparten `ev-modal` y `ev-overlay`. El teclado tiene **un**
+listener global registrado una vez que cierra los dos; el efecto que congela el
+scroll es el único que mira `modalFavoritos || apuntePreview`. Si cada modal
+registrara su propio listener de Escape, con dos modales abiertos un solo
+Escape dispararía dos handlers.
+
+#### Por qué el botón está en la barra y no en el panel lateral
+
+El acceso a los favoritos es una acción frecuente, no un dato de relleno. Dentro
+del panel lateral quedaba condicionado a tener más de 6 favoritos guardados, así
+que con 2 o 3 no había forma de llegar al listado completo. En la barra de
+acciones se ve siempre, sin scroll. El panel lateral se quitó para no duplicar
+la función en dos lugares.
+
+#### Modal de favoritos: por qué existe
+
+El panel lateral es `lg:sticky`. Con 20 favoritos la lista completa lo estiraría
+y empujaría las barras de materias y el CTA fuera de la vista, dejando un hueco
+incomodo en una columna que debería quedar fija mientras se hace scroll. Por eso
+el panel muestra un tope de 6 y el resto vive en el modal.
 
 ### `Upload.jsx` (subir apunte)
-1. Validación cliente de archivo: tipo (`pdf/png/jpeg`) y tamaño (≤ 10 MB) con toast de error.
-2. `handleSubmit` construye `FormData` (archivo, título, materia, descripción, `usuario_id`).
-3. `POST /apuntes/upload` con header `multipart/form-data`.
-4. Toast de éxito → `navigate('/biblioteca')`.
+1. Validación de archivo en `recibirArchivo()`: tipo (`pdf/png/jpeg`) y tamaño (≤ 10 MB). Además del toast, guarda el motivo en `errorArchivo` y lo muestra dentro de la dropzone, porque un toast se va solo y el usuario puede no ver por qué no se acepta.
+2. **Dropzone con drag and drop**: `onDragOver` / `onDragLeave` / `onDrop`. También responde a `Enter` y `Espacio` porque es un `div` con `role="button"` y sin tabulador no sería usable por teclado.
+3. **Vista previa** en dos columnas junto a la dropzone:
+   - PDF → `<iframe>` con la URL de objetos creada por `URL.createObjectURL(file)`.
+   - Imagen → `<img>`.
+   - La URL del blob se revoca en el cleanup del `useEffect` cuando cambia de archivo; sin eso el objeto queda retenido y la memoria filtra en cada carga.
+4. Al elegir archivo válido aparece una fila con nombre, tamaño (`formatoBytes()`) y botón para quitar. Ese botón también limpia `inputRef.current.value`: sin eso, elegir de nuevo **el mismo** archivo no dispara `onChange` y la vista previa no se regenera.
+5. `handleSubmit` construye `FormData` (archivo, título, materia, descripción, `usuario_id`).
+6. `POST /apuntes/upload` con header `multipart/form-data`. El error se muestra con el mensaje del backend si viene como string.
+7. Toast de éxito → `navigate('/biblioteca')`.
+8. El botón de publicar queda deshabilitado sin archivo o durante el envío, en lugar de dejar enviar y fallar.
 
 ### `Apuntes.jsx` (repositorio)
 1. `GET /apuntes` → grid de 4 columnas.
@@ -131,12 +184,14 @@ Clase React con `getDerivedStateFromError` → si un hijo lanza, renderiza panta
 ### `DetalleApunte.jsx` (detalle + comunidad)
 1. `useParams()` obtiene `id`.
 2. Carga en paralelo `GET /apuntes/detalle/${id}` (incluye `promedio_rating`) y `GET /comentarios/${id}`.
-3. Estado: `rating` (estrellas 1-5), `comentario`, `comentarios`.
-4. `enviarComentario()`:
+3. Al cargar el apunte, escribe en `localStorage` bajo `eduverse_ultimo_apunte` el `apunte_id`, `titulo`, `materia` y `autor`. Lo consume `Biblioteca.jsx` para la tarjeta "Último visto", sin necesidad de otra petición.
+4. Estado: `rating` (estrellas 1-5 del usuario), `comentario`, `comentarios`.
+   - Ojo: el promedio del apunte va en una variable aparte (`promedio`). Si se declarara como `const rating = parseFloat(...)` dentro del render, sombrearía el estado y las estrellas se pintarían según el promedio en vez de la selección actual.
+5. `enviarComentario()`:
    - Valida sesión y que `rating !== 0`.
    - `POST /comentarios` y luego `POST /valoraciones`.
    - Limpia campos y recarga datos.
-5. UI: cabecera con botón *Abrir PDF*, columna de formulario (estrellas + textarea) y columna de lista de comentarios.
+6. UI: header `ev-mesh` con glow que sigue al mouse, botón *Abrir PDF*, columna de descripción + comentarios y columna lateral con el formulario (estrellas SVG + textarea), `lg:sticky`.
 
 ### `MyNotes.jsx` (mis apuntes)
 1. `GET /apuntes/mis-apuntes/${usuarioId}`.

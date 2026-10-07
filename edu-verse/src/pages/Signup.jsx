@@ -122,44 +122,44 @@ const Signup = () => {
       <div className="w-full max-w-6xl rounded-[2rem] overflow-hidden flex flex-col md:flex-row border border-white/50 shadow-[0_28px_80px_-28px_rgba(30,58,138,0.45)] relative z-10 ev-enter-card ev-d-0">
 
         {/* LADO IZQUIERDO: LOGO Y MASCOTA EDUVERS */}
-        <div className="ev-panel md:w-1/2 ev-mesh p-8 sm:p-10 text-white flex flex-col items-center justify-between relative overflow-hidden">
+        <div className="ev-panel md:w-1/2 ev-mesh p-6 sm:p-10 text-white flex flex-col items-center justify-between relative overflow-hidden">
           {/* Círculos decorativos de fondo */}
           <div className="absolute -top-12 -left-12 w-40 h-40 bg-white/10 rounded-full blur-xl pointer-events-none"></div>
           <div className="absolute -bottom-16 -right-16 w-56 h-56 bg-amber-400/20 rounded-full blur-2xl pointer-events-none"></div>
 
           {/* Logo EduVers */}
-          <div className="w-full flex justify-center mb-4 relative z-10 ev-enter-pop ev-d-1">
+          <div className="w-full flex justify-center mb-2 sm:mb-4 relative z-10 ev-enter-pop ev-d-1">
             <img
               src="/logo-eduverse.png"
               alt="EduVers"
-              className="ev-lift h-24 sm:h-28 object-contain drop-shadow-lg"
+              className="ev-lift h-16 sm:h-24 lg:h-28 object-contain drop-shadow-lg"
             />
           </div>
 
           {/* Mascota EduVers */}
-          <div className="relative z-10 my-4 flex flex-col items-center ev-enter ev-d-2">
+          <div className="relative z-10 my-2 sm:my-4 flex flex-col items-center ev-enter ev-d-2">
             <div className="ev-float">
               <div className="relative group inline-block">
                 <img
                   src="/mascota-eduverse.png"
                   alt="Mascota de EduVers"
-                  className="ev-lift-mascota w-56 sm:w-64 h-auto object-contain drop-shadow-2xl"
+                  className="ev-lift-mascota w-32 sm:w-56 lg:w-64 h-auto object-contain drop-shadow-2xl"
                 />
                 <span
                   key={fraseIdx}
-                  className="ev-bubble absolute -top-5 right-0 bg-amber-400 text-blue-950 font-black text-sm sm:text-base px-3.5 py-1.5 rounded-2xl shadow-lg border-2 border-white whitespace-nowrap"
+                  className="ev-bubble absolute -top-4 right-0 sm:-top-5 bg-amber-400 text-blue-950 font-black text-xs sm:text-base px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-2xl shadow-lg border-2 border-white whitespace-nowrap"
                 >
                   {FRASES_MASCOTA[fraseIdx]}
                 </span>
               </div>
             </div>
 
-            <p className="mt-6 text-center text-blue-100 font-medium text-lg sm:text-xl max-w-sm leading-snug ev-enter ev-d-4">
+            <p className="mt-3 sm:mt-6 text-center text-blue-100 font-medium text-base sm:text-xl max-w-sm leading-snug ev-enter ev-d-4">
               Tu comunidad académica para compartir apuntes y colaborar.
             </p>
           </div>
 
-          <div className="flex items-center gap-2 text-sm sm:text-base text-blue-100 font-medium text-center relative z-10 ev-enter ev-d-6">
+          <div className="flex items-center gap-2 text-xs sm:text-base text-blue-100 font-medium text-center relative z-10 ev-enter ev-d-6">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true" className="shrink-0">
               <path d="M12 3l7 3v6c0 4.5-3 7.7-7 9-4-1.3-7-4.5-7-9V6l7-3z" fill="currentColor" opacity="0.9" />
               <path d="M9 12l2 2 4-4" stroke="#1e3a8a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
@@ -169,12 +169,12 @@ const Signup = () => {
         </div>
 
         {/* LADO DERECHO: FORMULARIO DE REGISTRO */}
-        <div className="md:w-1/2 p-8 sm:p-10 flex flex-col justify-center bg-white">
-          <div className="mb-8 ev-enter ev-d-1">
-            <h2 className="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight mb-2">
+        <div className="md:w-1/2 p-6 sm:p-10 flex flex-col justify-center bg-white">
+          <div className="mb-6 sm:mb-8 ev-enter ev-d-1">
+            <h2 className="text-3xl sm:text-5xl font-extrabold text-gray-900 tracking-tight mb-2">
               Crea tu cuenta
             </h2>
-            <p className="text-gray-500 text-lg font-medium">
+            <p className="text-gray-500 text-base sm:text-lg font-medium">
               Únete a la comunidad de <span className="text-blue-600 font-bold">EduVers</span>
             </p>
           </div>

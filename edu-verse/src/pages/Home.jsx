@@ -127,14 +127,14 @@ const Home = () => {
       }}
     >
 
-      <div className="relative mx-auto max-w-[88rem] rounded-3xl border border-white/80 bg-white/60 p-6 shadow-2xl backdrop-blur-xl sm:p-10">
-        <header className="relative isolate mb-10 overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-12 text-center text-white shadow-lg sm:py-16">
+      <div className="relative mx-auto max-w-[88rem] rounded-3xl border border-white/80 bg-white/60 p-4 shadow-2xl backdrop-blur-xl sm:p-10">
+        <header className="relative isolate mb-6 sm:mb-10 overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 px-4 py-10 text-center text-white shadow-lg sm:px-6 sm:py-16">
           <div aria-hidden="true" className="pointer-events-none absolute -left-12 -top-12 h-40 w-40 rounded-full bg-white/10 blur-xl" />
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-16 -right-12 h-56 w-56 rounded-full bg-purple-300/20 blur-2xl" />
           {/* RACHA: esquina superior derecha del header. En movil se centra y baja
               al flujo, porque no hay ancho para dos cosas a los costados. */}
-          <div className="relative z-10 mb-6 flex justify-center lg:absolute lg:right-8 lg:top-8 lg:mb-0 lg:justify-end ev-enter ev-d-1">
-            <div className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 py-2 pl-2.5 pr-5 shadow-lg shadow-orange-900/25 ring-2 ring-white/25 sm:gap-4 sm:py-2.5 sm:pl-3 sm:pr-6">
+          <div className="relative z-10 mb-4 flex justify-center lg:absolute lg:right-8 lg:top-8 lg:mb-0 lg:justify-end ev-enter ev-d-1">
+            <div className="inline-flex items-center gap-2.5 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 py-1.5 pl-2 pr-4 shadow-lg shadow-orange-900/25 ring-2 ring-white/25 sm:gap-4 sm:py-2.5 sm:pl-3 sm:pr-6">
               <span className="grid place-items-center rounded-full bg-white/25 px-1">
                 <span
                   aria-hidden="true"
@@ -143,29 +143,29 @@ const Home = () => {
                   🔥
                 </span>
               </span>
-              <span className="flex items-baseline gap-2 text-left">
+              <span className="flex items-baseline gap-1.5 text-left sm:gap-2">
                 <span
-                  className="text-3xl font-black tabular-nums leading-none text-blue-950 sm:text-4xl"
+                  className="text-2xl font-black tabular-nums leading-none text-blue-950 sm:text-4xl"
                   aria-label={`Racha de ${rachaMostrada} ${rachaMostrada === 1 ? 'día' : 'días'}`}
                 >
                   {rachaMostrada}
                 </span>
-                <span className="text-sm font-bold leading-tight text-blue-950/80 sm:text-base">
+                <span className="text-xs font-bold leading-tight text-blue-950/80 sm:text-base">
                   {rachaMostrada === 1 ? 'día seguido' : 'días seguidos'}
                 </span>
               </span>
             </div>
           </div>
 
-          <h1 className="relative z-10 flex flex-wrap items-center justify-center gap-4 text-5xl font-black tracking-tight sm:text-7xl">
+          <h1 className="relative z-10 flex flex-wrap items-center justify-center gap-3 sm:gap-4 text-4xl font-black tracking-tight sm:text-7xl">
             <span>Hola, {userName || 'Estudiante'}</span>
             <img
               src="/Imagenes_Diseño/mascota_riendo.png"
               alt="Mascota de Edu-Verse riendo"
-              className={`h-24 w-24 object-contain sm:h-28 sm:w-28 ${isMascotaBouncing ? 'ev-rebote-suave' : ''}`}
+              className={`h-20 w-20 object-contain sm:h-28 sm:w-28 ${isMascotaBouncing ? 'ev-rebote-suave' : ''}`}
             />
           </h1>
-          <p className="relative z-10 mt-4 text-xl text-blue-50 sm:text-2xl">
+          <p className="relative z-10 mt-4 text-base text-blue-50 sm:text-2xl">
             Bienvenido a Edu-Verse – elige un módulo para comenzar
           </p>
         </header>
@@ -173,38 +173,38 @@ const Home = () => {
         <section aria-label="Módulos educativos" className="grid grid-cols-1 gap-6 md:grid-cols-3">
           {modulos.map((modulo) => {
             const cardContent = (
-              <article className={`relative flex h-full min-h-[21rem] flex-col items-center rounded-2xl border border-slate-200/80 bg-white p-8 text-center shadow-sm transition-all duration-300 sm:p-9 ${modulo.activo ? 'hover:-translate-y-1 hover:shadow-xl' : 'bg-slate-50/80 opacity-65'}`}>
+              <article className={`relative flex h-full min-h-[17rem] sm:min-h-[21rem] flex-col items-center rounded-2xl border border-slate-200/80 bg-white p-6 text-center shadow-sm transition-all duration-300 sm:p-9 ${modulo.activo ? 'hover:-translate-y-1 hover:shadow-xl' : 'bg-slate-50/80 opacity-65'}`}>
                 {!modulo.activo && (
                   <span className="absolute right-4 top-4 rounded-full bg-slate-200 px-3.5 py-1.5 text-sm font-bold tracking-wider text-slate-500">
                     PRÓXIMAMENTE
                   </span>
                 )}
 
-                <div className={`mb-6 flex items-center justify-center rounded-full ${modulo.icono === '/Iconos/grupo2.png' || modulo.icono === '/Iconos/libros.png' || modulo.icono === '/Iconos/mascota_robot.png' ? 'h-32 w-32 sm:h-36 sm:w-36' : 'h-28 w-28 sm:h-32 sm:w-32'} ${modulo.iconBg}`}>
+                <div className={`mb-4 sm:mb-6 flex items-center justify-center rounded-full ${modulo.icono === '/Iconos/grupo2.png' || modulo.icono === '/Iconos/libros.png' || modulo.icono === '/Iconos/mascota_robot.png' ? 'h-24 w-24 sm:h-36 sm:w-36' : 'h-20 w-20 sm:h-32 sm:w-32'} ${modulo.iconBg}`}>
                   {modulo.icono ? (
                     <img
                       src={modulo.icono}
                       alt=""
-                      className={`object-contain ${modulo.icono === '/Iconos/grupo2.png' || modulo.icono === '/Iconos/libros.png' || modulo.icono === '/Iconos/mascota_robot.png' ? 'h-28 w-28 sm:h-32 sm:w-32' : 'h-20 w-20 sm:h-24 sm:w-24'}`}
+                      className={`object-contain ${modulo.icono === '/Iconos/grupo2.png' || modulo.icono === '/Iconos/libros.png' || modulo.icono === '/Iconos/mascota_robot.png' ? 'h-20 w-20 sm:h-32 sm:w-32' : 'h-16 w-16 sm:h-24 sm:w-24'}`}
                     />
                   ) : (
-                    <span aria-hidden="true" className="text-6xl">🤖</span>
+                    <span aria-hidden="true" className="text-5xl sm:text-6xl">🤖</span>
                   )}
                 </div>
 
-                <h2 className={`mb-3 text-3xl font-bold ${modulo.activo ? 'text-slate-800' : 'text-slate-500'}`}>
+                <h2 className={`mb-3 text-2xl sm:text-3xl font-bold ${modulo.activo ? 'text-slate-800' : 'text-slate-500'}`}>
                   {modulo.titulo}
                 </h2>
-                <p className="mb-7 flex-1 text-lg leading-relaxed text-slate-500 sm:text-xl">
+                <p className="mb-5 sm:mb-7 flex-1 text-base leading-relaxed text-slate-500 sm:text-xl">
                   {modulo.descripcion}
                 </p>
 
                 {modulo.activo ? (
-                  <span className={`inline-flex items-center rounded-xl bg-gradient-to-r ${modulo.color} px-7 py-3 text-xl font-semibold text-white shadow-md transition-all hover:shadow-lg`}>
+                  <span className={`inline-flex items-center rounded-xl bg-gradient-to-r ${modulo.color} px-6 sm:px-7 py-3 text-lg sm:text-xl font-semibold text-white shadow-md transition-all hover:shadow-lg`}>
                     Entrar →
                   </span>
                 ) : (
-                  <span className="inline-flex cursor-not-allowed items-center rounded-xl bg-slate-200 px-7 py-3 text-xl font-semibold text-slate-400">
+                  <span className="inline-flex cursor-not-allowed items-center rounded-xl bg-slate-200 px-6 sm:px-7 py-3 text-lg sm:text-xl font-semibold text-slate-400">
                     Próximamente
                   </span>
                 )}
@@ -221,7 +221,7 @@ const Home = () => {
           })}
         </section>
 
-        <section aria-label="Actividad reciente" className="mt-10 border-t border-slate-200 pt-8">
+        <section aria-label="Actividad reciente" className="mt-6 sm:mt-10 border-t border-slate-200 pt-6 sm:pt-8">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <article className="rounded-2xl border border-white/80 bg-white/70 p-5">
               <p className="text-base font-semibold uppercase tracking-wide text-slate-400">Último apunte visto</p>
