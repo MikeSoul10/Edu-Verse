@@ -652,6 +652,32 @@
   transition: width var(--ev-t-stage) var(--ev-ease-out);
 }
 
+/* Llama de la racha en Home: no es el emoji quieto, sube y gira leve.
+   El transform evita reflow y el retardo hace que no sea un loop mecanico. */
+@keyframes ev-llama {
+  0%, 100% { transform: translateY(0) rotate(-3deg) scale(1); }
+  50%      { transform: translateY(-3px) rotate(3deg) scale(1.06); }
+}
+
+.ev-flama {
+  animation: ev-llama 1.6s var(--ev-ease-in-out) infinite;
+}
+
+/* Favorito de la biblioteca: la estrella crece y se tiñe al hover. Antes se
+   usaba un emoji 🔖, que no toma la clase de transición. */
+.ev-favorito {
+  transition:
+    color var(--ev-t-base) ease,
+    background-color var(--ev-t-base) ease,
+    transform var(--ev-t-base) var(--ev-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ev-favorito:hover {
+    transform: scale(1.15) rotate(-8deg);
+  }
+}
+
 /* ------------------------------------------------------------------
    Reduced motion: menos movimiento, no cero movimiento.
    Se conservan los cambios de color y opacidad que explican estado.
@@ -664,6 +690,7 @@
   .ev-bubble,
   .ev-shake,
   .ev-float,
+  .ev-flama,
   .ev-rebote-suave,
   .ev-drift,
   .ev-drift-lento,
@@ -691,6 +718,7 @@
   .ev-btn,
   .ev-glow,
   .ev-stat,
+  .ev-favorito,
   .ev-progress-fill,
   .ev-bar-fill,
   .ev-donut,

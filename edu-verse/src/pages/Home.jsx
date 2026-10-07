@@ -1,14 +1,76 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
+
+const CLAVE_RACHA = 'eduverse_racha';
+
+// La fecha se guarda como YYYY-MM-DD en hora local. Comparar strings funciona
+// porque el formato es ordenable, y evita el problema de los toISOString() que
+// corren en UTC y pueden jumpingear un dia segun donde este el usuario.
+const claveDia = (offset = 0) => {
+  const d = new Date();
+  d.setDate(d.getDate() - offset);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+const leerRacha = () => {
+  try {
+    const guardado = JSON.parse(localStorage.getItem(CLAVE_RACHA));
+    return guardado && typeof guardado.dias === 'number' ? guardado : { ultima_fecha: null, dias: 0 };
+  } catch {
+    // localStorage corrupto o no disponible: se empieza de cero sin romper
+    return { ultima_fecha: null, dias: 0 };
+  }
+};
+
+// Cada visita al Home cuenta como actividad. Consecutiva -> suma, con un hueco
+// -> reinicia. No cuenta dos veces el mismo dia: por eso se compara antes.
+const registrarActividad = () => {
+  const datos = leerRacha();
+  const hoy = claveDia(0);
+
+  if (datos.ultima_fecha === hoy) return datos.dias;
+
+  const dias = datos.ultima_fecha === claveDia(1) ? datos.dias + 1 : 1;
+  localStorage.setItem(CLAVE_RACHA, JSON.stringify({ ultima_fecha: hoy, dias }));
+  return dias;
+};
 
 const Home = () => {
   const [userName, setUserName] = useState('');
   const [isMascotaBouncing, setIsMascotaBouncing] = useState(false);
+  const [racha, setRacha] = useState(0);
+  const [rachaMostrada, setRachaMostrada] = useState(0);
+  const rachaRafRef = useRef(0);
 
   useEffect(() => {
     const storedName = localStorage.getItem('usuario');
     if (storedName) setUserName(storedName); // eslint-disable-line react-hooks/set-state-in-effect
   }, [setUserName]);
+
+  useEffect(() => {
+    setRacha(registrarActividad());
+  }, []);
+
+  // Conteo del numero: un solo rAF con easeOutCubic. El valor mostrado vive
+  // aparte del valor real para no disparar el resto de renders por frame.
+  useEffect(() => {
+    if (racha <= 0) {
+      setRachaMostrada(0);
+      return undefined;
+    }
+
+    const duracion = 800;
+    const inicio = performance.now();
+
+    const paso = (ahora) => {
+      const t = Math.min((ahora - inicio) / duracion, 1);
+      setRachaMostrada(Math.round(racha * (1 - (1 - t) ** 3)));
+      if (t < 1) rachaRafRef.current = requestAnimationFrame(paso);
+    };
+
+    rachaRafRef.current = requestAnimationFrame(paso);
+    return () => cancelAnimationFrame(rachaRafRef.current);
+  }, [racha]);
 
   useEffect(() => {
     let bounceTimeout;
@@ -69,6 +131,32 @@ const Home = () => {
         <header className="relative isolate mb-10 overflow-hidden rounded-2xl bg-gradient-to-r from-blue-600 to-indigo-700 px-6 py-12 text-center text-white shadow-lg sm:py-16">
           <div aria-hidden="true" className="pointer-events-none absolute -left-12 -top-12 h-40 w-40 rounded-full bg-white/10 blur-xl" />
           <div aria-hidden="true" className="pointer-events-none absolute -bottom-16 -right-12 h-56 w-56 rounded-full bg-purple-300/20 blur-2xl" />
+          {/* RACHA: esquina superior derecha del header. En movil se centra y baja
+              al flujo, porque no hay ancho para dos cosas a los costados. */}
+          <div className="relative z-10 mb-6 flex justify-center lg:absolute lg:right-8 lg:top-8 lg:mb-0 lg:justify-end ev-enter ev-d-1">
+            <div className="inline-flex items-center gap-3 rounded-full bg-gradient-to-r from-amber-400 to-orange-500 py-2 pl-2.5 pr-5 shadow-lg shadow-orange-900/25 ring-2 ring-white/25 sm:gap-4 sm:py-2.5 sm:pl-3 sm:pr-6">
+              <span className="grid place-items-center rounded-full bg-white/25 px-1">
+                <span
+                  aria-hidden="true"
+                  className="ev-flama block text-2xl leading-none sm:text-3xl"
+                >
+                  🔥
+                </span>
+              </span>
+              <span className="flex items-baseline gap-2 text-left">
+                <span
+                  className="text-3xl font-black tabular-nums leading-none text-blue-950 sm:text-4xl"
+                  aria-label={`Racha de ${rachaMostrada} ${rachaMostrada === 1 ? 'día' : 'días'}`}
+                >
+                  {rachaMostrada}
+                </span>
+                <span className="text-sm font-bold leading-tight text-blue-950/80 sm:text-base">
+                  {rachaMostrada === 1 ? 'día seguido' : 'días seguidos'}
+                </span>
+              </span>
+            </div>
+          </div>
+
           <h1 className="relative z-10 flex flex-wrap items-center justify-center gap-4 text-5xl font-black tracking-tight sm:text-7xl">
             <span>Hola, {userName || 'Estudiante'}</span>
             <img
@@ -134,7 +222,7 @@ const Home = () => {
         </section>
 
         <section aria-label="Actividad reciente" className="mt-10 border-t border-slate-200 pt-8">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <article className="rounded-2xl border border-white/80 bg-white/70 p-5">
               <p className="text-base font-semibold uppercase tracking-wide text-slate-400">Último apunte visto</p>
               <p className="mt-2 text-xl font-semibold text-slate-700">Cálculo II - Resumen.pdf</p>
@@ -142,10 +230,6 @@ const Home = () => {
             <article className="rounded-2xl border border-white/80 bg-white/70 p-5">
               <p className="text-base font-semibold uppercase tracking-wide text-slate-400">Equipos activos</p>
               <p className="mt-2 text-xl font-semibold text-slate-700">2 Grupos de estudio</p>
-            </article>
-            <article className="rounded-2xl border border-white/80 bg-white/70 p-5">
-              <p className="text-base font-semibold uppercase tracking-wide text-slate-400">Racha de estudio</p>
-              <p className="mt-2 text-xl font-semibold text-slate-700">🔥 5 días seguidos</p>
             </article>
           </div>
         </section>

@@ -888,21 +888,21 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
             {/* Patrón de puntos, muy tenue, para que el degradado no quede plano */}
             <div aria-hidden="true" className="ev-dotfield absolute inset-0 opacity-30 pointer-events-none" />
 
-            <div className="relative grid gap-10 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center p-8 sm:p-12">
+            <div className="relative grid gap-12 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center p-10 sm:p-14">
               {/* COLUMNA IZQUIERDA: texto y acciones */}
               <div className="relative z-10 text-center lg:text-left">
-                <p className="text-blue-200 text-sm font-semibold ev-enter ev-d-1">Colaboración en equipo</p>
-                <h1 className="mt-2 text-3xl sm:text-5xl font-extrabold tracking-tight ev-enter ev-d-2">Gestor de Equipos</h1>
-                <p className="mt-3 text-blue-100 text-lg max-w-lg mx-auto lg:mx-0 ev-enter ev-d-3">
+                <p className="text-blue-200 text-base font-semibold ev-enter ev-d-1">Colaboración en equipo</p>
+                <h1 className="mt-2 text-4xl sm:text-6xl font-extrabold tracking-tight ev-enter ev-d-2">Gestor de Equipos</h1>
+                <p className="mt-4 text-blue-100 text-xl max-w-xl mx-auto lg:mx-0 ev-enter ev-d-3">
                   Crea un equipo de estudio o únete con un código para repartir tareas y avanzar juntos.
                 </p>
 
                 {/* Datos de la escena */}
-                <ul className="mt-7 flex flex-wrap justify-center lg:justify-start gap-2.5 ev-enter ev-d-4">
+                <ul className="mt-8 flex flex-wrap justify-center lg:justify-start gap-3 ev-enter ev-d-4">
                   {BENEFICIOS.map((b) => (
-                    <li key={b.texto} className="inline-flex items-center gap-2 px-3.5 py-2 rounded-full bg-white/12 border border-white/25 text-sm font-semibold text-white">
-                      <span className="grid place-items-center w-6 h-6 rounded-full bg-white/20 text-amber-200 shrink-0">
-                        <Icono nombre={b.icono} className="w-3.5 h-3.5" />
+                    <li key={b.texto} className="inline-flex items-center gap-2.5 px-5 py-2.5 rounded-full bg-white/12 border border-white/25 text-base font-semibold text-white">
+                      <span className="grid place-items-center w-7 h-7 rounded-full bg-white/20 text-amber-200 shrink-0">
+                        <Icono nombre={b.icono} className="w-4 h-4" />
                       </span>
                       {b.texto}
                     </li>
@@ -925,18 +925,18 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                     <img
                       src="/Imagenes_Diseño/super_equipo.png"
                       alt="Equipo de estudiantes uniendose para trabajar en un proyecto. Crear un equipo nuevo."
-                      className="ev-lift-mascota relative w-40 h-auto object-contain drop-shadow-2xl sm:w-48 lg:w-56"
+                      className="ev-lift-mascota relative w-48 h-auto object-contain drop-shadow-2xl sm:w-56 lg:w-64"
                     />
                     <span
                       key={fraseHeroIdx}
-                      className="ev-bubble absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-400 text-blue-950 font-black text-xs sm:text-sm px-3 py-1 rounded-2xl shadow-lg border-2 border-white whitespace-nowrap"
+                      className="ev-bubble absolute -top-4 left-1/2 -translate-x-1/2 bg-amber-400 text-blue-950 font-black text-sm sm:text-base px-4 py-1.5 rounded-2xl shadow-lg border-2 border-white whitespace-nowrap"
                     >
                       {FRASES_HERO[fraseHeroIdx]}
                     </span>
 
                     {/* Pista de que la imagen es accionable */}
-                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 rounded-full bg-white text-blue-700 text-[11px] sm:text-xs font-black px-3 py-1.5 shadow-lg border border-blue-100 whitespace-nowrap">
-                      <Icono nombre="mas" className="w-3.5 h-3.5" />
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 inline-flex items-center gap-2 rounded-full bg-white text-blue-700 text-sm sm:text-base font-black px-4 py-2 shadow-lg border border-blue-100 whitespace-nowrap">
+                      <Icono nombre="mas" className="w-4 h-4" />
                       Crear equipo
                     </span>
                   </button>
@@ -947,13 +947,13 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
 
           {/* BARRA DE ACCIONES: fuera del header, sobre el fondo blanco.
               Aqui viven las dos vias de entrada al gestor. */}
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-3 ev-enter ev-d-2">
-            <button type="button" onClick={() => { setShowCrearEquipo(true); setShowUnirse(false); }} className="ev-btn ev-shimmer ev-focusable inline-flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold text-lg shadow-md hover:bg-blue-700">
-              <Icono nombre="mas" className="w-5 h-5" />
+          <div className="mt-6 flex flex-wrap items-center justify-center gap-4 ev-enter ev-d-2">
+            <button type="button" onClick={() => { setShowCrearEquipo(true); setShowUnirse(false); }} className="ev-btn ev-shimmer ev-focusable inline-flex cursor-pointer items-center gap-2.5 bg-blue-600 text-white px-7 py-4 rounded-2xl font-bold text-xl shadow-md hover:bg-blue-700">
+              <Icono nombre="mas" className="w-6 h-6" />
               Crear equipo
             </button>
-            <button type="button" onClick={() => { setShowUnirse(true); setShowCrearEquipo(false); }} className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-6 py-3.5 rounded-2xl font-bold text-lg border border-blue-200 hover:border-blue-400 hover:bg-blue-50">
-              <Icono nombre="copiar" className="w-5 h-5" />
+            <button type="button" onClick={() => { setShowUnirse(true); setShowCrearEquipo(false); }} className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2.5 bg-white text-blue-700 px-7 py-4 rounded-2xl font-bold text-xl border border-blue-200 hover:border-blue-400 hover:bg-blue-50">
+              <Icono nombre="copiar" className="w-6 h-6" />
               Unirme con código
             </button>
           </div>
@@ -1003,14 +1003,14 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
             </div>
           )}
 
-          <section className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_19rem] lg:items-start">
+          <section className="mt-10 grid gap-6 lg:grid-cols-[minmax(0,1fr)_20rem] lg:items-start">
             {/* COLUMNA IZQUIERDA: los equipos */}
             <div className="min-w-0">
-              <h2 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">
+              <h2 className="text-base font-black uppercase tracking-widest text-slate-500 mb-5">
                 Tus equipos ({equipos.length})
               </h2>
               {equipos.length === 0 ? (
-              <div className="ev-panel-glass relative overflow-hidden rounded-[2rem] px-6 py-14 sm:py-16 text-center ev-enter ev-d-2">
+              <div className="ev-panel-glass relative overflow-hidden rounded-[2rem] px-6 py-16 sm:py-20 text-center ev-enter ev-d-2">
                 {/* Círculos decorativos: el mismo lenguaje del header */}
                 <div aria-hidden="true" className="pointer-events-none absolute -top-16 -left-12 w-44 h-44 bg-blue-200/40 rounded-full blur-2xl" />
                 <div aria-hidden="true" className="pointer-events-none absolute -bottom-20 -right-14 w-56 h-56 bg-amber-300/30 rounded-full blur-2xl" />
@@ -1023,57 +1023,57 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       src="/Imagenes_Diseño/super_equipo.png"
                       alt=""
                       aria-hidden="true"
-                      className="w-40 h-auto object-contain drop-shadow-xl sm:w-52"
+                      className="w-48 h-auto object-contain drop-shadow-xl sm:w-64"
                     />
                   </div>
 
-                  <h3 className="mt-6 text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-900">
+                  <h3 className="mt-7 text-3xl sm:text-4xl font-extrabold tracking-tight text-slate-900">
                     Tu primer equipo te espera
                   </h3>
-                  <p className="mt-2 text-slate-500 text-lg font-medium max-w-lg mx-auto">
+                  <p className="mt-3 text-slate-600 text-xl font-medium max-w-xl mx-auto">
                     Reúne a tus compañeros, reparte el trabajo y mira cómo avanza el proyecto en tiempo real.
                   </p>
 
-                  <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-                    <button type="button" onClick={() => { setShowCrearEquipo(true); setShowUnirse(false); }} className="ev-btn ev-shimmer ev-focusable inline-flex cursor-pointer items-center gap-2 bg-blue-600 text-white px-6 py-3.5 rounded-2xl font-bold text-lg shadow-md hover:bg-blue-700">
-                      <Icono nombre="mas" className="w-5 h-5" />
+                  <div className="mt-8 flex flex-wrap items-center justify-center gap-4">
+                    <button type="button" onClick={() => { setShowCrearEquipo(true); setShowUnirse(false); }} className="ev-btn ev-shimmer ev-focusable inline-flex cursor-pointer items-center gap-2.5 bg-blue-600 text-white px-7 py-4 rounded-2xl font-bold text-xl shadow-md hover:bg-blue-700">
+                      <Icono nombre="mas" className="w-6 h-6" />
                       Crear mi primer equipo
                     </button>
-                    <button type="button" onClick={() => { setShowUnirse(true); setShowCrearEquipo(false); }} className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-6 py-3.5 rounded-2xl font-bold text-lg border border-blue-200 hover:border-blue-400 hover:bg-blue-50">
-                      <Icono nombre="copiar" className="w-5 h-5" />
+                    <button type="button" onClick={() => { setShowUnirse(true); setShowCrearEquipo(false); }} className="ev-btn ev-focusable inline-flex cursor-pointer items-center gap-2.5 bg-white text-blue-700 px-7 py-4 rounded-2xl font-bold text-xl border border-blue-200 hover:border-blue-400 hover:bg-blue-50">
+                      <Icono nombre="copiar" className="w-6 h-6" />
                       Tengo un código
                     </button>
                   </div>
                 </div>
               </div>
             ) : (
-              <div className="grid gap-4 sm:grid-cols-2">
+              <div className="grid gap-5 sm:grid-cols-2">
                 {resumenGlobal.porEquipo.map(({ equipo: eq, total, avance, urgente }, i) => (
                   <button
                     key={eq.equipo_id}
                     type="button"
                     onClick={() => seleccionarEquipo(eq)}
-                    className={`ev-stat ev-panel-glass ev-focusable cursor-pointer rounded-2xl p-5 text-left ev-enter ${['ev-d-1', 'ev-d-2', 'ev-d-3'][i % 3]}`}
+                    className={`ev-stat ev-panel-glass ev-focusable cursor-pointer rounded-2xl p-6 text-left ev-enter ${['ev-d-1', 'ev-d-2', 'ev-d-3'][i % 3]}`}
                   >
                     <div className="flex items-start justify-between gap-2">
-                      <span className="grid place-items-center w-11 h-11 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md shrink-0">
-                        <Icono nombre="usuarios" className="w-5 h-5" />
+                      <span className="grid place-items-center w-12 h-12 rounded-xl bg-gradient-to-br from-blue-600 to-indigo-700 text-white shadow-md shrink-0">
+                        <Icono nombre="usuarios" className="w-6 h-6" />
                       </span>
-                      <span className="text-[10px] font-black uppercase px-2.5 py-1 rounded-full bg-blue-50 text-blue-700 shrink-0">
+                      <span className="text-xs font-black uppercase px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 shrink-0">
                         {ETIQUETA_ROL[eq.rol] || eq.rol}
                       </span>
                     </div>
-                    <h3 className="mt-4 font-extrabold text-lg text-slate-900 leading-tight">{eq.nombre}</h3>
+                    <h3 className="mt-5 font-extrabold text-xl text-slate-900 leading-tight">{eq.nombre}</h3>
 
                     {/* Avance del equipo, sin necesidad de entrar */}
-                    <div className="mt-3">
-                      <div className="flex items-baseline justify-between text-[11px] font-bold mb-1.5">
-                        <span className="text-slate-400 uppercase tracking-wider">
+                    <div className="mt-4">
+                      <div className="flex items-baseline justify-between text-xs font-bold mb-2">
+                        <span className="text-slate-500 uppercase tracking-wider">
                           {total === 0 ? 'Sin tareas' : `${avance}% completado`}
                         </span>
                         {urgente && (
                           <span className="inline-flex items-center gap-1 text-red-600">
-                            <Icono nombre="alerta" className="w-3 h-3" />
+                            <Icono nombre="alerta" className="w-3.5 h-3.5" />
                             Vencidas
                           </span>
                         )}
@@ -1086,12 +1086,12 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                       </div>
                     </div>
 
-                    <div className="mt-3 flex items-center justify-between rounded-xl bg-blue-50/70 border border-blue-100 px-3 py-2">
+                    <div className="mt-4 flex items-center justify-between rounded-xl bg-blue-50/70 border border-blue-100 px-4 py-2.5">
                       <div>
-                        <p className="text-[9px] font-bold uppercase text-blue-500 tracking-wider">Código</p>
-                        <p className="font-mono font-black text-blue-800 tracking-[0.25em]">{eq.codigo_invitacion}</p>
+                        <p className="text-[10px] font-bold uppercase text-blue-500 tracking-wider">Código</p>
+                        <p className="font-mono font-black text-blue-800 tracking-[0.25em] text-lg">{eq.codigo_invitacion}</p>
                       </div>
-                      <Icono nombre="copiar" className="w-4 h-4 text-blue-400" />
+                      <Icono nombre="copiar" className="w-5 h-5 text-blue-400" />
                     </div>
                   </button>
                 ))}
@@ -1102,46 +1102,46 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
             {/* COLUMNA DERECHA: resumen global. Se oculta sin equipos porque
                 el empty state ya ofrece las dos vias de entrada. */}
             {equipos.length > 0 && (
-              <aside className="lg:sticky lg:top-20 space-y-4" aria-label="Resumen de tu actividad">
+              <aside className="lg:sticky lg:top-20 space-y-5" aria-label="Resumen de tu actividad">
                 {/* Cifras globales */}
-                <div className="ev-panel-glass ev-card-dash ev-slide-right ev-sr-0 relative overflow-hidden rounded-2xl p-5">
+                <div className="ev-panel-glass ev-card-dash ev-slide-right ev-sr-0 relative overflow-hidden rounded-2xl p-6">
                   <div aria-hidden="true" className="ev-dotfield absolute inset-0 opacity-40 pointer-events-none" />
                   <div aria-hidden="true" className="pointer-events-none absolute -top-14 -right-10 w-36 h-36 bg-blue-200/40 rounded-full blur-2xl" />
                   <div aria-hidden="true" className="pointer-events-none absolute -bottom-16 -left-8 w-32 h-32 bg-amber-300/25 rounded-full blur-2xl" />
                   <span aria-hidden="true" className="ev-esquina" />
 
                   <div className="relative">
-                    <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Tu actividad</h3>
+                    <h3 className="text-base font-black uppercase tracking-widest text-slate-500">Tu actividad</h3>
 
-                    <div className="mt-4 grid grid-cols-2 gap-3">
+                    <div className="mt-5 grid grid-cols-2 gap-3.5">
                       {[
                         { etiqueta: 'Equipos', valor: cifras.equipos, gradiente: 'from-blue-600 to-indigo-700', icono: 'usuarios' },
                         { etiqueta: 'Tareas', valor: cifras.tareas, gradiente: 'from-indigo-500 to-violet-600', icono: 'tablero' },
                         { etiqueta: 'Completadas', valor: cifras.completadas, gradiente: 'from-emerald-500 to-teal-600', icono: 'check' },
                         { etiqueta: 'Vencidas', valor: cifras.vencidas, gradiente: 'from-rose-500 to-red-600', icono: 'alerta' },
                       ].map((s) => (
-                        <div key={s.etiqueta} className="rounded-xl bg-white/85 border border-white/70 px-3 py-2.5">
-                          <span className={`ev-stat-icon grid place-items-center w-7 h-7 rounded-lg bg-gradient-to-br ${s.gradiente} text-white shadow-sm mb-2`}>
-                            <Icono nombre={s.icono} className="w-4 h-4" />
+                        <div key={s.etiqueta} className="rounded-xl bg-white/85 border border-white/70 px-3.5 py-3">
+                          <span className={`ev-stat-icon grid place-items-center w-8 h-8 rounded-lg bg-gradient-to-br ${s.gradiente} text-white shadow-sm mb-2.5`}>
+                            <Icono nombre={s.icono} className="w-5 h-5" />
                           </span>
-                          <p className="text-3xl font-extrabold tracking-tight text-slate-900 leading-none tabular-nums">{s.valor}</p>
-                          <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">{s.etiqueta}</p>
+                          <p className="text-4xl font-extrabold tracking-tight text-slate-900 leading-none tabular-nums">{s.valor}</p>
+                          <p className="mt-1.5 text-xs font-bold uppercase tracking-wider text-slate-500">{s.etiqueta}</p>
                         </div>
                       ))}
                     </div>
 
-                    <hr className="ev-divisor my-4" />
+                    <hr className="ev-divisor my-5" />
 
                     {/* Avance global */}
                     <div>
-                      <div className="flex items-baseline justify-between text-xs font-bold mb-1.5">
-                        <span className="text-slate-500">Avance global</span>
+                      <div className="flex items-baseline justify-between text-sm font-bold mb-2">
+                        <span className="text-slate-600">Avance global</span>
                         <span className="text-slate-900 tabular-nums">{cifras.tasa}%</span>
                       </div>
                       <div className="ev-progress-track ev-track-brillo" role="img" aria-label={`Avance global: ${resumenGlobal.tasa}%`}>
                         <div className="ev-progress-fill bg-gradient-to-r from-emerald-500 to-teal-600" style={{ width: `${resumenGlobal.tasa}%` }} />
                       </div>
-                      <p className="mt-2 text-[11px] font-medium text-slate-400">
+                      <p className="mt-2.5 text-sm font-medium text-slate-500">
                         {resumenGlobal.pendientes === 0
                           ? 'Todo al día, no te queda nada pendiente.'
                           : `${resumenGlobal.pendientes} ${resumenGlobal.pendientes === 1 ? 'tarea pendiente' : 'tareas pendientes'} en total.`}
@@ -1151,22 +1151,22 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                 </div>
 
                 {/* Próximas entregas, mezcladas entre todos los equipos */}
-                <div className="ev-panel-glass ev-card-dash ev-slide-right ev-sr-1 relative overflow-hidden rounded-2xl p-5">
+                <div className="ev-panel-glass ev-card-dash ev-slide-right ev-sr-1 relative overflow-hidden rounded-2xl p-6">
                   <span aria-hidden="true" className="ev-esquina" />
 
-                  <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-3.5">
                     <div className="ev-float shrink-0">
                       <img
                         src="/Imagenes_Diseño/asustado.png"
                         alt=""
                         aria-hidden="true"
-                        className="w-12 h-auto object-contain drop-shadow-md sm:w-14"
+                        className="w-14 h-auto object-contain drop-shadow-md sm:w-16"
                       />
                     </div>
                     <div className="min-w-0">
-                      <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Próximas entregas</h3>
+                      <h3 className="text-base font-black uppercase tracking-widest text-slate-500">Próximas entregas</h3>
                       {resumenGlobal.hoy > 0 && (
-                        <p className="mt-0.5 text-xs font-bold text-red-600">
+                        <p className="mt-1 text-sm font-bold text-red-600">
                           {resumenGlobal.hoy} {resumenGlobal.hoy === 1 ? 'vence hoy' : 'vencen hoy'}
                         </p>
                       )}
@@ -1174,11 +1174,11 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                   </div>
 
                   {resumenGlobal.proximas.length === 0 ? (
-                    <p className="mt-4 text-sm font-medium text-slate-400">
+                    <p className="mt-5 text-base font-medium text-slate-500">
                       Sin fechas de entrega próximas. Asigna una a una tarea para verla aquí.
                     </p>
                   ) : (
-                    <ul className="mt-4 space-y-2.5">
+                    <ul className="mt-5 space-y-3">
                       {resumenGlobal.proximas.map((p) => {
                         const dias = getDiasRestantes(p.fecha_entrega);
                         const venceHoy = dias !== null && dias === 0;
@@ -1186,19 +1186,19 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                         return (
                           <li
                             key={`${p.equipo_id}-${p.tarea_id}`}
-                            className={`rounded-xl border px-3 py-2.5 transition-colors ${
+                            className={`rounded-xl border px-4 py-3 transition-colors ${
                               venceHoy
                                 ? 'bg-red-50 border-red-200 shadow-[0_0_0_3px_rgba(239,68,68,0.08)]'
                                 : 'bg-white/85 border-white/70 hover:border-blue-300'
                             }`}
                           >
-                            <p className={`text-sm font-bold leading-snug truncate ${venceHoy ? 'text-red-900' : 'text-slate-800'}`}>
+                            <p className={`text-base font-bold leading-snug truncate ${venceHoy ? 'text-red-900' : 'text-slate-800'}`}>
                               {p.titulo}
                             </p>
-                            <div className="mt-1 flex items-center justify-between gap-2">
-                              <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 truncate">{p.equipo_nombre}</span>
+                            <div className="mt-1.5 flex items-center justify-between gap-2">
+                              <span className="text-xs font-bold uppercase tracking-wider text-slate-500 truncate">{p.equipo_nombre}</span>
                               <span
-                                className={`shrink-0 inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-full ${
+                                className={`shrink-0 inline-flex items-center gap-1 text-xs font-black px-2.5 py-1 rounded-full ${
                                   venceHoy
                                     ? 'ev-badge-urgente bg-red-600 text-white'
                                     : urgente
@@ -1206,7 +1206,7 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
                                       : 'bg-slate-100 text-slate-600'
                                 }`}
                               >
-                                <Icono nombre={venceHoy ? 'alerta' : 'reloj'} className="w-2.5 h-2.5" />
+                                <Icono nombre={venceHoy ? 'alerta' : 'reloj'} className="w-3 h-3" />
                                 {dias === 0 ? '¡Hoy!' : dias === 1 ? 'Mañana' : `${dias} d`}
                               </span>
                             </div>
@@ -1219,20 +1219,20 @@ const TarjetaTarea = ({ tarea, arrastrando, onDragStart, onDragEnd, onAbrir, onE
 
                 {/* Recordatorio del rol: quien administra ve el código, no todos */}
                 {resumenGlobal.admins > 0 && (
-                  <div className="ev-slide-right ev-sr-2 relative overflow-hidden rounded-2xl bg-blue-600 p-5 text-white shadow-md">
+                  <div className="ev-slide-right ev-sr-2 relative overflow-hidden rounded-2xl bg-blue-600 p-6 text-white shadow-md">
                     {/* Puntos tenues: la tarjeta azul es la unica sin glass,
                         el patron evita que quede como un bloque plano */}
                     <div aria-hidden="true" className="ev-dotfield absolute inset-0 opacity-20 pointer-events-none" />
                     <div aria-hidden="true" className="pointer-events-none absolute -right-10 -bottom-12 w-36 h-36 bg-indigo-400/40 rounded-full blur-2xl" />
 
                     <div className="relative">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-blue-200">Tu rol</p>
-                      <p className="mt-1 font-bold leading-snug">
+                      <p className="text-xs font-black uppercase tracking-widest text-blue-200">Tu rol</p>
+                      <p className="mt-1.5 text-lg font-bold leading-snug">
                         {resumenGlobal.admins === equipos.length
                           ? 'Administras todos tus equipos.'
                           : `Administras ${resumenGlobal.admins} de ${equipos.length} equipos.`}
                       </p>
-                      <p className="mt-1 text-xs text-blue-100">
+                      <p className="mt-1.5 text-sm text-blue-100">
                         Comparte el código de cada equipo para invitar a más compañeros.
                       </p>
                     </div>
