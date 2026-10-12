@@ -811,6 +811,22 @@ quitando claves específicas.
 6. **Eliminar tarea:** modal de confirmación → `DELETE` + `emit('eliminar-tarea')`.
 7. **Chat:** panel con historial (`GET /chat/:equipo_id`), auto-scroll, `POST /chat/enviar` + `emit('mensaje-chat')`, contador de no leídos.
 
+#### Bugs del chat (corregidos en `GestorEquipos.jsx`)
+
+| Letra | Bug | Causa | Fix |
+|---|---|---|---|
+| A | Carrera al cambiar de equipo | `Promise.all` sin guarda → mensajes del equipo A llegaban después del cambio a B | `vigente` + limpieza si `equipoActivoRef !== equipoId` |
+| B | Socket sin filtro de equipo | `nuevo-mensaje` agregaba siempre; closure veía `equipoActivo === null` | `equipoActivoRef.current` actualizado en `seleccionarEquipo`/`salirDeEquipo`; listener chequea `msg.equipo_id === equipoActivoRef.current` |
+| C | Contador de no leídos miente en escritorio | `chatAbiertoRef` solo `true` en móvil (`abrirChatMovil`); en escritorio el chat siempre visible pero ref `false` | `useEffect` sincroniza: escritorio + equipo activo → `true`; móvil → `chatMovil` |
+| D | Auto-scroll te arrebata la posición | Siempre `scrollTop = scrollHeight` al llegar mensaje | Solo si `scrollHeight - scrollTop - clientHeight < 50` (usuario ya estaba abajo) |
+| E | Keys duplicadas | `key={msg.mensaje_id \|\| msg.fecha_envio}` — `fecha_envio` es DATETIME (segundos), dos mensajes en mismo segundo colisionan | `key={msg.mensaje_id \|\| \`msg-\${i}\`}` (índice como fallback) |
+| F | Input sin `maxLength` | Backend corta a 500; input no → server rechaza 400 y texto vuelve | `maxLength={500}` en el `<input>` |
+
+**Accesibilidad (añadido):**
+- `role="log" aria-live="polite" aria-label="Chat del equipo"` en el `<aside>` del chat → lectores de pantalla anuncian mensajes nuevos.
+- Separadores de día en el historial: muestra fecha completa (`lunes 7 octubre`) cuando cambia el día; evita lista ilegible de solo HH:MM.
+- `Escape` cierra el drawer móvil (igual que el menú de la navbar).
+
 #### Filtros del tablero
 
 `filtroPrioridad` (`todas` | `verde` | `amarillo` | `rojo` | `vencidas`),

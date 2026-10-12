@@ -16,6 +16,7 @@ const PALABRAS_BLOQUEADAS = [
   'verga', 'vergas',
   'polla', 'pollas', 'pola', 'polas',
   'chingar', 'chingada', 'chingadas', 'chingado', 'chingados',
+  'chinga', 'chingas', 'chingo', 'chingon', 'chingona', 'chinguear',
   'huevon', 'huevona', 'huevones',
   'pendejo', 'pendeja', 'pendejos', 'pendejas', 'pendejon', 'pendejona',
   'imbecil', 'imbeciles',
@@ -25,7 +26,16 @@ const PALABRAS_BLOQUEADAS = [
   'nomames',
   'pinche', 'pinches',
   'hijodeputa', 'hijosdeputa', 'hijodelaputa', 'hijosdelaputa',
+  'hijueputa', 'hijueputas', 'hijosdehijueputa',
   'hijodeperra', 'hijadeperra', 'hijosdeperra',
+  'culero', 'culera', 'culeros', 'culeras',
+  'webo', 'weba', 'webon', 'webas', 'webos',
+  'mamahuevo', 'mamahuevos',
+  'mamon', 'mamona', 'mamones',
+  'maricon', 'marica', 'maricones',
+  'joto', 'jotos',
+  'zorra', 'zorras',
+  'gonorrea', 'gonorreas',
   'fuck', 'fucking', 'fucked', 'fucker', 'fuckers',
   'motherfucker', 'motherfuckers',
   'bitch', 'bitches',
@@ -36,6 +46,8 @@ const PALABRAS_BLOQUEADAS = [
   'slut', 'sluts',
   'whore', 'whores',
   'retard', 'retards', 'retarded',
+  'bastard', 'dick', 'prick', 'pussy', 'wanker', 'twat', 'jackass',
+  'bollocks', 'douchebag', 'dipshit', 'cocksucker',
 ];
 
 const DIACRITICOS = /[̀-ͯ]/g;

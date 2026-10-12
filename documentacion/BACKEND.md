@@ -168,8 +168,8 @@ Todas las rutas exigen **token + rol `admin`** (doble middleware `verificarToken
 - `DELETE /tareas/:id` → elimina.
 
 ### `routes/chat.js`
-- `GET /chat/:equipo_id` → últimos 100 mensajes (`LIMIT 100`), orden cronológico, con `autor_nombre`.
-- `POST /chat/enviar` → inserta con `sanitize(texto)`.
+- `GET /chat/:equipo_id` → últimos 100 mensajes (`LIMIT 100`), orden cronológico, con `autor_nombre`. **Autenticación + membresía requerida**; filtra groserías en lectura (red de seguridad para historial previo).
+- `POST /chat/enviar` → inserta con `sanitize(filtrarTexto(texto))`.
 
 ---
 
@@ -187,7 +187,10 @@ Todas las rutas exigen **token + rol `admin`** (doble middleware `verificarToken
 ## 12. Chat (`routes/chat.js`)
 
 ### `GET /chat/:equipo_id`
-Devuelve los últimos 100 mensajes del equipo (público, sin autenticación).
+**Autenticación requerida** (`verificarToken`). Usuario debe ser miembro del equipo (`miembros_equipo`), si no → `403`.
+
+Devuelve los últimos 100 mensajes del equipo con `autor_nombre`.
+**Aplica `filtrarTexto` en lectura** a cada mensaje antes de responder: red de seguridad para mensajes guardados antes de que existiera el filtro. La base de datos no se modifica; el filtrado es solo en la respuesta JSON.
 
 ### `POST /chat/enviar`
 **Autenticación requerida** (`verificarToken`).

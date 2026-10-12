@@ -7,9 +7,17 @@ const { filtrarTexto } = require('../middleware/profanity');
 
 const LARGO_MAXIMO_MENSAJE = 500;
 
-router.get('/:equipo_id', async (req, res) => {
+router.get('/:equipo_id', verificarToken, async (req, res) => {
   try {
     const { equipo_id } = req.params;
+    const usuario_id = req.usuario.id;
+
+    const pertenece = await pool.query(
+      'SELECT 1 FROM miembros_equipo WHERE equipo_id = $1 AND usuario_id = $2',
+      [equipo_id, usuario_id]
+    );
+    if (pertenece.rows.length === 0) return res.status(403).json('No eres miembro de este equipo');
+
     const mensajes = await pool.query(
       `SELECT m.*, u.nombre AS autor_nombre
        FROM mensajes_chat m
@@ -19,7 +27,15 @@ router.get('/:equipo_id', async (req, res) => {
        LIMIT 100`,
       [equipo_id]
     );
-    res.json(mensajes.rows);
+
+    // Filtro en lectura: red de seguridad para mensajes guardados antes
+    // de que existiera el filtro. No se persiste, solo para mostrar.
+    const filtrados = mensajes.rows.map((m) => {
+      const filtrado = filtrarTexto(m.texto);
+      return { ...m, texto: filtrado.texto, censurado: filtrado.censurado };
+    });
+
+    res.json(filtrados);
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Error al obtener mensajes');
@@ -64,12 +80,15 @@ router.post('/enviar', verificarToken, async (req, res) => {
 
       if (filtrado.censurado) {
         try {
+          await client.query('SAVEPOINT mod');
           await client.query(
             `INSERT INTO moderacion_logs (usuario_id, equipo_id, palabras_bloqueadas, sustituciones)
              VALUES ($1, $2, $3, $4)`,
             [usuario_id, equipo_id, filtrado.palabras.join(', '), filtrado.cantidad]
           );
+          await client.query('RELEASE mod');
         } catch (logErr) {
+          await client.query('ROLLBACK TO mod').catch(() => {});
           console.warn('No se pudo registrar en moderacion_logs:', logErr.message);
         }
       }

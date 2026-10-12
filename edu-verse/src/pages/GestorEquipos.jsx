@@ -206,6 +206,7 @@ const GestorEquipos = () => {
   const socketRef = useRef(null);
   const chatRef = useRef(null);
   const chatAbiertoRef = useRef(false);
+  const equipoActivoRef = useRef(null); // para el socket: evita que mensajes de otro equipo se cuelen
   const tareaEditandoRef = useRef(null);
   const rafRef = useRef(0);
   // Tarea en curso de arrastre. Ref y no estado: ver handleDragStart.
@@ -312,7 +313,6 @@ const GestorEquipos = () => {
   }, []);
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- carga inicial de datos remotos
     cargarEquipos();
   }, [cargarEquipos]);
 
@@ -342,6 +342,9 @@ const GestorEquipos = () => {
     });
 
     socket.on('nuevo-mensaje', (msg) => {
+      // Evita que mensajes de otro equipo aparezcan si el usuario cambió
+      // de equipo rápido y el socket tarda en emitir.
+      if (msg.equipo_id !== equipoActivoRef.current) return;
       setMensajes((prev) => agregarMensaje(msg, prev));
       if (!chatAbiertoRef.current) setMensajesNoLeidos((prev) => prev + 1);
     });
@@ -350,7 +353,14 @@ const GestorEquipos = () => {
   }, [agregarMensaje]);
 
   useEffect(() => {
-    if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
+    if (!chatRef.current) return;
+    const el = chatRef.current;
+    // Solo auto-scroll si el usuario ya estaba abajo (dentro de 50px).
+    // Si subió a leer historial, no le arrebatamos la posición.
+    const estabaAbajo = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
+    if (estabaAbajo) {
+      el.scrollTop = el.scrollHeight;
+    }
   }, [mensajes]);
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
@@ -611,6 +621,7 @@ const GestorEquipos = () => {
   // El ref lo lee el listener del socket. El chat ya no es un tab: esta
   // siempre montado en escritorio y es un drawer en movil, asi que solo
   // cuenta como "no leido" cuando el drawer esta cerrado.
+  // En escritorio el chat siempre está visible cuando hay equipo activo.
   const abrirChatMovil = () => {
     chatAbiertoRef.current = true;
     setMensajesNoLeidos(0);
@@ -622,30 +633,67 @@ const GestorEquipos = () => {
     setChatMovil(false);
   };
 
+  // Sincroniza chatAbiertoRef: en escritorio (xl:flex) el chat es siempre
+  // visible cuando hay equipo; en móvil sigue el estado del drawer.
+  useEffect(() => {
+    const esEscritorio = window.matchMedia('(min-width: 1280px)').matches;
+    if (esEscritorio && equipoActivo) {
+      chatAbiertoRef.current = true;
+    } else if (!esEscritorio) {
+      chatAbiertoRef.current = chatMovil;
+    }
+  }, [equipoActivo, chatMovil]);
+
+  // Escape cierra el drawer del chat en móvil (igual que el menú de la navbar)
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape' && chatMovil) cerrarChatMovil();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [chatMovil]);
+
   const cambiarVista = (siguiente) => {
     setVista(siguiente);
   };
 
   const seleccionarEquipo = async (equipo) => {
     if (socketRef.current && equipoActivo) socketRef.current.emit('salir-equipo', equipoActivo.equipo_id);
+    const equipoId = equipo.equipo_id;
     setEquipoActivo(equipo);
-    chatAbiertoRef.current = false;
+    equipoActivoRef.current = equipoId; // para el listener del socket
     setMensajesNoLeidos(0);
     setFiltroPrioridad('todas');
     setFiltroMiembro('todos');
     setFiltroFecha('');
     setBusqueda('');
-    socketRef.current?.emit('unirse-equipo', equipo.equipo_id);
-    await Promise.all([
-      cargarTareas(equipo.equipo_id),
-      cargarMiembros(equipo.equipo_id),
-      cargarMensajes(equipo.equipo_id),
-    ]);
+    socketRef.current?.emit('unirse-equipo', equipoId);
+
+    // Guarda de carrera: si el usuario cambia de equipo antes de que terminen
+    // las peticiones, ignoramos las respuestas del equipo anterior.
+    let vigente = true;
+    const promesas = [
+      cargarTareas(equipoId),
+      cargarMiembros(equipoId),
+      cargarMensajes(equipoId),
+    ];
+    try {
+      await Promise.all(promesas);
+    } finally {
+      vigente = false;
+    }
+    // Si ya no es el equipo activo, limpiamos lo que llegó tarde.
+    if (!vigente && equipoActivoRef.current !== equipoId) {
+      setMensajes([]);
+      setTareas([]);
+      setMiembros([]);
+    }
   };
 
   const salirDeEquipo = () => {
     socketRef.current?.emit('salir-equipo', equipoActivo.equipo_id);
     setEquipoActivo(null);
+    equipoActivoRef.current = null;
     setTareas([]);
     setMensajes([]);
     setMiembros([]);
@@ -805,13 +853,6 @@ const GestorEquipos = () => {
           toast('Tu mensaje contiene lenguaje ofensivo y fue filtrado', { icon: '⚠️' });
         } catch { /* toast no disponible */ }
       }
-      socketRef.current?.emit('mensaje-chat', {
-        equipo_id: equipoActivo.equipo_id,
-        usuario_id: usuario,
-        autor_nombre: usuarioNombre,
-        texto,
-        fecha_envio: new Date().toISOString(),
-      });
     } catch (err) {
       setNuevoMensaje(texto);
       if (err.response?.status === 403) {
@@ -1783,6 +1824,9 @@ const GestorEquipos = () => {
         <aside
           className={`ev-panel-glass shrink-0 border-l border-slate-200/70 dark:border-slate-700/70 flex flex-col
             ${chatMovil ? 'fixed inset-y-0 right-0 z-50 w-full max-w-sm' : 'hidden xl:flex xl:w-[340px]'}`}
+          role="log"
+          aria-live="polite"
+          aria-label="Chat del equipo"
         >
           <div className="p-4 border-b border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
@@ -1817,25 +1861,46 @@ const GestorEquipos = () => {
                 const previo = mensajes[i - 1];
                 // Agrupa mensajes consecutivos del mismo autor
                 const agrupado = previo && String(previo.usuario_id) === String(msg.usuario_id);
+
+                // Separador de día: muestra la fecha cuando cambia el día
+                const fechaMsg = new Date(msg.fecha_envio);
+                const fechaStr = fechaMsg.toLocaleDateString('es-MX', { weekday: 'long', day: 'numeric', month: 'long' });
+                const fechaPrev = previo ? new Date(previo.fecha_envio) : null;
+                const mismaFecha = fechaPrev && fechaMsg.toDateString() === fechaPrev.toDateString();
+                const mostrarSeparador = !mismaFecha;
+
+                const keyMsg = msg.mensaje_id || `msg-${i}`;
+
                 return (
-                  <div key={msg.mensaje_id || msg.fecha_envio} className={`flex gap-2.5 ${mio ? 'justify-end' : 'justify-start'}`}>
-                    {!mio && (
-                      <span className={`ev-avatar grid place-items-center w-8 h-8 rounded-full text-white text-xs font-bold shrink-0 ${agrupado ? 'opacity-0' : `bg-gradient-to-br ${tonoDesdeNombre(msg.autor_nombre)}`}`}>
-                        {(msg.autor_nombre || '?').charAt(0).toUpperCase()}
-                      </span>
-                    )}
-                    <div className={`max-w-[85%] ${agrupado ? '' : 'ev-burbuja'}`}>
-                      {!mio && !agrupado && (
-                        <p className="text-xs font-bold text-blue-600 mb-1">{msg.autor_nombre}</p>
-                      )}
-                      <div className={`px-3.5 py-2.5 rounded-2xl ${mio ? 'bg-blue-600 hover:bg-blue-700 text-white rounded-br-md' : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-bl-md'}`}>
-                        <p className="text-sm leading-relaxed break-words">{msg.texto}</p>
+                  <React.Fragment key={keyMsg}>
+                    {mostrarSeparador && (
+                      <div key={`sep-${i}`} className="flex items-center gap-2 my-2 text-center">
+                        <div className="flex-1 border-t border-slate-200/50 dark:border-slate-700/50" />
+                        <span className="px-2 text-xs font-medium text-slate-400 dark:text-slate-400 whitespace-nowrap">
+                          {fechaStr.charAt(0).toUpperCase() + fechaStr.slice(1)}
+                        </span>
+                        <div className="flex-1 border-t border-slate-200/50 dark:border-slate-700/50" />
                       </div>
-                      <p className={`mt-1 text-[10px] text-slate-400 dark:text-slate-400 ${mio ? 'text-right' : ''}`}>
-                        {new Date(msg.fecha_envio).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
-                      </p>
+                    )}
+                    <div className={`flex gap-2.5 ${mio ? 'justify-end' : 'justify-start'}`}>
+                      {!mio && (
+                        <span className={`ev-avatar grid place-items-center w-8 h-8 rounded-full text-white text-xs font-bold shrink-0 ${agrupado ? 'opacity-0' : `bg-gradient-to-br ${tonoDesdeNombre(msg.autor_nombre)}`}`}>
+                          {(msg.autor_nombre || '?').charAt(0).toUpperCase()}
+                        </span>
+                      )}
+                      <div className={`max-w-[85%] ${agrupado ? '' : 'ev-burbuja'}`}>
+                        {!mio && !agrupado && (
+                          <p className="text-xs font-bold text-blue-600 mb-1">{msg.autor_nombre}</p>
+                        )}
+                        <div className={`px-3.5 py-2.5 rounded-2xl ${mio ? 'bg-blue-600 hover:bg-blue-700 text-white rounded-br-md' : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-bl-md'}`}>
+                          <p className="text-sm leading-relaxed break-words">{msg.texto}</p>
+                        </div>
+                        <p className={`mt-1 text-[10px] text-slate-400 dark:text-slate-400 ${mio ? 'text-right' : ''}`}>
+                          {fechaMsg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
+                        </p>
+                      </div>
                     </div>
-                  </div>
+                  </React.Fragment>
                 );
               })
             )}
@@ -1850,6 +1915,7 @@ const GestorEquipos = () => {
                 onKeyDown={(e) => { if (e.key === 'Enter') enviarMensaje(); }}
                 placeholder="Escribe un mensaje..."
                 aria-label="Mensaje de chat"
+                maxLength={500}
                 className="ev-field flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
               />
               <button
