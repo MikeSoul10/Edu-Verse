@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { useNavigate, Link } from 'react-router-dom';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../config';
@@ -65,7 +65,7 @@ const Profile = () => {
         return;
       }
       try {
-        const res = await axios.get(`${API_URL}/auth/perfil/${usuarioId}`);
+        const res = await api.get(`${API_URL}/auth/perfil/${usuarioId}`);
         setDatos({
           nombre: res.data.nombre,
           email: res.data.email,
@@ -132,7 +132,7 @@ const Profile = () => {
     formData.append('foto', nuevaFoto);
 
     try {
-      const res = await axios.put(`${API_URL}/usuarios/foto/${usuarioId}`, formData);
+      const res = await api.put(`${API_URL}/usuarios/foto/${usuarioId}`, formData);
       toast.success('Foto actualizada');
       updateUser({ foto: res.data.url });
       setDatos((prev) => ({ ...prev, foto_url: res.data.url }));
@@ -154,7 +154,7 @@ const Profile = () => {
     }
     setGuardando(true);
     try {
-      const res = await axios.put(`${API_URL}/auth/perfil/update/${usuarioId}`, datos);
+      const res = await api.put(`${API_URL}/auth/perfil/update/${usuarioId}`, datos);
       toast.success('Perfil actualizado');
       updateUser({ nombre: res.data.nombre });
     } catch (err) {

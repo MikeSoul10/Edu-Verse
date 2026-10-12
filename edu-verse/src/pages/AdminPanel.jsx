@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { API_URL } from '../config';
 import toast from 'react-hot-toast';
 
@@ -31,9 +31,9 @@ const AdminPanel = () => {
 
   const fetchStats = async () => {
     try {
-      const res = await axios.get('/admin/stats');
+      const res = await api.get(`${API_URL}/admin/stats`);
       setStats(res.data);
-    } catch (err) {
+    } catch {
       toast.error('Error al cargar estadísticas');
     } finally {
       setLoading(false);
@@ -43,8 +43,8 @@ const AdminPanel = () => {
   const fetchUsuarios = async () => {
     try {
       const [resUsuarios, resBaneados] = await Promise.all([
-        axios.get('/admin/usuarios'),
-        axios.get('/admin/baneados'),
+        api.get(`${API_URL}/admin/usuarios`),
+        api.get(`${API_URL}/admin/baneados`),
       ]);
       setUsuarios(resUsuarios.data);
       setBaneados(resBaneados.data);
@@ -52,23 +52,23 @@ const AdminPanel = () => {
   };
 
   const fetchBaneados = async () => {
-    try { const res = await axios.get('/admin/baneados'); setBaneados(res.data); } catch { toast.error('Error al cargar baneados'); }
+    try { const res = await api.get(`${API_URL}/admin/baneados`); setBaneados(res.data); } catch { toast.error('Error al cargar baneados'); }
   };
 
   const fetchLogs = async () => {
-    try { const res = await axios.get('/admin/logs'); setLogs(res.data); } catch { toast.error('Error al cargar logs'); }
+    try { const res = await api.get(`${API_URL}/admin/logs`); setLogs(res.data); } catch { toast.error('Error al cargar logs'); }
   };
 
   const fetchApuntes = async () => {
-    try { const res = await axios.get('/admin/apuntes'); setApuntes(res.data); } catch { toast.error('Error al cargar apuntes'); }
+    try { const res = await api.get(`${API_URL}/admin/apuntes`); setApuntes(res.data); } catch { toast.error('Error al cargar apuntes'); }
   };
 
   const fetchComentarios = async () => {
-    try { const res = await axios.get('/admin/comentarios'); setComentarios(res.data); } catch { toast.error('Error al cargar comentarios'); }
+    try { const res = await api.get(`${API_URL}/admin/comentarios`); setComentarios(res.data); } catch { toast.error('Error al cargar comentarios'); }
   };
 
   const fetchEquipos = async () => {
-    try { const res = await axios.get('/admin/equipos'); setEquipos(res.data); } catch { toast.error('Error al cargar equipos'); }
+    try { const res = await api.get(`${API_URL}/admin/equipos`); setEquipos(res.data); } catch { toast.error('Error al cargar equipos'); }
   };
 
   const handleTabChange = (tab) => {
@@ -84,13 +84,13 @@ const AdminPanel = () => {
 
   const handleDeleteUser = async (id, nombre) => {
     if (!window.confirm(`¿Eliminar al usuario "${nombre}"?`)) return;
-    try { await axios.delete(`/admin/usuarios/${id}`); toast.success('Usuario eliminado'); fetchUsuarios(); } catch (err) { toast.error(err.response?.data || 'Error al eliminar'); }
+    try { await api.delete(`${API_URL}/admin/usuarios/${id}`); toast.success('Usuario eliminado'); fetchUsuarios(); } catch (err) { toast.error(err.response?.data || 'Error al eliminar'); }
   };
 
   const handleBan = async () => {
     if (!banModal.usuario) return;
     try {
-      await axios.post('/admin/ban', { usuario_id: banModal.usuario.usuario_id, motivo: banMotivo });
+      await api.post(`${API_URL}/admin/ban`, { usuario_id: banModal.usuario.usuario_id, motivo: banMotivo });
       toast.success(`${banModal.usuario.nombre} ha sido baneado`);
       setBanModal({ open: false, usuario: null }); setBanMotivo(''); fetchUsuarios();
     } catch (err) { toast.error(err.response?.data || 'Error al banear'); }
@@ -98,22 +98,22 @@ const AdminPanel = () => {
 
   const handleUnban = async (email) => {
     if (!window.confirm(`¿Desbanear a ${email}?`)) return;
-    try { await axios.delete(`/admin/baneados/${encodeURIComponent(email)}`); toast.success('Desbaneado'); fetchBaneados(); fetchUsuarios(); } catch { toast.error('Error al desbanear'); }
+    try { await api.delete(`${API_URL}/admin/baneados/${encodeURIComponent(email)}`); toast.success('Desbaneado'); fetchBaneados(); fetchUsuarios(); } catch { toast.error('Error al desbanear'); }
   };
 
   const handleDeleteApunte = async (id) => {
     if (!window.confirm('¿Eliminar este apunte?')) return;
-    try { await axios.delete(`/admin/apuntes/${id}`); toast.success('Apunte eliminado'); fetchApuntes(); } catch { toast.error('Error al eliminar'); }
+    try { await api.delete(`${API_URL}/admin/apuntes/${id}`); toast.success('Apunte eliminado'); fetchApuntes(); } catch { toast.error('Error al eliminar'); }
   };
 
   const handleDeleteComentario = async (id) => {
     if (!window.confirm('¿Eliminar este comentario?')) return;
-    try { await axios.delete(`/admin/comentarios/${id}`); toast.success('Comentario eliminado'); fetchComentarios(); } catch { toast.error('Error al eliminar'); }
+    try { await api.delete(`${API_URL}/admin/comentarios/${id}`); toast.success('Comentario eliminado'); fetchComentarios(); } catch { toast.error('Error al eliminar'); }
   };
 
   const handleDeleteEquipo = async (id) => {
     if (!window.confirm('¿Eliminar este equipo? Se borrarán sus tareas y mensajes.')) return;
-    try { await axios.delete(`/admin/equipos/${id}`); toast.success('Equipo eliminado'); fetchEquipos(); } catch { toast.error('Error al eliminar'); }
+    try { await api.delete(`${API_URL}/admin/equipos/${id}`); toast.success('Equipo eliminado'); fetchEquipos(); } catch { toast.error('Error al eliminar'); }
   };
 
   if (!user || user.rol !== 'admin') return null;

@@ -1,38 +1,19 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
+import { formatoBytes } from '../utils/formatters';
+import Icono from '../components/ui/Icono';
 
 const ALLOWED_TYPES = ['application/pdf', 'image/png', 'image/jpeg'];
 const MAX_SIZE_MB = 10;
 
 const esPdf = (f) => f?.type === 'application/pdf';
 
-const formatoBytes = (bytes) => {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-};
-
-const Icono = ({ nombre, className = 'w-5 h-5' }) => {
-  const paths = {
-    documento: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" strokeLinejoin="round" /><path d="M14 3v5h5" strokeLinejoin="round" /></>,
-    subir: <><path d="M12 16V4M7 9l5-5 5 5" strokeLinecap="round" strokeLinejoin="round" /><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeLinecap="round" /></>,
-    cerrar: <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />,
-    check: <path d="M20 6 9 17l-5-5" strokeLinecap="round" strokeLinejoin="round" />,
-    alerta: <><path d="M12 9v4M12 17h.01" strokeLinecap="round" /><path d="M10.3 3.9 2.5 17.5A2 2 0 0 0 4.2 20.5h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" strokeLinejoin="round" /></>,
-    reloj: <><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" strokeLinecap="round" /></>,
-    volver: <><path d="M15 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" /></>,
-  };
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
-      {paths[nombre]}
-    </svg>
-  );
-};
-
 const Upload = () => {
+  const { user } = useAuth();
   const [file, setFile] = useState(null);
   const [formData, setFormData] = useState({ titulo: '', materia: '', descripcion: '' });
   const [cargando, setCargando] = useState(false);
@@ -114,10 +95,10 @@ const Upload = () => {
     data.append('titulo', formData.titulo);
     data.append('materia', formData.materia);
     data.append('descripcion', formData.descripcion);
-    data.append('usuario_id', localStorage.getItem('usuario_id'));
+    if (user?.id) data.append('usuario_id', user.id);
 
     try {
-      await axios.post(`${API_URL}/apuntes/upload`, data, {
+      await api.post(`${API_URL}/apuntes/upload`, data, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 

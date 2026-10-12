@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import { toast } from 'react-hot-toast';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
@@ -74,7 +74,7 @@ const Login = () => {
     const loadingToast = toast.loading('Iniciando sesión...');
 
     try {
-      const response = await axios.post(`${API_URL}/auth/login`, formData);
+      const response = await api.post(`${API_URL}/auth/login`, formData);
 
       login(response.data);
 

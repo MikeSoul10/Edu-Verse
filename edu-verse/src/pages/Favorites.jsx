@@ -1,50 +1,20 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config';
-
-const PALETA = [
-  { fondo: 'from-blue-500 to-indigo-600', chip: 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300' },
-  { fondo: 'from-violet-500 to-purple-600', chip: 'bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300' },
-  { fondo: 'from-emerald-500 to-teal-600', chip: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
-  { fondo: 'from-amber-500 to-orange-600', chip: 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300' },
-  { fondo: 'from-rose-500 to-red-600', chip: 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300' },
-  { fondo: 'from-cyan-500 to-sky-600', chip: 'bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300' },
-];
-
-const tono = (materia = '') => {
-  let h = 0;
-  for (let i = 0; i < materia.length; i++) h = (h * 31 + materia.charCodeAt(i)) % 9973;
-  return PALETA[h % PALETA.length];
-};
+import { useAuth } from '../context/AuthContext';
+import { tonoDesdeMateria, iniciales } from '../utils/formatters';
+import Icono from '../components/ui/Icono';
 
 const esPdf = (url = '') => /\.pdf($|\?)/i.test(url);
-const iniciales = (nombre = '') =>
-  nombre.trim().split(/\s+/).slice(0, 2).map((p) => p.charAt(0).toUpperCase()).join('') || '?';
-
-const Icono = ({ nombre, className = 'w-5 h-5', relleno = false }) => {
-  const paths = {
-    documento: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" strokeLinejoin="round" /><path d="M14 3v5h5" strokeLinejoin="round" /></>,
-    estrella: <><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z" strokeLinejoin="round" /></>,
-    estrellaLlena: <path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1-5.4-2.9-5.4 2.9 1-6.1L3.2 9.5l6.1-.9L12 3z" />,
-    cerrar: <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />,
-    capas: <><path d="M12 3 3 7.5l9 4.5 9-4.5L12 3z" strokeLinejoin="round" /><path d="m3 12.5 9 4.5 9-4.5" strokeLinejoin="round" /><path d="m3 17 9 4.5 9-4.5" strokeLinejoin="round" /></>,
-    derecha: <><path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></>,
-    capasDoc: <><path d="M12 3 3 7.5l9 4.5 9-4.5L12 3z" strokeLinejoin="round" /><path d="m3 12.5 9 4.5 9-4.5" strokeLinejoin="round" /></>,
-  };
-  return (
-    <svg viewBox="0 0 24 24" fill={relleno ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
-      {paths[nombre]}
-    </svg>
-  );
-};
 
 const Favorites = () => {
+  const { user } = useAuth();
   const [favoritos, setFavoritos] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [fallo, setFallo] = useState(false);
-  const usuarioId = localStorage.getItem('usuario_id');
+  const usuarioId = user?.id;
 
   const cargarFavoritos = useCallback(async () => {
     if (!usuarioId) {
@@ -52,7 +22,7 @@ const Favorites = () => {
       return;
     }
     try {
-      const res = await axios.get(`${API_URL}/favoritos/${usuarioId}`);
+      const res = await api.get(`${API_URL}/favoritos/${usuarioId}`);
       setFavoritos(Array.isArray(res.data) ? res.data : []);
       setFallo(false);
     } catch {
@@ -63,13 +33,11 @@ const Favorites = () => {
     }
   }, [usuarioId]);
 
-  // El DELETE toma el usuario del token (verificarToken), no del body.
-  // Mandarlo igual es inofensivo pero sugiere que se usa, y no se usa.
   const quitarFavorito = async (apunte) => {
     const previo = favoritos;
     setFavoritos((prev) => prev.filter((f) => f.apunte_id !== apunte.apunte_id));
     try {
-      await axios.delete(`${API_URL}/favoritos`, { data: { apunte_id: apunte.apunte_id } });
+      await api.delete(`${API_URL}/favoritos`, { data: { apunte_id: apunte.apunte_id } });
       toast.success('Quitado de favoritos');
     } catch {
       setFavoritos(previo);
@@ -147,7 +115,7 @@ const Favorites = () => {
               <h2 className="text-2xl font-extrabold text-slate-900 dark:text-slate-100">No pudimos cargar tus favoritos</h2>
               <button
                 type="button"
-                onClick={() => window.location.reload()}
+                onClick={cargarFavoritos}
                 className="ev-btn ev-focusable mt-6 inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3.5 text-lg font-bold text-white shadow-md hover:bg-blue-700"
               >
                 Reintentar
@@ -173,7 +141,7 @@ const Favorites = () => {
                   to="/biblioteca"
                   className="ev-btn ev-shimmer ev-focusable mt-6 inline-flex cursor-pointer items-center gap-2.5 rounded-2xl bg-blue-600 px-7 py-4 text-xl font-bold text-white shadow-md hover:bg-blue-700"
                 >
-                  <Icono nombre="capasDoc" className="w-6 h-6" />
+                  <Icono nombre="capas" className="w-6 h-6" />
                   Ir a la biblioteca
                 </Link>
               </div>
@@ -181,7 +149,7 @@ const Favorites = () => {
           ) : (
             <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {favoritos.map((apunte, i) => {
-                const t = tono(apunte.materia);
+                const t = tonoDesdeMateria(apunte.materia);
                 return (
                   <article
                     key={apunte.apunte_id}

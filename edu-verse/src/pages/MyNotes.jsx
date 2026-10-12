@@ -1,52 +1,28 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config';
-
-const PALETA = [
-  { fondo: 'from-blue-500 to-indigo-600', chip: 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300' },
-  { fondo: 'from-violet-500 to-purple-600', chip: 'bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300' },
-  { fondo: 'from-emerald-500 to-teal-600', chip: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300' },
-  { fondo: 'from-amber-500 to-orange-600', chip: 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300' },
-  { fondo: 'from-rose-500 to-red-600', chip: 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300' },
-  { fondo: 'from-cyan-500 to-sky-600', chip: 'bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300' },
-];
-
-const tono = (materia = '') => {
-  let h = 0;
-  for (let i = 0; i < materia.length; i++) h = (h * 31 + materia.charCodeAt(i)) % 9973;
-  return PALETA[h % PALETA.length];
-};
-
-const Icono = ({ nombre, className = 'w-5 h-5' }) => {
-  const paths = {
-    documento: <><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" strokeLinejoin="round" /><path d="M14 3v5h5" strokeLinejoin="round" /></>,
-    basura: <><path d="M4 7h16M10 4h4M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" strokeLinecap="round" strokeLinejoin="round" /></>,
-    alerta: <><path d="M12 9v4M12 17h.01" strokeLinecap="round" /><path d="M10.3 3.9 2.5 17.5A2 2 0 0 0 4.2 20.5h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" strokeLinejoin="round" /></>,
-    cerrar: <path d="M6 6l12 12M18 6L6 18" strokeLinecap="round" />,
-    capas: <><path d="M12 3 3 7.5l9 4.5 9-4.5L12 3z" strokeLinejoin="round" /><path d="m3 12.5 9 4.5 9-4.5" strokeLinejoin="round" /><path d="m3 17 9 4.5 9-4.5" strokeLinejoin="round" /></>,
-    mas: <><path d="M12 5v14M5 12h14" strokeLinecap="round" /></>,
-    derecha: <><path d="M9 5l7 7-7 7" strokeLinecap="round" strokeLinejoin="round" /></>,
-  };
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
-      {paths[nombre]}
-    </svg>
-  );
-};
+import { useAuth } from '../context/AuthContext';
+import { ApuntesAPI } from '../services/api';
+import { tonoDesdeMateria } from '../utils/formatters';
+import Icono from '../components/ui/Icono';
 
 const MyNotes = () => {
+  const { user } = useAuth();
   const [misApuntes, setMisApuntes] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [fallo, setFallo] = useState(false);
   const [porEliminar, setPorEliminar] = useState(null);
   const [borrando, setBorrando] = useState(false);
-  const usuarioId = localStorage.getItem('usuario_id');
+  const usuarioId = user?.id;
 
   const cargarMisApuntes = useCallback(async () => {
+    if (!usuarioId) {
+      setCargando(false);
+      return;
+    }
     try {
-      const res = await axios.get(`${API_URL}/apuntes/mis-apuntes/${usuarioId}`);
+      const res = await ApuntesAPI.getMisApuntes(usuarioId);
       setMisApuntes(Array.isArray(res.data) ? res.data : []);
       setFallo(false);
     } catch {
@@ -57,15 +33,11 @@ const MyNotes = () => {
     }
   }, [usuarioId]);
 
-  // Antes esto usaba window.confirm, que es un dialogo del navegador: se ve
-  // fuera del sistema de diseño y no se puede estilar. Ahora hay un modal.
   const confirmarEliminar = async () => {
     if (!porEliminar) return;
     setBorrando(true);
     try {
-      await axios.delete(`${API_URL}/apuntes/${porEliminar.apunte_id}`);
-      // Se quita de la lista en vez de recargar: el filtro de socket no
-      // cubre esta ruta y un reload se siente lento para algo tan simple.
+      await ApuntesAPI.eliminar(porEliminar.apunte_id);
       setMisApuntes((prev) => prev.filter((a) => a.apunte_id !== porEliminar.apunte_id));
       toast.success('Apunte eliminado');
       setPorEliminar(null);
@@ -160,7 +132,7 @@ const MyNotes = () => {
               <h2 className="mt-5 text-2xl font-extrabold text-slate-900 dark:text-slate-100">No pudimos cargar tus apuntes</h2>
               <button
                 type="button"
-                onClick={() => window.location.reload()}
+                onClick={cargarMisApuntes}
                 className="ev-btn ev-focusable mt-6 inline-flex cursor-pointer items-center gap-2 rounded-2xl bg-blue-600 px-6 py-3.5 text-lg font-bold text-white shadow-md hover:bg-blue-700"
               >
                 Reintentar
@@ -194,7 +166,7 @@ const MyNotes = () => {
           ) : (
             <ul className="space-y-3">
               {misApuntes.map((apunte, i) => {
-                const t = tono(apunte.materia);
+                const t = tonoDesdeMateria(apunte.materia);
                 return (
                   <li
                     key={apunte.apunte_id}

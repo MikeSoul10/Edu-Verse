@@ -210,8 +210,7 @@ VITE_GOOGLE_CLIENT_ID=123456789012-abcdefghijklmnopqrstuvwxyz123456.apps.googleu
 Contenido completo del archivo:
 
 ```bash
-# URL del backend.
-# OJO: config.js hoy tiene API_URL = '' hardcodeado y NO lee esta variable.
+# URL del backend. Si queda vacía, se usan las rutas relativas y el proxy de Vite.
 VITE_API_URL=http://localhost:4000
 
 VITE_GOOGLE_CLIENT_ID=
@@ -230,12 +229,10 @@ alguien necesita reconstruir el archivo.
 
 ### 4.1.1 Nota sobre `VITE_API_URL`
 
-El `.env` y el `.env.local` declaran `VITE_API_URL`, pero **`config.js` no la
-lee**: tiene `export const API_URL = '';` hardcodeado. Es decir, la variable
-está definida y no se usa. No es un problema introducido por Google Sign-In;
-queda anotado acá para que nadie se confunda al debuggear de dónde sale la URL
-del backend. Si querés que `API_URL` sea configurable, hay que cambiar
-`src/config.js` para que lea `import.meta.env.VITE_API_URL` con fallback a `''`.
+El frontend sí lee `VITE_API_URL` en `src/config.js`. La instancia Axios
+compartida usa ese valor como base URL; si queda vacío, las rutas relativas se
+resuelven mediante el proxy configurado en Vite. Los archivos servidos por el
+backend también usan `API_URL` como prefijo.
 
 ### 4.2 Backend
 

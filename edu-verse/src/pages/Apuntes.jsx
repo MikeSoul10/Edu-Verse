@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config';
@@ -62,7 +62,7 @@ const Apuntes = () => {
   useEffect(() => {
     (async () => {
       try {
-        const res = await axios.get(`${API_URL}/apuntes`);
+        const res = await api.get(`${API_URL}/apuntes`);
         if (Array.isArray(res.data)) setListaApuntes(res.data);
         setFallo(false);
       } catch {

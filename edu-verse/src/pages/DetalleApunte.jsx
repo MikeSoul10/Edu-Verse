@@ -1,24 +1,15 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import axios from 'axios';
+import api from '../services/api';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config';
+import { useAuth } from '../context/AuthContext';
+import { tonoDesdeMateria } from '../utils/formatters';
 
 const CLAVE_ULTIMO = 'eduverse_ultimo_apunte';
 
-const paletaTono = (materia = '') => {
-  const t = [{ f: 'from-blue-500 to-indigo-600', c: 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300', p: '#3b82f6' },
-             { f: 'from-violet-500 to-purple-600', c: 'bg-violet-50 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300', p: '#8b5cf6' },
-             { f: 'from-emerald-500 to-teal-600', c: 'bg-emerald-50 dark:bg-emerald-500/15 text-emerald-700 dark:text-emerald-300', p: '#10b981' },
-             { f: 'from-amber-500 to-orange-600', c: 'bg-amber-50 dark:bg-amber-500/15 text-amber-700 dark:text-amber-300', p: '#f59e0b' },
-             { f: 'from-rose-500 to-red-600', c: 'bg-rose-50 dark:bg-rose-500/15 text-rose-700 dark:text-rose-300', p: '#ec4899' },
-             { f: 'from-cyan-500 to-sky-600', c: 'bg-cyan-50 dark:bg-cyan-500/15 text-cyan-700 dark:text-cyan-300', p: '#06b6d4' }];
-  let h = 0;
-  for (let i = 0; i < materia.length; i++) h = (h * 31 + materia.charCodeAt(i)) % 9973;
-  return t[h % t.length];
-};
-
 const DetalleApunte = () => {
+  const { user } = useAuth();
   const { id } = useParams();
   const navigate = useNavigate();
   const [apunte, setApunte] = useState(null);
@@ -30,13 +21,12 @@ const DetalleApunte = () => {
   const heroGlowRef = useRef(null);
   const heroRafRef = useRef(0);
   
-  const usuarioId = localStorage.getItem('usuario_id');
-  const nombreUsuario = localStorage.getItem('usuario');
+  const usuarioId = user?.id;
 
   // 1. Cargar datos del apunte y sus comentarios desde la DB
   const cargarDatos = useCallback(async () => {
     try {
-      const resApunte = await axios.get(`${API_URL}/apuntes/detalle/${id}`);
+      const resApunte = await api.get(`${API_URL}/apuntes/detalle/${id}`);
       setApunte(resApunte.data);
 
       // Guardamos el apunte completo (con su materia/autor) para que la
@@ -48,7 +38,7 @@ const DetalleApunte = () => {
         autor: resApunte.data.autor,
       }));
 
-      const resComentarios = await axios.get(`${API_URL}/comentarios/${id}`);
+      const resComentarios = await api.get(`${API_URL}/comentarios/${id}`);
       setComentarios(resComentarios.data);
     } catch {
       toast.error("No se pudo cargar la información");
@@ -68,14 +58,14 @@ const DetalleApunte = () => {
 
     try {
       // Enviamos el comentario
-      await axios.post(`${API_URL}/comentarios`, {
+      await api.post(`${API_URL}/comentarios`, {
         apunte_id: id,
         usuario_id: usuarioId,
         texto: comentario
       });
 
       // Enviamos la valoración (rating)
-      await axios.post(`${API_URL}/valoraciones`, {
+      await api.post(`${API_URL}/valoraciones`, {
         apunte_id: id,
         usuario_id: usuarioId,
         estrellas: rating
@@ -112,7 +102,7 @@ const DetalleApunte = () => {
     </div>
   );
 
-  const tono = paletaTono(apunte.materia);
+  const tono = tonoDesdeMateria(apunte.materia);
   // OJO: `rating` es el estado de las estrellas que esta elegiendo el usuario.
   // El promedio del apunte va en su propia variable para no sombrearlo.
   const promedio = parseFloat(apunte.promedio_rating || 0);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios'
+import api from '../services/api';
 import { Link, useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config';
@@ -77,7 +77,7 @@ const Signup = () => {
     const loadingToast = toast.loading('Creando tu cuenta...');
 
     try {
-      const response = await axios.post(`${API_URL}/auth/signup`, formData);
+      const response = await api.post(`${API_URL}/auth/signup`, formData);
 
       toast.success(`¡Bienvenido ${response.data.usuario.nombre}! Tu cuenta ha sido creada con éxito.`, {
         id: loadingToast,

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import InfoModulo from '../components/InfoModulo';
+import { useAuth } from '../context/AuthContext';
 
 const CLAVE_RACHA = 'eduverse_racha';
 
@@ -37,16 +38,12 @@ const registrarActividad = () => {
 };
 
 const Home = () => {
-  const [userName, setUserName] = useState('');
+  const { user } = useAuth();
+  const userName = user?.nombre || '';
   const [isMascotaBouncing, setIsMascotaBouncing] = useState(false);
   const [racha, setRacha] = useState(0);
   const [rachaMostrada, setRachaMostrada] = useState(0);
   const rachaRafRef = useRef(0);
-
-  useEffect(() => {
-    const storedName = localStorage.getItem('usuario');
-    if (storedName) setUserName(storedName); // eslint-disable-line react-hooks/set-state-in-effect
-  }, [setUserName]);
 
   useEffect(() => {
     setRacha(registrarActividad());

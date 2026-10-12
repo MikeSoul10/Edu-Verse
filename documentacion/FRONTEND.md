@@ -2,7 +2,7 @@
 
 **Stack:** React 19 · Vite 8 · Tailwind CSS 4 · React Router 7 · axios · react-hot-toast · socket.io-client
 
-SPA con enrutamiento cliente, autenticación por contexto y notificaciones por toast. Cada página y componente, paso a paso.
+SPA con enrutamiento cliente, autenticación por contexto, una instancia Axios compartida y notificaciones por toast. Cada página y componente, paso a paso.
 
 ---
 
@@ -10,7 +10,7 @@ SPA con enrutamiento cliente, autenticación por contexto y notificaciones por t
 
 ### `main.jsx`
 1. Importa `App` y `AuthProvider`.
-2. Importa `./config` (para que se registren los interceptores de axios).
+2. Importa `./config`, que crea el cliente Axios compartido y registra sus interceptores.
 3. Importa `./index.css` (estilos Tailwind).
 4. Renderiza en `#root`: `React.StrictMode → AuthProvider → App`.
 
@@ -33,23 +33,30 @@ SPA con enrutamiento cliente, autenticación por contexto y notificaciones por t
 | `/mis-apuntes` | `MyNotes` | ✅ |
 | `/favoritos` | `Favorites` | ✅ |
 | `/gestor-equipos` | `GestorEquipos` | ✅ |
-| `/admin` | `AdminPanel` | ✅ |
-| `/apuntes` | `Apuntes` | ✅ |
+| `/admin` | `AdminPanel` | ✅ sesión + rol `admin` |
+| `/apuntes` | Redirección a `/biblioteca` | ❌ (ruta de compatibilidad) |
 | `*` | `NotFound` | ❌ |
 
 ### `ProtectedRoute.jsx`
-1. Lee `localStorage.getItem('token')`.
-2. Si no existe → `<Navigate to="/login" replace />`.
-3. Si existe → renderiza el hijo.
+1. Comprueba el token de sesión y consulta el usuario de `AuthContext`.
+2. Sin token → `<Navigate to="/login" replace />`.
+3. Acepta `requiredRole`; si el rol no coincide, redirige a `/`.
+4. `/admin` usa `requiredRole="admin"`. Este control de ruta mejora la navegación, pero el backend mantiene la autorización efectiva de cada endpoint.
 
 ---
 
 ## 2. Infraestructura transversal
 
 ### `src/config.js`
-1. Exporta `API_URL = ''` → peticiones relativas, resueltas por el proxy de Vite hacia el backend.
-2. **Interceptor de petición:** agrega `Authorization: Bearer <token>` a todas las llamadas si hay token en `localStorage`.
-3. **Interceptor de respuesta:** si devuelve `401`, o `400` con mensaje que contiene "Token", borra `token`, `usuario_id`, `usuario` de `localStorage` y redirige a `/login`.
+1. `API_URL` lee `import.meta.env.VITE_API_URL` y quita barras finales. Si está vacía, las peticiones relativas usan el proxy de Vite.
+2. Exporta una instancia `api` de Axios; las páginas y los métodos de `services/api.js` comparten esa instancia.
+3. **Interceptor de petición:** agrega `Authorization: Bearer <token>` cuando hay token en `localStorage`.
+4. **Interceptor de respuesta:** ante una respuesta `401` (o `400` con mensaje que contiene "Token") de una petición autenticada, elimina los datos de sesión y redirige a `/login`. Los errores de login sin token no provocan ese cierre de sesión.
+
+### `src/services/api.js`
+- Reexporta el cliente común y agrupa métodos de apuntes, equipos y administración.
+- Las páginas que aún llaman endpoints directamente también importan este mismo cliente; así comparten cabeceras, URL base y respuesta ante sesiones vencidas.
+- La subida de apuntes usa `POST /apuntes/upload`; Axios define el boundary multipart al enviar `FormData`.
 
 ### `src/context/AuthContext.jsx`
 Fuente única de verdad del estado de autenticación:
@@ -155,6 +162,11 @@ Relacionado: `stopPropagation` **no** protege al popover del listener de clic fu
 
 ### `CalendarioVencimientos.jsx`
 Calendario de vencimientos del equipo. Ver la sección de `GestorEquipos.jsx` para el detalle de comportamiento.
+
+### `ApunteCard.jsx` y `TaskCard.jsx`
+- `ApunteCard` presenta un apunte tanto en el carrusel como en la cuadrícula de la biblioteca. Recibe el tono, el estado de favorito y los callbacks desde `Biblioteca.jsx`.
+- `TaskCard` presenta una tarea del tablero. Recibe las acciones de arrastre, apertura, eliminación y cambio de estado desde `GestorEquipos.jsx`.
+- La extracción mantiene los datos y el estado en sus páginas, y deja la presentación de las tarjetas en componentes independientes.
 
 ---
 
@@ -279,13 +291,12 @@ el panel muestra un tope de 6 y el resto vive en el modal.
    - La URL del blob se revoca en el cleanup del `useEffect` cuando cambia de archivo; sin eso el objeto queda retenido y la memoria filtra en cada carga.
 4. Al elegir archivo válido aparece una fila con nombre, tamaño (`formatoBytes()`) y botón para quitar. Ese botón también limpia `inputRef.current.value`: sin eso, elegir de nuevo **el mismo** archivo no dispara `onChange` y la vista previa no se regenera.
 5. `handleSubmit` construye `FormData` (archivo, título, materia, descripción, `usuario_id`).
-6. `POST /apuntes/upload` con header `multipart/form-data`. El error se muestra con el mensaje del backend si viene como string.
+6. `POST /apuntes/upload` con `FormData`; Axios genera el `Content-Type` y su boundary multipart. El error se muestra con el mensaje del backend si viene como string.
 7. Toast de éxito → `navigate('/biblioteca')`.
 8. El botón de publicar queda deshabilitado sin archivo o durante el envío, en lugar de dejar enviar y fallar.
 
-### `Apuntes.jsx` (repositorio)
-1. `GET /apuntes` → grid de 4 columnas.
-2. Cada tarjeta: título link a `/apunte/:id`, botón *Valorar*, y enlace directo al PDF.
+### `Apuntes.jsx` (ruta de compatibilidad)
+La pantalla independiente ya no se usa. `App.jsx` redirige `/apuntes` a `/biblioteca` para mantener válidos enlaces guardados; búsqueda, filtros, tarjetas y vistas previas se mantienen en `Biblioteca.jsx`.
 
 ### `DetalleApunte.jsx` (detalle + comunidad)
 1. `useParams()` obtiene `id`.
@@ -299,11 +310,7 @@ el panel muestra un tope de 6 y el resto vive en el modal.
    - Limpia campos y recarga datos.
 6. UI: header `ev-mesh` con glow que sigue al mouse, botón *Abrir PDF*, columna de descripción + comentarios y columna lateral con el formulario (estrellas SVG + textarea), `lg:sticky`.
 
-### `Apuntes.jsx` (repositorio de apuntes)
-1. `GET /apuntes` al montar. Estados separados: `cargando`, `fallo` y lista vacía son tres pantallas distintas.
-2. Filtro por texto (título, materia o autor) y por materia, ambos en el cliente. Las materias salen ordenadas por cantidad y se muestran las 8 primeras.
-3. Header `ev-mesh` con cifras (apuntes, materias, autores), buscador y chips de materia.
-4. Tarjetas con portada degradada por materia, tiempo relativo, avatar de iniciales y enlace directo al archivo.
+La exploración está centralizada en `Biblioteca.jsx` (ver su sección anterior). `Apuntes.jsx` se conserva temporalmente como archivo, pero ya no se monta como ruta.
 
 ### `MyNotes.jsx` (mis apuntes)
 1. `GET /apuntes/mis-apuntes/${usuarioId}`. Ojo: ese endpoint hace `SELECT * FROM apuntes` **sin** el JOIN de usuarios, así que estos apuntes **no traen `autor`**. La UI no lo usa.
@@ -384,6 +391,31 @@ no solo que la variable esté declarada.
 Los elementos que sí declaran su color no se ven afectados: `body` es el
 ancestro y cualquier clase de Tailwind tiene mayor especificidad. El cambio solo
 toca a los que heredaban, que son exactamente los que estaban rotos.
+
+#### Un token declarado solo en `.dark` no existe en claro
+
+`--ev-bar-track` y `--ev-progress-track` estaban definidos únicamente
+en `.dark`. En claro, los consumidores que llevaban fallback propio
+(`var(--ev-bar-track, rgba(...))`) funcionaban "por accidente"; pero
+`.ev-donut-vacio` no tenía fallback y su `conic-gradient` quedaba
+inválido: **el anillo del donut vacío era invisible en modo claro**.
+
+Regla: **todo token se declara dos veces**, en `:root` y en `.dark`,
+con el valor de cada tema. El fallback de `var()` es para el primer
+render, no para compensar un token ausente.
+
+En el mismo arreglo, el riel del donut de estados (`DonutEstados`)
+tenía el color hardcodeado (`#eef2f9` / `#e8eef8`) y usaba una clase
+`donut-track` que no existía en el CSS. Ahora la clase existe y consume
+el token, y los dos `stroke` hardcodeados desaparecieron.
+
+Trampa del SVG: **`var()` no se resuelve en atributos de
+presentación**. `stroke="var(--ev-bar-track)"` no pinta nada — el
+navegador lo ignora y cae en negro. El token va en una regla CSS:
+
+```css
+.donut-track { stroke: var(--ev-bar-track); }
+```
 
 #### `focus:ring-blue-100`: un anillo claro que no funciona en oscuro
 
@@ -802,8 +834,8 @@ está.
   medianoche local con `Math.round`.
 
 ### `AdminPanel.jsx` (panel de administración)
-1. Guard 1 (`useEffect`): si no es `admin` → `navigate('/')`.
-2. Guard 2 (render): si no es `admin` → `return null`.
+1. La ruta `/admin` pasa por `ProtectedRoute requiredRole="admin"`; la página conserva una comprobación de rol adicional como respaldo.
+2. El backend protege las operaciones administrativas con su middleware de autorización. La protección en React no sustituye la validación del servidor.
 3. 7 pestañas: Estadísticas, Usuarios, Apuntes, Comentarios, Equipos, Baneados, Actividad.
 4. Cada pestaña trae sus datos con `fetch*` (stats, usuarios+baneados en `Promise.all`, logs, apuntes, comentarios, equipos).
 5. **Estadísticas:** `StatCard` (9 tarjetas de conteo) + `ChartCard` (3 gráficas de barras de 7 días).

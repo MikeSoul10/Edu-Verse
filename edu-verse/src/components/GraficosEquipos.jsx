@@ -17,7 +17,7 @@ export const DonutEstados = ({ datos, total }) => {
         <svg width="140" height="140" viewBox="0 0 140 140" className="opacity-40">
           <circle
             cx="70" cy="70" r={RADIO}
-            fill="none" stroke="#e8eef8" strokeWidth={GROSOR}
+            fill="none" strokeWidth={GROSOR} className="donut-track"
           />
           <text x="70" y="66" textAnchor="middle" className="fill-gray-400" fontSize="20" fontWeight="800">
             0
@@ -39,7 +39,7 @@ export const DonutEstados = ({ datos, total }) => {
         <svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Distribución de tareas por estado">
           <circle
             cx="70" cy="70" r={RADIO}
-            fill="none" stroke="#eef2f9" strokeWidth={GROSOR}
+            fill="none" strokeWidth={GROSOR}
             className="donut-track"
           />
           {datos.map((d, i) => {

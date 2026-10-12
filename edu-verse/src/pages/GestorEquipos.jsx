@@ -1,9 +1,10 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from 'react';
-import axios from 'axios';
+import api from '../services/api';
 import { io } from 'socket.io-client';
 import { Link } from 'react-router-dom';
 import { API_URL } from '../config';
 import CalendarioVencimientos from '../components/CalendarioVencimientos';
+import TaskCard from '../components/TaskCard';
 
 const CLAVE_CALENDARIO = 'eduverse_calendario_visible';
 
@@ -265,7 +266,7 @@ const GestorEquipos = () => {
   const cargarEquipos = useCallback(async () => {
     if (!usuario) return;
     try {
-      const res = await axios.get(`${API_URL}/equipos/mis-equipos/${usuario}`);
+      const res = await api.get(`${API_URL}/equipos/mis-equipos/${usuario}`);
       setEquipos(res.data);
     } catch {
       // silencioso: la vista de equipos ya muestra el empty state
@@ -274,7 +275,7 @@ const GestorEquipos = () => {
 
   const cargarTareas = useCallback(async (equipoId) => {
     try {
-      setTareas((await axios.get(`${API_URL}/tareas/equipo/${equipoId}`)).data);
+      setTareas((await api.get(`${API_URL}/tareas/equipo/${equipoId}`)).data);
     } catch {
       // silencioso
     }
@@ -282,7 +283,7 @@ const GestorEquipos = () => {
 
   const cargarMiembros = useCallback(async (equipoId) => {
     try {
-      setMiembros((await axios.get(`${API_URL}/equipos/${equipoId}/miembros`)).data);
+      setMiembros((await api.get(`${API_URL}/equipos/${equipoId}/miembros`)).data);
     } catch {
       // silencioso
     }
@@ -290,7 +291,7 @@ const GestorEquipos = () => {
 
   const cargarMensajes = useCallback(async (equipoId) => {
     try {
-      setMensajes((await axios.get(`${API_URL}/chat/${equipoId}`)).data);
+      setMensajes((await api.get(`${API_URL}/chat/${equipoId}`)).data);
     } catch {
       // silencioso
     }
@@ -298,7 +299,7 @@ const GestorEquipos = () => {
 
   const cargarComentariosTarea = useCallback(async (tareaId) => {
     try {
-      setComentariosTarea((await axios.get(`${API_URL}/tareas/${tareaId}/comentarios`)).data);
+      setComentariosTarea((await api.get(`${API_URL}/tareas/${tareaId}/comentarios`)).data);
     } catch {
       // silencioso
     }
@@ -366,7 +367,7 @@ const GestorEquipos = () => {
       const resultados = await Promise.all(
         equipos.map(async (eq) => {
           try {
-            const res = await axios.get(`${API_URL}/tareas/equipo/${eq.equipo_id}`);
+            const res = await api.get(`${API_URL}/tareas/equipo/${eq.equipo_id}`);
             return [eq.equipo_id, res.data];
           } catch {
             return [eq.equipo_id, []];
@@ -658,7 +659,7 @@ const GestorEquipos = () => {
   const crearEquipo = async () => {
     if (!nombreEquipo.trim()) return;
     try {
-      const res = await axios.post(`${API_URL}/equipos/crear`, { nombre: nombreEquipo, usuario_id: usuario });
+      const res = await api.post(`${API_URL}/equipos/crear`, { nombre: nombreEquipo, usuario_id: usuario });
       setEquipos((prev) => [res.data.equipo, ...prev]);
       setNombreEquipo('');
       setShowCrearEquipo(false);
@@ -672,7 +673,7 @@ const GestorEquipos = () => {
   const unirseEquipo = async () => {
     if (!codigoUnirse.trim()) return;
     try {
-      const res = await axios.post(`${API_URL}/equipos/unirse`, { codigo: codigoUnirse.toUpperCase(), usuario_id: usuario });
+      const res = await api.post(`${API_URL}/equipos/unirse`, { codigo: codigoUnirse.toUpperCase(), usuario_id: usuario });
       await cargarEquipos();
       setCodigoUnirse('');
       setShowUnirse(false);
@@ -686,7 +687,7 @@ const GestorEquipos = () => {
   const crearTarea = async () => {
     if (!nuevaTarea.titulo.trim()) return;
     try {
-      const res = await axios.post(`${API_URL}/tareas/crear`, {
+      const res = await api.post(`${API_URL}/tareas/crear`, {
         equipo_id: equipoActivo.equipo_id,
         titulo: nuevaTarea.titulo,
         descripcion: nuevaTarea.descripcion,
@@ -711,7 +712,7 @@ const GestorEquipos = () => {
     // Optimista: la UI responde al instante y el socket confirma
     setTareas((prev) => prev.map((t) => (t.tarea_id === tareaId ? { ...t, estado: nuevoEstado } : t)));
     try {
-      const res = await axios.put(`${API_URL}/tareas/${tareaId}/mover`, { estado: nuevoEstado });
+      const res = await api.put(`${API_URL}/tareas/${tareaId}/mover`, { estado: nuevoEstado });
       setTareas((prev) => prev.map((t) => (t.tarea_id === tareaId ? res.data.tarea : t)));
       socketRef.current?.emit('mover-tarea', { equipo_id: equipoActivo.equipo_id, tarea: res.data.tarea });
     } catch {
@@ -722,7 +723,7 @@ const GestorEquipos = () => {
 
   const eliminarTarea = async (tareaId) => {
     try {
-      await axios.delete(`${API_URL}/tareas/${tareaId}`);
+      await api.delete(`${API_URL}/tareas/${tareaId}`);
       socketRef.current?.emit('eliminar-tarea', { equipo_id: equipoActivo.equipo_id, tarea_id: tareaId });
       toast.success('Tarea eliminada');
     } catch {
@@ -754,7 +755,7 @@ const GestorEquipos = () => {
   const agregarComentario = async () => {
     if (!nuevoComentario.trim() || !tareaEditando) return;
     try {
-      const res = await axios.post(`${API_URL}/tareas/${tareaEditando.tarea_id}/comentarios`, { texto: nuevoComentario });
+      const res = await api.post(`${API_URL}/tareas/${tareaEditando.tarea_id}/comentarios`, { texto: nuevoComentario });
       socketRef.current?.emit('comentario-tarea', {
         equipo_id: equipoActivo.equipo_id,
         tarea_id: tareaEditando.tarea_id,
@@ -769,7 +770,7 @@ const GestorEquipos = () => {
   const guardarEdicionTarea = async () => {
     if (!tareaEditForm.titulo.trim()) return;
     try {
-      const res = await axios.put(`${API_URL}/tareas/${tareaEditando.tarea_id}`, {
+      const res = await api.put(`${API_URL}/tareas/${tareaEditando.tarea_id}`, {
         titulo: tareaEditForm.titulo,
         descripcion: tareaEditForm.descripcion,
         prioridad: tareaEditForm.prioridad,
@@ -791,7 +792,7 @@ const GestorEquipos = () => {
     const texto = nuevoMensaje;
     setNuevoMensaje('');
     try {
-      await axios.post(`${API_URL}/chat/enviar`, { equipo_id: equipoActivo.equipo_id, usuario_id: usuario, texto });
+      await api.post(`${API_URL}/chat/enviar`, { equipo_id: equipoActivo.equipo_id, usuario_id: usuario, texto });
       socketRef.current?.emit('mensaje-chat', {
         equipo_id: equipoActivo.equipo_id,
         usuario_id: usuario,
@@ -849,88 +850,6 @@ const GestorEquipos = () => {
     limpiarArrastre();
     if (tarea && tarea.estado !== estado) moverTarea(tarea.tarea_id, estado);
   };
-
-const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMover }) => {
-  const pri = PRIORIDADES[tarea.prioridad] || PRIORIDADES.verde;
-  const dias = getDiasRestantes(tarea.fecha_entrega);
-
-  let claseFecha = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400';
-  let textoFecha = null;
-  if (dias !== null) {
-    if (dias < 0) {
-      claseFecha = 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300';
-      textoFecha = dias === -1 ? 'Venció ayer' : `Venció hace ${Math.abs(dias)} d`;
-    } else if (dias === 0) {
-      claseFecha = 'bg-red-100 dark:bg-red-500/20 text-red-700 dark:text-red-300';
-      textoFecha = 'Vence hoy';
-    } else if (dias <= 2) {
-      claseFecha = 'bg-amber-100 dark:bg-amber-500/20 text-amber-800 dark:text-amber-300';
-      textoFecha = `${dias} d`;
-    } else {
-      textoFecha = `${dias} d`;
-    }
-  }
-
-  return (
-    <article
-      draggable
-      onDragStart={(e) => onDragStart(e, tarea)}
-      onDragEnd={onDragEnd}
-      onClick={() => onAbrir(tarea)}
-      className="ev-tarea cursor-grab active:cursor-grabbing rounded-xl border border-slate-200/80 dark:border-slate-700/80 bg-white dark:bg-slate-900 p-3.5 shadow-sm"
-    >
-      <div className="flex items-start justify-between gap-2">
-        <h4 className="font-bold text-sm leading-snug text-slate-800 dark:text-slate-200 flex-1">{tarea.titulo}</h4>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); onEliminar(tarea); }}
-          className="ev-focusable grid place-items-center w-8 h-8 -mt-1 -mr-1 rounded-lg text-slate-300 hover:bg-red-50 hover:text-red-600 transition-colors shrink-0"
-          aria-label={`Eliminar ${tarea.titulo}`}
-        >
-          <Icono nombre="basura" className="w-4 h-4" />
-        </button>
-      </div>
-
-      {tarea.descripcion && <p className="mt-1.5 text-xs text-slate-500 dark:text-slate-400 line-clamp-2">{tarea.descripcion}</p>}
-
-      <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-        <span className={`inline-flex items-center gap-1 text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${pri.bg} ${pri.text}`}>
-          <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: pri.color }} />
-          {pri.label}
-        </span>
-        {tarea.fecha_entrega && (
-          <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full ${claseFecha}`}>
-            <Icono nombre="reloj" className="w-3 h-3" />
-            {textoFecha || new Date(tarea.fecha_entrega).toLocaleDateString('es-MX', { day: 'numeric', month: 'short' })}
-          </span>
-        )}
-      </div>
-
-      {tarea.asignado_nombre && (
-        <div className="mt-2.5 flex items-center gap-1.5">
-          <span className={`ev-avatar grid place-items-center w-5 h-5 rounded-full bg-gradient-to-br ${tonoDesdeNombre(tarea.asignado_nombre)} text-white text-[9px] font-bold`}>
-            {tarea.asignado_nombre.charAt(0).toUpperCase()}
-          </span>
-          <span className="text-[10px] text-slate-500 dark:text-slate-400 font-medium truncate">{tarea.asignado_nombre}</span>
-        </div>
-      )}
-
-      <div className="mt-2.5 flex flex-wrap gap-1">
-        {ORDEN_ESTADOS.filter((e) => e !== tarea.estado).map((est) => (
-          <button
-            key={est}
-            type="button"
-            onClick={(e) => { e.stopPropagation(); onMover(tarea.tarea_id, est); }}
-            className="ev-focusable text-[10px] font-bold px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-blue-100 dark:hover:bg-blue-500/20 hover:text-blue-700 transition-colors"
-            aria-label={`Mover a ${ESTADOS[est].label}`}
-          >
-            → {ESTADOS[est].label}
-          </button>
-        ))}
-      </div>
-    </article>
-  );
-};
 
 /* ---------------- vista: selector de equipos ---------------- */
 
@@ -1819,9 +1738,14 @@ const TarjetaTarea = ({ tarea, onDragStart, onDragEnd, onAbrir, onEliminar, onMo
                           <p className="text-center py-8 text-xs font-semibold text-slate-400 dark:text-slate-400">Arrastra tareas aquí</p>
                         ) : (
                           lista.map((t) => (
-                            <TarjetaTarea
+                            <TaskCard
                               key={t.tarea_id}
                               tarea={t}
+                              prioridades={PRIORIDADES}
+                              ordenEstados={ORDEN_ESTADOS}
+                              estados={ESTADOS}
+                              getDiasRestantes={getDiasRestantes}
+                              tonoDesdeNombre={tonoDesdeNombre}
                               onDragStart={handleDragStart}
                               onDragEnd={handleDragEnd}
                               onAbrir={abrirEditorTarea}
