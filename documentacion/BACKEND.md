@@ -192,6 +192,11 @@ Todas las rutas exigen **token + rol `admin`** (doble middleware `verificarToken
 Devuelve los últimos 100 mensajes del equipo con `autor_nombre`.
 **Aplica `filtrarTexto` en lectura** a cada mensaje antes de responder: red de seguridad para mensajes guardados antes de que existiera el filtro. La base de datos no se modifica; el filtrado es solo en la respuesta JSON.
 
+**Paginación (opcional):**
+- Query param `?antes=<mensaje_id>` — devuelve 100 mensajes **anteriores** a ese ID (orden cronológico ASC).
+- Sin el parámetro: comportamiento idéntico al original (últimos 100).
+- Validación: `mensaje_id` debe ser entero positivo; si no, se ignora.
+
 ### `POST /chat/enviar`
 **Autenticación requerida** (`verificarToken`).
 

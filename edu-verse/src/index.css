@@ -265,6 +265,11 @@
   to   { transform: translateX(120%); opacity: 0; }
 }
 
+@keyframes ev-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
 /* ------------------------------------------------------------------
    Fondo de la pagina: cinco capas, de la mas profunda a la mas cercana
    1. mesh gradient   2. puntos   3. glow central   4. particulas   5. viñeta
@@ -499,6 +504,51 @@
   transition: width var(--ev-t-stage) var(--ev-ease-out);
 }
 
+/* Animaciones de entrada para BarrasEquipos y filas de leyenda */
+.bar-grow {
+  transform-origin: left;
+  animation: bar-grow var(--ev-t-stage) var(--ev-ease-out) forwards;
+}
+
+.bar-row {
+  opacity: 0;
+  transform: translateX(-12px);
+  animation: bar-row-in var(--ev-t-base) var(--ev-ease-out) forwards;
+}
+
+.animate-fade-in-up {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: animate-fade-in-up var(--ev-t-base) var(--ev-ease-out) forwards;
+}
+
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@keyframes bar-row-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes animate-fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Skeleton loader (shimmer) */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--ev-bar-track) 25%,
+    var(--ev-surface-raised) 50%,
+    var(--ev-bar-track) 75%
+  );
+  background-size: 200% 100%;
+  animation: ev-shimmer 1.4s infinite linear;
+}
+
 /* Donut de prioridad */
 .ev-donut {
   border-radius: 9999px;
@@ -528,6 +578,19 @@
    se pinta desde aqui y el JSX solo marca la clase. */
 .donut-track {
   stroke: var(--ev-bar-track);
+}
+
+/* Transicion suave del stroke-width en hover del donut de estados.
+   Antes era un salto brusco (GROSOR -> GROSOR+7). Ahora es progresivo. */
+.donut-segment {
+  transition: stroke-width 150ms var(--ev-ease-out);
+}
+
+/* Atenuacion de los arcos que no estan en hover.
+   El contenedor padre recibe .donut-highlight cuando hay hover. */
+.donut-highlight .donut-segment:not(:hover) {
+  opacity: 0.35;
+  transition: opacity 150ms var(--ev-ease-out);
 }
 
 /* Tabs: transicion de color e indicador, sin keyframes */
@@ -650,6 +713,19 @@
 
 @keyframes ev-burbuja-in {
   from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Botón "ir al final" del chat: flotante, con animación de entrada/salida */
+.ev-scroll-abajo {
+  opacity: 0;
+  transform: translateY(16px) scale(0.9);
+  pointer-events: none;
+  animation: ev-scroll-abajo-in 200ms var(--ev-ease-out) forwards;
+}
+
+@keyframes ev-scroll-abajo-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.9); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
@@ -972,10 +1048,18 @@
   .ev-overlay,
   .ev-modal,
   .ev-burbuja,
+  .skeleton,
+  .bar-grow,
+  .bar-row,
+  .animate-fade-in-up,
+  .donut-segment,
+  .donut-highlight .donut-segment:not(:hover),
+  .ev-scroll-abajo,
   .ev-shimmer:hover::after {
     animation: none !important;
     opacity: 1 !important;
     transform: none !important;
+    transition: none !important;
   }
 
   /* El halo y el cursor glow son adorno puro: fuera por completo */

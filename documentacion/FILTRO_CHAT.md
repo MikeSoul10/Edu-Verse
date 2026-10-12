@@ -172,6 +172,8 @@ router.get('/:equipo_id', verificarToken, async (req, res) => {
 });
 ```
 
+**Paginación:** el endpoint acepta `?antes=<mensaje_id>` para traer 100 mensajes **anteriores** a ese ID (orden cronológico ASC). **El filtro `filtrarTexto` se aplica también a los bloques paginados** — igual que a los últimos 100.
+
 **Implicaciones:**
 - Mensajes guardados **antes** del filtro se muestran enmascarados al leerlos.
 - La base de datos **no se modifica** — el filtrado es solo en la respuesta JSON.

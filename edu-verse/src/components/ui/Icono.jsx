@@ -114,6 +114,12 @@ const ICON_PATHS = {
       <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeLinecap="round" />
     </>
   ),
+  abajo: (
+    <>
+      <path d="M12 8v12M7 15l5 5 5-5" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M4 7v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" strokeLinecap="round" />
+    </>
+  ),
   capas: (
     <>
       <path d="M12 3 3 7.5l9 4.5 9-4.5L12 3z" strokeLinejoin="round" />

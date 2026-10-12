@@ -417,6 +417,27 @@ navegador lo ignora y cae en negro. El token va en una regla CSS:
 .donut-track { stroke: var(--ev-bar-track); }
 ```
 
+#### Una clase custom que no existe en el CSS no falla: **silenciosamente no hace nada**
+
+Este es el mismo género de bug que `--ev-text` definido y sin usar.
+
+En `GraficosEquipos.jsx` quedaron 6 clases referenciadas en el JSX que **nunca existieron** en `index.css`:
+
+| Clase | Usada en | Consecuencia real |
+|---|---|---|
+| `skeleton` | `<Skeleton>` | Espacio reservado transparente — **no se ve nada** mientras carga |
+| `bar-grow` | Barras de `BarrasEquipos` | Se pintan al ancho final de golpe; `animationDelay` no hace nada |
+| `bar-row` | Filas de leyenda | Sin animación de entrada |
+| `animate-fade-in-up` | Skeletons de métricas | Sin fade de entrada |
+| `donut-segment` | Arcos del donut | Sin transición de `stroke-width` en hover (salto brusco) |
+| `donut-highlight` | Contenedor del donut al hover | Los arcos no se atenúan al pasar el mouse |
+
+**Por qué pasó:** el dashboard usa prefijo `ev-*` (`ev-bar-fill`, `ev-bar-track`, `ev-enter`… existen en CSS). `GraficosEquipos.jsx` quedó fuera del renombrado y seguía llamando a clases a pelo sin prefijo. `git log -S"bar-grow" -- index.css` sale vacío: **nunca estuvieron en el CSS**.
+
+**Cómo se detecta:** en el JSX hay `className="bar-grow"` pero en el CSS compilado no hay `.bar-grow`. La regla no falla, no avisa, simplemente **no se aplica**. El navegador ignora la clase y el elemento queda con estilo por defecto.
+
+**Fix:** definir las clases en `index.css` con keyframes que usan los tokens del proyecto (`--ev-t-base`, `--ev-ease-out`, `--ev-bar-track`), y agregar sus nombres al bloque `@media (prefers-reduced-motion: reduce)` para que se apaguen si el usuario pide menos movimiento.
+
 #### `focus:ring-blue-100`: un anillo claro que no funciona en oscuro
 
 Los campos usaban `focus:ring-4 focus:ring-blue-100`. `blue-100` es casi blanco:
@@ -826,6 +847,17 @@ quitando claves específicas.
 - `role="log" aria-live="polite" aria-label="Chat del equipo"` en el `<aside>` del chat → lectores de pantalla anuncian mensajes nuevos.
 - Separadores de día en el historial: muestra fecha completa (`lunes 7 octubre`) cuando cambia el día; evita lista ilegible de solo HH:MM.
 - `Escape` cierra el drawer móvil (igual que el menú de la navbar).
+
+#### Mejoras de navegación del chat (2026-10-11)
+
+| Feature | Qué hace | Implementación |
+|---|---|---|
+| Botón "ir al final" | Flotante abajo-derecha, aparece al scrollear >200px del final; muestra contador `+N` de mensajes nuevos | `ev-scroll-abajo` + keyframe `ev-scroll-abajo-in`; `scrollTo({behavior:'smooth'})`; `aria-label="Ir al último mensaje"` |
+| Scroll infinito hacia arriba | Al llegar `scrollTop < 80px`, pide bloque anterior (`?antes=<primer_mensaje_id>`) | `cargandoAnteriores` + `sinMasMensajes`; preserva posición con `scrollHeight` diff en `setTimeout(0)` |
+| Auto-scroll condicional | Solo scrollea al final si usuario ya estaba abajo (<50px) | `scrollHeight - scrollTop - clientHeight < 50` |
+| App shell fijo | Página en `h-[calc(100vh-64px)] overflow-hidden`; centro scrollea por dentro con `overflow-y-auto` | Chat y sidebar dejan de estirarse al alto del kanban; su `flex-1 overflow-y-auto` ahora recibe altura acotada y scrollea |
+
+**Preservación de posición en prepend:** antes de insertar mensajes viejos, se guarda `scrollHeight` actual; en `setTimeout(0)` se restaura `scrollTop += diff`. Sin esto, el prepend de 100 mensajes teletransporta al usuario al final.
 
 #### Filtros del tablero
 

@@ -242,6 +242,14 @@ const GestorEquipos = () => {
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
   const [sidebarMinimizado, setSidebarMinimizado] = useState(false);
 
+  // Botón "ir al final" del chat: aparece cuando scrolleás hacia arriba
+  const [mostrarBotonChat, setMostrarBotonChat] = useState(false);
+  const [nuevosSinVer, setNuevosSinVer] = useState(0);
+
+  // Paginación de mensajes antiguos (scroll hacia arriba)
+  const [cargandoAnteriores, setCargandoAnteriores] = useState(false);
+  const [sinMasMensajes, setSinMasMensajes] = useState(false);
+
   // Inserción deduplicada por mensaje_id — usada por socket y por el envío local
   const agregarMensaje = useCallback((msg, prev) => {
     if (msg.mensaje_id && prev.some((m) => m.mensaje_id === msg.mensaje_id)) return prev;
@@ -299,10 +307,36 @@ const GestorEquipos = () => {
   const cargarMensajes = useCallback(async (equipoId) => {
     try {
       setMensajes((await api.get(`${API_URL}/chat/${equipoId}`)).data);
+      setSinMasMensajes(false); // reset al cargar conversación nueva
     } catch {
       // silencioso
     }
   }, []);
+
+  // Carga mensajes anteriores al primer mensaje actual (paginación hacia arriba)
+  const cargarMensajesAnteriores = useCallback(async (equipoId, primerMensajeId) => {
+    if (cargandoAnteriores || sinMasMensajes || !primerMensajeId) return;
+    setCargandoAnteriores(true);
+    try {
+      const res = await api.get(`${API_URL}/chat/${equipoId}`, { params: { antes: primerMensajeId } });
+      const anteriores = res.data;
+      if (anteriores.length === 0) {
+        setSinMasMensajes(true);
+      } else {
+        // Prepend manteniendo orden cronológico (los nuevos vienen más viejos)
+        setMensajes((prev) => {
+          // Evitar duplicados por mensaje_id
+          const existentes = new Set(prev.map((m) => m.mensaje_id));
+          const unicos = anteriores.filter((m) => !existentes.has(m.mensaje_id));
+          return [...unicos, ...prev];
+        });
+      }
+    } catch {
+      // silencioso
+    } finally {
+      setCargandoAnteriores(false);
+    }
+  }, [cargandoAnteriores, sinMasMensajes]);
 
   const cargarComentariosTarea = useCallback(async (tareaId) => {
     try {
@@ -346,11 +380,16 @@ const GestorEquipos = () => {
       // de equipo rápido y el socket tarda en emitir.
       if (msg.equipo_id !== equipoActivoRef.current) return;
       setMensajes((prev) => agregarMensaje(msg, prev));
-      if (!chatAbiertoRef.current) setMensajesNoLeidos((prev) => prev + 1);
+      if (!chatAbiertoRef.current) {
+        setMensajesNoLeidos((prev) => prev + 1);
+      } else if (mostrarBotonChat) {
+        // Chat abierto pero usuario scrolleado arriba: cuenta para el botón
+        setNuevosSinVer((prev) => prev + 1);
+      }
     });
 
     return () => socket.disconnect();
-  }, [agregarMensaje]);
+  }, [agregarMensaje]); // eslint-disable-line react-hooks/exhaustive-deps -- usa refs/funcional
 
   useEffect(() => {
     if (!chatRef.current) return;
@@ -360,8 +399,53 @@ const GestorEquipos = () => {
     const estabaAbajo = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
     if (estabaAbajo) {
       el.scrollTop = el.scrollHeight;
+      // Si estaba abajo, oculta el botón y resetea contador.
+      // Functional updates evitan dependencias en el array.
+      setMostrarBotonChat((prev) => (prev ? false : prev));
+      setNuevosSinVer((prev) => (prev ? 0 : prev));
     }
   }, [mensajes]);
+
+  // Handler de scroll del chat: muestra/oculta botón "ir al final", cuenta nuevos,
+  // y carga mensajes anteriores al llegar al tope.
+  const handleChatScroll = useCallback((e) => {
+    const el = e.currentTarget;
+    const distanciaAlFinal = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const hayEspacio = el.scrollHeight > el.clientHeight;
+
+    // Botón "ir al final" y contador
+    if (hayEspacio && distanciaAlFinal > 200) {
+      setMostrarBotonChat((prev) => prev ? prev : true);
+    } else {
+      setMostrarBotonChat((prev) => prev ? false : prev);
+      setNuevosSinVer((prev) => prev ? 0 : prev);
+    }
+
+    // Cargar mensajes antiguos al llegar arriba (scrollTop < 80px)
+    if (el.scrollTop < 80 && hayEspacio && !cargandoAnteriores && !sinMasMensajes) {
+      const primerMensaje = mensajes[0];
+      if (primerMensaje?.mensaje_id) {
+        // Guardar scrollHeight actual para restaurar posición después del prepend
+        const alturaAntes = el.scrollHeight;
+        setTimeout(() => {
+          if (chatRef.current) {
+            const diff = chatRef.current.scrollHeight - alturaAntes;
+            chatRef.current.scrollTop += diff;
+          }
+        }, 0);
+        cargarMensajesAnteriores(equipoActivoRef.current, primerMensaje.mensaje_id);
+      }
+    }
+  }, [cargandoAnteriores, sinMasMensajes, mensajes, equipoActivoRef, cargarMensajesAnteriores]);
+
+  // Scroll programático al final (botón)
+  const irAlFinalChat = useCallback(() => {
+    if (!chatRef.current) return;
+    const el = chatRef.current;
+    el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    setMostrarBotonChat(false);
+    setNuevosSinVer(0);
+  }, []);
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
 
@@ -1312,8 +1396,8 @@ const GestorEquipos = () => {
   /* ---------------- vista: dashboard del equipo ---------------- */
 
   return (
-    <div className="min-h-[calc(100vh-64px)] bg-slate-50 dark:bg-slate-900 font-['Fredoka',sans-serif]">
-      <div className="flex">
+    <div className="h-[calc(100vh-64px)] overflow-hidden bg-slate-50 dark:bg-slate-900 font-['Fredoka',sans-serif]">
+      <div className="flex h-full">
         {sidebarMovil && <div className="fixed inset-0 bg-slate-900/40 z-40 lg:hidden ev-overlay" onClick={() => setSidebarMovil(false)} />}
         {chatMovil && <div className="fixed inset-0 bg-slate-900/40 z-40 xl:hidden ev-overlay" onClick={cerrarChatMovil} />}
 
@@ -1443,7 +1527,7 @@ const GestorEquipos = () => {
         </aside>
 
         {/* Contenido */}
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col overflow-y-auto">
           <header className="ev-mesh text-white relative overflow-hidden">
             <div aria-hidden="true" className="absolute -top-16 -right-16 w-64 h-64 bg-white/10 rounded-full blur-2xl" />
             <div className="relative px-4 sm:px-6 py-5 sm:py-6">
@@ -1844,7 +1928,7 @@ const GestorEquipos = () => {
             </button>
           </div>
 
-          <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3 relative" onScroll={handleChatScroll}>
             {mensajes.length === 0 ? (
               <div className="h-full grid place-items-center text-center">
                 <div>
@@ -1856,7 +1940,25 @@ const GestorEquipos = () => {
                 </div>
               </div>
             ) : (
-              mensajes.map((msg, i) => {
+              <>
+                {/* Indicador de carga de mensajes antiguos */}
+                {cargandoAnteriores && (
+                  <div key="loading-older" className="flex justify-center py-2">
+                    <div className="flex items-center gap-2 text-xs text-slate-400 dark:text-slate-400">
+                      <span className="w-3 h-3 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                      Cargando mensajes anteriores…
+                    </div>
+                  </div>
+                )}
+                {/* Fin del historial */}
+                {sinMasMensajes && !cargandoAnteriores && (
+                  <div key="no-more" className="text-center py-2">
+                    <p className="text-xs text-slate-400 dark:text-slate-400 font-medium">
+                      Ese es el primer mensaje del equipo
+                    </p>
+                  </div>
+                )}
+                {mensajes.map((msg, i) => {
                 const mio = String(msg.usuario_id) === String(usuario);
                 const previo = mensajes[i - 1];
                 // Agrupa mensajes consecutivos del mismo autor
@@ -1902,9 +2004,22 @@ const GestorEquipos = () => {
                     </div>
                   </React.Fragment>
                 );
-              })
-            )}
+              })}
+            </>          )}
           </div>
+
+          {/* Botón "ir al final" flotante */}
+          {mostrarBotonChat && (
+            <button
+              type="button"
+              onClick={irAlFinalChat}
+              className="ev-scroll-abajo ev-focusable absolute bottom-4 right-4 z-10 flex items-center gap-1.5 px-3 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shadow-lg shadow-blue-600/30"
+              aria-label="Ir al último mensaje"
+            >
+              <Icono nombre="abajo" className="w-4 h-4" />
+              <span className="hidden sm:inline">{nuevosSinVer > 0 ? `+${nuevosSinVer}` : 'Final'}</span>
+            </button>
+          )}
 
           <div className="p-3 border-t border-slate-200/70 dark:border-slate-700/70">
             <div className="flex gap-2">

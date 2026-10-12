@@ -80,29 +80,35 @@ export const DonutEstados = ({ datos, total }) => {
         </svg>
       </div>
 
-      <ul className="flex-1 space-y-2 min-w-0">
+      <ul className="flex-1 space-y-2 min-w-0" role="list" aria-label="Leyenda de estados">
         {datos.map((d, i) => (
-          <li
-            key={d.clave}
-            className="flex items-center gap-2 text-xs cursor-default bar-row"
-            style={{ animationDelay: `${0.2 + i * 0.1}s` }}
-            onMouseEnter={() => setHover(d.clave)}
-            onMouseLeave={() => setHover(null)}
-          >
-            <span
-              className="w-3 h-3 rounded-full shrink-0 transition-transform"
-              style={{
-                backgroundColor: d.color,
-                transform: hover === d.clave ? 'scale(1.25)' : 'scale(1)',
-              }}
-            />
-            <span className={`font-medium truncate ${hover === d.clave ? 'text-gray-900 dark:text-slate-100' : 'text-gray-500 dark:text-slate-400'}`}>
-              {d.label}
-            </span>
-            <span className="ml-auto font-black text-gray-800 dark:text-slate-200 shrink-0">{d.valor}</span>
-            <span className="text-gray-400 dark:text-slate-500 w-10 text-right shrink-0">
-              {Math.round((d.valor / total) * 100)}%
-            </span>
+          <li key={d.clave}>
+            <button
+              type="button"
+              className="ev-focusable flex items-center gap-2 text-xs w-full text-left bar-row"
+              style={{ animationDelay: `${0.2 + i * 0.1}s` }}
+              onFocus={() => setHover(d.clave)}
+              onBlur={() => setHover(null)}
+              onMouseEnter={() => setHover(d.clave)}
+              onMouseLeave={() => setHover(null)}
+              aria-label={`${d.label}: ${d.valor} tareas (${Math.round((d.valor / total) * 100)}%)`}
+            >
+              <span
+                className="w-3 h-3 rounded-full shrink-0 transition-transform"
+                style={{
+                  backgroundColor: d.color,
+                  transform: hover === d.clave ? 'scale(1.25)' : 'scale(1)',
+                }}
+                aria-hidden="true"
+              />
+              <span className={`font-medium truncate ${hover === d.clave ? 'text-gray-900 dark:text-slate-100' : 'text-gray-500 dark:text-slate-400'}`}>
+                {d.label}
+              </span>
+              <span className="ml-auto font-black text-gray-800 dark:text-slate-200 shrink-0">{d.valor}</span>
+              <span className="text-gray-400 dark:text-slate-500 w-10 text-right shrink-0">
+                {Math.round((d.valor / total) * 100)}%
+              </span>
+            </button>
           </li>
         ))}
       </ul>
@@ -141,7 +147,7 @@ export const BarrasEquipos = ({ equipos }) => {
                 <span className="font-black text-gray-700 dark:text-slate-300">{eq.totalTareas}</span> tareas · {eq.progreso}%
               </p>
             </div>
-            <div className="w-full h-5 bg-gray-100 dark:bg-slate-800 rounded-lg overflow-hidden">
+            <div className="w-full h-5 ev-bar-track overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-blue-400 to-indigo-500 rounded-lg bar-grow"
                 style={{
@@ -150,7 +156,7 @@ export const BarrasEquipos = ({ equipos }) => {
                 }}
               />
             </div>
-            <div className="w-full h-1.5 bg-gray-100 dark:bg-slate-800 rounded-full overflow-hidden mt-1">
+            <div className="w-full h-1.5 ev-bar-track rounded-full overflow-hidden mt-1">
               <div
                 className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-green-500 bar-grow"
                 style={{

@@ -10,6 +10,7 @@ const LARGO_MAXIMO_MENSAJE = 500;
 router.get('/:equipo_id', verificarToken, async (req, res) => {
   try {
     const { equipo_id } = req.params;
+    const { antes } = req.query; // mensaje_id para paginación (mensajes anteriores a este)
     const usuario_id = req.usuario.id;
 
     const pertenece = await pool.query(
@@ -18,15 +19,26 @@ router.get('/:equipo_id', verificarToken, async (req, res) => {
     );
     if (pertenece.rows.length === 0) return res.status(403).json('No eres miembro de este equipo');
 
-    const mensajes = await pool.query(
-      `SELECT m.*, u.nombre AS autor_nombre
-       FROM mensajes_chat m
-       JOIN usuarios u ON m.usuario_id = u.usuario_id
-       WHERE m.equipo_id = $1
-       ORDER BY m.fecha_envio ASC
-       LIMIT 100`,
-      [equipo_id]
-    );
+    let query = `
+      SELECT m.*, u.nombre AS autor_nombre
+      FROM mensajes_chat m
+      JOIN usuarios u ON m.usuario_id = u.usuario_id
+      WHERE m.equipo_id = $1
+    `;
+    const params = [equipo_id];
+
+    if (antes) {
+      // Validar que es un número entero positivo
+      const antesId = parseInt(antes, 10);
+      if (!isNaN(antesId) && antesId > 0) {
+        query += ` AND m.mensaje_id < $2`;
+        params.push(antesId);
+      }
+    }
+
+    query += ` ORDER BY m.fecha_envio DESC LIMIT 100`;
+
+    const mensajes = await pool.query(query, params);
 
     // Filtro en lectura: red de seguridad para mensajes guardados antes
     // de que existiera el filtro. No se persiste, solo para mostrar.
@@ -35,7 +47,9 @@ router.get('/:equipo_id', verificarToken, async (req, res) => {
       return { ...m, texto: filtrado.texto, censurado: filtrado.censurado };
     });
 
-    res.json(filtrados);
+    // Para paginación, el frontend espera orden cronológico (ASC).
+    // La query trae DESC, así que invertimos antes de responder.
+    res.json(filtrados.reverse());
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Error al obtener mensajes');
