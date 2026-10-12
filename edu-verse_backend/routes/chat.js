@@ -3,6 +3,9 @@ const router = express.Router();
 const pool = require('../db');
 const verificarToken = require('../middleware/auth');
 const { sanitize } = require('../middleware/sanitize');
+const { filtrarTexto } = require('../middleware/profanity');
+
+const LARGO_MAXIMO_MENSAJE = 500;
 
 router.get('/:equipo_id', async (req, res) => {
   try {
@@ -25,16 +28,73 @@ router.get('/:equipo_id', async (req, res) => {
 
 router.post('/enviar', verificarToken, async (req, res) => {
   try {
-    const { equipo_id, usuario_id, texto } = req.body;
-    if (!equipo_id || !usuario_id || !texto) return res.status(400).json('Faltan campos');
+    const { equipo_id } = req.body;
+    let { texto } = req.body;
 
-    const nuevo = await pool.query(
-      `INSERT INTO mensajes_chat (equipo_id, usuario_id, texto)
-       VALUES ($1, $2, $3) RETURNING *`,
-      [equipo_id, usuario_id, sanitize(texto)]
+    if (!equipo_id || !texto) return res.status(400).json('Faltan campos');
+
+    texto = String(texto).trim();
+    if (!texto) return res.status(400).json('El mensaje no puede estar vacío');
+    if (texto.length > LARGO_MAXIMO_MENSAJE) {
+      return res.status(400).json(`El mensaje no puede superar ${LARGO_MAXIMO_MENSAJE} caracteres`);
+    }
+
+    const usuario_id = req.usuario.id;
+
+    const pertenece = await pool.query(
+      'SELECT 1 FROM miembros_equipo WHERE equipo_id = $1 AND usuario_id = $2',
+      [equipo_id, usuario_id]
     );
+    if (pertenece.rows.length === 0) return res.status(403).json('No eres miembro de este equipo');
 
-    res.status(201).json(nuevo.rows[0]);
+    const filtrado = filtrarTexto(texto);
+    const textoFinal = sanitize(filtrado.texto);
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const nuevo = await client.query(
+        `INSERT INTO mensajes_chat (equipo_id, usuario_id, texto)
+         VALUES ($1, $2, $3) RETURNING *`,
+        [equipo_id, usuario_id, textoFinal]
+      );
+
+      const mensaje = nuevo.rows[0];
+
+      if (filtrado.censurado) {
+        try {
+          await client.query(
+            `INSERT INTO moderacion_logs (usuario_id, equipo_id, palabras_bloqueadas, sustituciones)
+             VALUES ($1, $2, $3, $4)`,
+            [usuario_id, equipo_id, filtrado.palabras.join(', '), filtrado.cantidad]
+          );
+        } catch (logErr) {
+          console.warn('No se pudo registrar en moderacion_logs:', logErr.message);
+        }
+      }
+
+      await client.query('COMMIT');
+
+      const autor = await pool.query(
+        'SELECT nombre FROM usuarios WHERE usuario_id = $1',
+        [usuario_id]
+      );
+      const mensajeConAutor = {
+        ...mensaje,
+        autor_nombre: autor.rows[0]?.nombre || '?'
+      };
+
+      const io = req.app.get('io');
+      io?.to(`equipo-${equipo_id}`).emit('nuevo-mensaje', mensajeConAutor);
+
+      res.status(201).json({ ...mensajeConAutor, censurado: filtrado.censurado, palabras: filtrado.palabras });
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Error al enviar mensaje');

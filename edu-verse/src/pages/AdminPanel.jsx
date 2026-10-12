@@ -13,6 +13,7 @@ const AdminPanel = () => {
   const [usuarios, setUsuarios] = useState([]);
   const [baneados, setBaneados] = useState([]);
   const [logs, setLogs] = useState([]);
+  const [moderacion, setModeracion] = useState([]);
   const [apuntes, setApuntes] = useState([]);
   const [comentarios, setComentarios] = useState([]);
   const [equipos, setEquipos] = useState([]);
@@ -59,6 +60,10 @@ const AdminPanel = () => {
     try { const res = await api.get(`${API_URL}/admin/logs`); setLogs(res.data); } catch { toast.error('Error al cargar logs'); }
   };
 
+  const fetchModeracion = async () => {
+    try { const res = await api.get(`${API_URL}/admin/moderacion`); setModeracion(res.data); } catch { toast.error('Error al cargar moderación'); }
+  };
+
   const fetchApuntes = async () => {
     try { const res = await api.get(`${API_URL}/admin/apuntes`); setApuntes(res.data); } catch { toast.error('Error al cargar apuntes'); }
   };
@@ -77,6 +82,7 @@ const AdminPanel = () => {
     if (tab === 'usuarios') fetchUsuarios();
     if (tab === 'baneados') fetchBaneados();
     if (tab === 'logs') fetchLogs();
+    if (tab === 'moderacion') fetchModeracion();
     if (tab === 'apuntes') fetchApuntes();
     if (tab === 'comentarios') fetchComentarios();
     if (tab === 'equipos') fetchEquipos();
@@ -128,6 +134,7 @@ const AdminPanel = () => {
   const filteredApuntes = filter(apuntes, ['titulo', 'materia', 'autor']);
   const filteredComentarios = filter(comentarios, ['texto', 'autor', 'apunte_titulo']);
   const filteredEquipos = filter(equipos, ['nombre', 'creador_nombre']);
+  const filteredModeracion = filter(moderacion, ['usuario_nombre', 'equipo_nombre', 'palabras_bloqueadas']);
 
   const tabs = [
     { id: 'stats', label: 'Estadísticas', icon: '📊' },
@@ -136,6 +143,7 @@ const AdminPanel = () => {
     { id: 'comentarios', label: 'Comentarios', icon: '💬' },
     { id: 'equipos', label: 'Equipos', icon: '🏢' },
     { id: 'baneados', label: 'Baneados', icon: '🚫' },
+    { id: 'moderacion', label: 'Moderación', icon: '🛡️' },
     { id: 'logs', label: 'Actividad', icon: '📋' },
   ];
 
@@ -144,6 +152,7 @@ const AdminPanel = () => {
     apuntes: 'Buscar por título, materia o autor...',
     comentarios: 'Buscar por texto, autor o apunte...',
     equipos: 'Buscar por nombre o creador...',
+    moderacion: 'Buscar por usuario, equipo o palabra...',
   };
 
   return (
@@ -351,6 +360,36 @@ const AdminPanel = () => {
                         ))}
                       </tbody>
                     </table>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB: Moderación */}
+            {activeTab === 'moderacion' && (
+              <div className="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-gray-200 dark:border-slate-700">
+                {filteredModeracion.length === 0 ? (
+                  <div className="py-16 text-center text-gray-400 dark:text-slate-500">
+                    <p className="text-4xl mb-2">🛡️</p>
+                    <p className="font-medium">No hay registros de moderación</p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-gray-100">
+                    {filteredModeracion.map(m => (
+                      <div key={m.moderacion_id} className="px-4 py-3 hover:bg-gray-50 dark:hover:bg-slate-800">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <span className="font-medium text-gray-900 dark:text-slate-100">{m.usuario_nombre || 'Desconocido'}</span>
+                            <span className="mx-2 text-gray-400 dark:text-slate-500">•</span>
+                            <span className="text-gray-600 dark:text-slate-400">Equipo: {m.equipo_nombre || 'N/A'}</span>
+                            <span className="mx-2 text-gray-400 dark:text-slate-500">•</span>
+                            <span className="text-gray-600 dark:text-slate-400">{m.sustituciones} sustitución{m.sustituciones !== 1 ? 'es' : ''}</span>
+                          </div>
+                          <span className="text-xs text-gray-400 dark:text-slate-500">{new Date(m.fecha).toLocaleString()}</span>
+                        </div>
+                        <p className="text-sm text-gray-500 dark:text-slate-400 mt-1 ml-0.5 font-mono">{m.palabras_bloqueadas}</p>
+                      </div>
+                    ))}
                   </div>
                 )}
               </div>

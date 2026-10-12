@@ -15,6 +15,7 @@ const server = http.createServer(app);
 const io = new Server(server, {
   cors: { origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE'] }
 });
+app.set('io', io);
 
 // --- SOCKET.IO ---
 io.on('connection', (socket) => {
@@ -47,10 +48,6 @@ io.on('connection', (socket) => {
 
   socket.on('eliminar-tarea', (data) => {
     io.to(`equipo-${data.equipo_id}`).emit('tarea-eliminada', data);
-  });
-
-  socket.on('mensaje-chat', (data) => {
-    io.to(`equipo-${data.equipo_id}`).emit('nuevo-mensaje', data);
   });
 
   socket.on('disconnect', () => {
@@ -674,6 +671,21 @@ app.get('/admin/logs', verificarToken, verificarAdmin, async (req, res) => {
     res.json(resultado.rows);
   } catch (err) {
     res.status(500).send("Error al obtener logs");
+  }
+});
+
+app.get('/admin/moderacion', verificarToken, verificarAdmin, async (req, res) => {
+  try {
+    const resultado = await pool.query(
+      `SELECT m.*, u.nombre AS usuario_nombre, e.nombre AS equipo_nombre
+       FROM moderacion_logs m
+       LEFT JOIN usuarios u ON m.usuario_id = u.usuario_id
+       LEFT JOIN equipos e ON m.equipo_id = e.equipo_id
+       ORDER BY m.fecha DESC LIMIT 100`
+    );
+    res.json(resultado.rows);
+  } catch (err) {
+    res.status(500).send("Error al obtener logs de moderación");
   }
 });
 

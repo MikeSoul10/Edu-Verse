@@ -224,7 +224,6 @@ const GestorEquipos = () => {
   const cifrasRafRef = useRef(0);
 
   const usuario = getUsuarioId();
-  const usuarioNombre = localStorage.getItem('usuario');
 
   const [equipos, setEquipos] = useState([]);
   const [equipoActivo, setEquipoActivo] = useState(null);
@@ -241,6 +240,13 @@ const GestorEquipos = () => {
   const [codigoUnirse, setCodigoUnirse] = useState('');
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
   const [sidebarMinimizado, setSidebarMinimizado] = useState(false);
+
+  // Inserción deduplicada por mensaje_id — usada por socket y por el envío local
+  const agregarMensaje = useCallback((msg, prev) => {
+    if (msg.mensaje_id && prev.some((m) => m.mensaje_id === msg.mensaje_id)) return prev;
+    return [...prev, msg];
+  }, []);
+
   const [sidebarMovil, setSidebarMovil] = useState(false);
   // En pantallas grandes el chat siempre esta visible; en chica es un drawer
   const [chatMovil, setChatMovil] = useState(false);
@@ -336,12 +342,12 @@ const GestorEquipos = () => {
     });
 
     socket.on('nuevo-mensaje', (msg) => {
-      setMensajes((prev) => [...prev, msg]);
+      setMensajes((prev) => agregarMensaje(msg, prev));
       if (!chatAbiertoRef.current) setMensajesNoLeidos((prev) => prev + 1);
     });
 
     return () => socket.disconnect();
-  }, []);
+  }, [agregarMensaje]);
 
   useEffect(() => {
     if (chatRef.current) chatRef.current.scrollTop = chatRef.current.scrollHeight;
@@ -792,7 +798,13 @@ const GestorEquipos = () => {
     const texto = nuevoMensaje;
     setNuevoMensaje('');
     try {
-      await api.post(`${API_URL}/chat/enviar`, { equipo_id: equipoActivo.equipo_id, usuario_id: usuario, texto });
+      const res = await api.post(`${API_URL}/chat/enviar`, { equipo_id: equipoActivo.equipo_id, usuario_id: usuario, texto });
+      setMensajes((prev) => agregarMensaje(res.data, prev));
+      if (res.data.censurado) {
+        try {
+          toast('Tu mensaje contiene lenguaje ofensivo y fue filtrado', { icon: '⚠️' });
+        } catch { /* toast no disponible */ }
+      }
       socketRef.current?.emit('mensaje-chat', {
         equipo_id: equipoActivo.equipo_id,
         usuario_id: usuario,
@@ -800,9 +812,13 @@ const GestorEquipos = () => {
         texto,
         fecha_envio: new Date().toISOString(),
       });
-    } catch {
+    } catch (err) {
       setNuevoMensaje(texto);
-      toast.error('Error al enviar');
+      if (err.response?.status === 403) {
+        toast.error('No eres miembro de este equipo');
+      } else {
+        toast.error('Error al enviar');
+      }
     }
   };
 

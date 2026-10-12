@@ -180,10 +180,40 @@ Todas las rutas exigen **token + rol `admin`** (doble middleware `verificarToken
 | `auth.js` | `verificarToken` | Lee header `Authorization: Bearer <token>`, verifica con `jwt.verify`, adjunta `req.usuario` |
 | `admin.js` | `verificarAdmin` | Comprueba `req.usuario.rol === 'admin'`, si no → `403` |
 | `sanitize.js` | `sanitize` | Escapa `& < > " '` para prevenir XSS |
+| `profanity.js` | `filtrarTexto`, `contieneInsulto`, `normalizar`, `PALABRAS_BLOQUEADAS` | Normaliza (NFD, quita tildes, mapa leet, colapsa repeticiones), detecta palabras bloqueadas con límites de palabra, enmascara conservando primera letra |
 
 ---
 
-## 12. Arranque
+## 12. Chat (`routes/chat.js`)
+
+### `GET /chat/:equipo_id`
+Devuelve los últimos 100 mensajes del equipo (público, sin autenticación).
+
+### `POST /chat/enviar`
+**Autenticación requerida** (`verificarToken`).
+
+Body: `{ equipo_id, texto }` — `usuario_id` se toma del token (anti-suplantación).
+
+Validaciones:
+- `texto` obligatorio, ≤ 500 caracteres.
+- Usuario debe ser miembro del equipo (`miembros_equipo`).
+
+Flujo:
+1. Normaliza y filtra `texto` con `filtrarTexto` (leet, tildes, repeticiones, límites de palabra).
+2. Escapa HTML con `sanitize`.
+3. Inserta en `mensajes_chat`.
+4. Si hubo censura, registra en `moderacion_logs` (usuario, equipo, palabras, cantidad).
+5. Emite `nuevo-mensaje` por Socket.IO a la sala `equipo-${equipo_id}` con el mensaje ya filtrado.
+6. Responde `201` con el mensaje + `{ censurado, palabras }`.
+
+### `GET /admin/moderacion`
+**Autenticación + Admin** (`verificarToken`, `verificarAdmin`).
+
+Devuelve últimos 100 registros de `moderacion_logs` con `usuario_nombre`, `equipo_nombre`, `palabras_bloqueadas`, `sustituciones`, `fecha`.
+
+---
+
+## 13. Arranque
 
 ```js
 const PORT = process.env.PORT || 4000;
