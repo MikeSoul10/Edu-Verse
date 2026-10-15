@@ -2,6 +2,8 @@
  * Utilidades de formateo y cálculo compartidas en Edu-Verse.
  */
 
+import { API_URL } from '../config';
+
 // Paleta categórica segura para daltónicos usada para asignaturas y etiquetas
 export const TONOS_MATERIA = [
   { fondo: 'from-blue-500 to-indigo-600', chip: 'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300', punto: '#3b82f6' },
@@ -47,6 +49,30 @@ export const tonoDesdeMateria = (materia = '') => {
  */
 export const iniciales = (nombre = '') => {
   return nombre.trim().split(/\s+/).slice(0, 2).map((p) => p.charAt(0).toUpperCase()).join('') || '?';
+};
+
+/**
+ * Normaliza `usuarios.foto_url` a una URL utilizable.
+ *
+ * En la BD conviven dos formatos distintos:
+ *   - "/uploads/perfiles/123.png"  (lo que guarda el backend al subir foto)
+ *   - "default-avatar.png"         (nombre suelto, sin barra inicial)
+ *
+ * Concatenar `${API_URL}${foto}` a pelo producía "http://localhost:4000default-avatar.png"
+ * en el segundo caso. Aquí se resuelve la barra, y si no hay nada se devuelve
+ * null para que el llamador use su avatar de iniciales.
+ *
+ * OJO: `default-avatar.png` no existe en el repo, así que las filas que lo
+ * apuntan igual dan 404. El <img> debe traer onError como respaldo.
+ */
+export const urlFoto = (foto) => {
+  if (!foto) return null;
+  const valor = String(foto).trim();
+  if (!valor) return null;
+  // Absolute wins: si algún día se guardan URLs de otro origen.
+  if (/^https?:\/\//i.test(valor)) return valor;
+  const ruta = valor.startsWith('/') ? valor : `/${valor}`;
+  return `${API_URL}${ruta}`;
 };
 
 /**

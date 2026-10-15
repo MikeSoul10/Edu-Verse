@@ -363,21 +363,19 @@ const Profile = () => {
 
           <ul className="grid gap-4 sm:grid-cols-2">
             {[
-              { to: '/biblioteca', label: 'Biblioteca', desc: 'Apuntes y materiales', img: '/modulos/biblioteca.png' },
-              { to: '/gestor-equipos', label: 'Gestor de equipos', desc: 'Tareas y tableros', img: '/modulos/gestor-equipos.png' },
-              { to: '/mis-apuntes', label: 'Mis apuntes', desc: 'Lo que compartiste', img: '/modulos/biblioteca.png' },
-              { to: '/favoritos', label: 'Mis favoritos', desc: 'Guardados para vos', img: null },
-            ].map((m) => (
-              <li key={m.to}>
-                <Link
-                  to={m.to}
-                  className="ev-panel-glass ev-card-dash group flex items-center gap-3 rounded-2xl p-4"
-                >
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 transition-transform duration-300 group-hover:scale-110">
-                    {m.img ? (
-                      <img src={m.img} alt="" aria-hidden="true" className="h-8 w-8 object-contain" />
-                    ) : (
-                      <span aria-hidden="true" className="text-xl">⭐</span>
+              { to: '/biblioteca', label: 'Biblioteca', desc: 'Apuntes y materiales', img: '/Iconos/libros.png' },
+              { to: '/gestor-equipos', label: 'Gestor de equipos', desc: 'Tareas y tableros', img: '/Iconos/grupo2.png' },
+              // Mismo tratamiento que en Home: sin link, atenuado y con badge.
+              { to: null, label: 'Tutor IA', desc: 'Resuelve dudas y crea resúmenes', img: '/Iconos/mascota_robot.png', proximamente: true },
+            ].map((m) => {
+              const cuerpo = (
+                <>
+                  <span className="relative grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-blue-50 to-indigo-50 transition-transform duration-300 group-hover:scale-110">
+                    <img src={m.img} alt="" aria-hidden="true" className="h-8 w-8 object-contain" />
+                    {m.proximamente && (
+                      <span className="absolute -right-1.5 -top-1.5 rounded-full bg-slate-700 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-white">
+                        Pronto
+                      </span>
                     )}
                   </span>
                   <span className="min-w-0 flex-1">
@@ -386,9 +384,27 @@ const Profile = () => {
                     </span>
                     <span className="block truncate text-xs text-slate-500 dark:text-slate-400">{m.desc}</span>
                   </span>
-                </Link>
-              </li>
-            ))}
+                </>
+              );
+
+              // `group` solo en las activas: en un div sin hover no debe
+              // animarse, porque sugeriría que se puede pulsar.
+              const clases = m.proximamente
+                ? 'ev-panel-glass ev-card-dash flex items-center gap-3 rounded-2xl p-4 opacity-60'
+                : 'ev-panel-glass ev-card-dash group flex items-center gap-3 rounded-2xl p-4';
+
+              return (
+                <li key={m.label} className={m.proximamente ? 'sm:col-span-2 flex justify-center' : ''}>
+                  {m.proximamente ? (
+                    <div className="w-full sm:max-w-[calc(50%-0.5rem)]">
+                      <div className={clases}>{cuerpo}</div>
+                    </div>
+                  ) : (
+                    <Link to={m.to} className={clases}>{cuerpo}</Link>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </section>
       </div>

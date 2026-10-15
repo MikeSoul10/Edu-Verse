@@ -134,7 +134,7 @@ const AdminPanel = () => {
   const filteredApuntes = filter(apuntes, ['titulo', 'materia', 'autor']);
   const filteredComentarios = filter(comentarios, ['texto', 'autor', 'apunte_titulo']);
   const filteredEquipos = filter(equipos, ['nombre', 'creador_nombre']);
-  const filteredModeracion = filter(moderacion, ['usuario_nombre', 'equipo_nombre', 'palabras_bloqueadas']);
+  const filteredModeracion = filter(moderacion, ['usuario_nombre', 'equipo_nombre', 'palabras_bloqueadas', 'accion']);
 
   const tabs = [
     { id: 'stats', label: 'Estadísticas', icon: '📊' },
@@ -383,11 +383,19 @@ const AdminPanel = () => {
                             <span className="mx-2 text-gray-400 dark:text-slate-500">•</span>
                             <span className="text-gray-600 dark:text-slate-400">Equipo: {m.equipo_nombre || 'N/A'}</span>
                             <span className="mx-2 text-gray-400 dark:text-slate-500">•</span>
-                            <span className="text-gray-600 dark:text-slate-400">{m.sustituciones} sustitución{m.sustituciones !== 1 ? 'es' : ''}</span>
+                            {/* Segun la accion cambia el texto: un vaciado de
+                                historial no tiene "sustituciones" que mostrar. */}
+                            {m.accion === 'chat_vaciado' ? (
+                              <span className="text-red-600 dark:text-red-400 font-semibold">Vació el historial del chat</span>
+                            ) : (
+                              <span className="text-gray-600 dark:text-slate-400">{m.sustituciones} sustitución{m.sustituciones !== 1 ? 'es' : ''}</span>
+                            )}
                           </div>
                           <span className="text-xs text-gray-400 dark:text-slate-500">{new Date(m.fecha).toLocaleString()}</span>
                         </div>
-                        <p className="text-sm text-gray-500 dark:text-slate-400 mt-1 ml-0.5 font-mono">{m.palabras_bloqueadas}</p>
+                        <p className={`text-sm mt-1 ml-0.5 ${m.accion === 'chat_vaciado' ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-500 dark:text-slate-400 font-mono'}`}>
+                          {m.accion === 'chat_vaciado' ? m.detalle : m.palabras_bloqueadas}
+                        </p>
                       </div>
                     ))}
                   </div>

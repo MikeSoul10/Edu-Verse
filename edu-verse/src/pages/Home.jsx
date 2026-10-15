@@ -92,6 +92,8 @@ const Home = () => {
       descripcion: 'Explora y comparte apuntes, documentos y materiales de estudio con tu comunidad.',
       detalle: 'Sube tus apuntes en PDF o imagen, explora los que comparten tus compañeros, filtra por materia, guarda favoritos y califica cada material con estrellas. Todo el contenido queda organizado y se puede buscar por nombre.',
       icono: '/Iconos/libros.png',
+      iconoFondo: 'h-24 w-24 sm:h-36 sm:w-36',
+      iconoImg: 'h-20 w-20 sm:h-32 sm:w-32',
       link: '/biblioteca',
       activo: true,
       color: 'from-blue-600 to-indigo-600',
@@ -103,6 +105,8 @@ const Home = () => {
       descripcion: 'Organiza tu equipo de estudio, asigna tareas y colabora en tiempo real.',
       detalle: 'Crea un equipo o únete con un código, organiza el trabajo en un tablero kanban, chatea con tu equipo en tiempo real, asigna tareas con fecha de entrega y revisa el avance en un dashboard con métricas y calendario de vencimientos.',
       icono: '/Iconos/grupo2.png',
+      iconoFondo: 'h-24 w-24 sm:h-36 sm:w-36',
+      iconoImg: 'h-20 w-20 sm:h-32 sm:w-32',
       link: '/gestor-equipos',
       activo: true,
       color: 'from-indigo-600 to-violet-600',
@@ -114,6 +118,8 @@ const Home = () => {
       descripcion: 'Aprende con inteligencia artificial: resuelve dudas, genera resúmenes y más.',
       detalle: 'Próximamente. Un asistente que responde dudas sobre tu materia, genera resúmenes a partir de tus apuntes y te sugiere ejercicios para practicar antes del examen.',
       icono: '/Iconos/mascota_robot.png',
+      iconoFondo: 'h-24 w-24 sm:h-36 sm:w-36',
+      iconoImg: 'h-20 w-20 sm:h-32 sm:w-32',
       link: null,
       activo: false,
       color: '',
@@ -181,16 +187,16 @@ const Home = () => {
                   <InfoModulo texto={modulo.detalle} etiqueta={modulo.titulo} />
                 </div>
 
-                <div className={`mb-4 sm:mb-6 flex items-center justify-center rounded-full ${modulo.icono === '/Iconos/grupo2.png' || modulo.icono === '/Iconos/libros.png' || modulo.icono === '/Iconos/mascota_robot.png' ? 'h-24 w-24 sm:h-36 sm:w-36' : 'h-20 w-20 sm:h-32 sm:w-32'} ${modulo.iconBg}`}>
-                  {modulo.icono ? (
-                    <img
-                      src={modulo.icono}
-                      alt=""
-                      className={`object-contain transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 ${modulo.icono === '/Iconos/grupo2.png' || modulo.icono === '/Iconos/libros.png' || modulo.icono === '/Iconos/mascota_robot.png' ? 'h-20 w-20 sm:h-32 sm:w-32' : 'h-16 w-16 sm:h-24 sm:w-24'}`}
-                    />
-                  ) : (
-                    <span aria-hidden="true" className="text-5xl sm:text-6xl">🤖</span>
-                  )}
+                {/* El tamaño viene del propio dato del módulo (iconoFondo /
+                    iconoImg). Antes se decidía comparando strings literales
+                    contra las rutas de las imágenes, así que agregar un módulo
+                    obligaba a editar dos ternarios magicos. */}
+                <div className={`mb-4 sm:mb-6 flex items-center justify-center rounded-full ${modulo.iconoFondo} ${modulo.iconBg}`}>
+                  <img
+                    src={modulo.icono}
+                    alt=""
+                    className={`object-contain transition-transform duration-300 group-hover:scale-110 group-hover:-rotate-6 ${modulo.iconoImg}`}
+                  />
                 </div>
 
                 <h2 className={`mb-3 text-2xl sm:text-3xl font-bold ${modulo.activo ? 'text-slate-800 dark:text-slate-200' : 'text-slate-500 dark:text-slate-400'}`}>

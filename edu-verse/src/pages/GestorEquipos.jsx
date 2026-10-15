@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom';
 import { API_URL } from '../config';
 import CalendarioVencimientos from '../components/CalendarioVencimientos';
 import TaskCard from '../components/TaskCard';
+import { urlFoto } from '../utils/formatters';
 
 const CLAVE_CALENDARIO = 'eduverse_calendario_visible';
 
@@ -39,6 +40,11 @@ const ESTADOS = {
 const ORDEN_ESTADOS = ['pendiente', 'en_progreso', 'completada'];
 
 const INTERVALO_FRASE_HERO = 4500;
+
+// Distancia al final (px) bajo la cual consideramos que el usuario está
+// "abajo" y el botón "ir al último mensaje" se oculta. 80px evita que el
+// botón parpadee con micro-scrolls del mouse.
+const UMBRAL_FINAL_CHAT = 80;
 
 // Frases del hero: rotan en la burbuja sobre la ilustracion del equipo.
 const FRASES_HERO = ['¡Juntos rendimos más! ', 'Reparte y avanza en equipo ', '¡Nunca estudies solo! ', 'Tareas claras, equipo fuerte '];
@@ -75,6 +81,9 @@ const Icono = ({ nombre, className = 'w-5 h-5' }) => {
     editar: <><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16v4z" strokeLinejoin="round" /></>,
     salir: <><path d="M15 17l5-5-5-5M20 12H9M12 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6" strokeLinecap="round" strokeLinejoin="round" /></>,
     menu: <><path d="M4 7h16M4 12h16M4 17h16" strokeLinecap="round" /></>,
+    abajo: <><path d="M6 9.5l6 6 6-6" strokeLinecap="round" strokeLinejoin="round" /></>,
+    siguiente: <><path d="M9 6l6 6-6 6" strokeLinecap="round" strokeLinejoin="round" /></>,
+    responder: <><path d="M9 14 4 9l5-5" strokeLinecap="round" strokeLinejoin="round" /><path d="M4 9h10a6 6 0 0 1 6 6v4" strokeLinecap="round" strokeLinejoin="round" /></>,
   };
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" className={className} aria-hidden="true">
@@ -206,6 +215,10 @@ const GestorEquipos = () => {
   const socketRef = useRef(null);
   const chatRef = useRef(null);
   const chatAbiertoRef = useRef(false);
+  // Si el chat está al final del scroll. Ref y no estado porque lo consultan
+  // el listener del socket y el efecto de auto-scroll, que corren fuera del
+  // ciclo de render y se quedarían con el valor del último render.
+  const estaAbajoRef = useRef(true);
   const equipoActivoRef = useRef(null); // para el socket: evita que mensajes de otro equipo se cuelen
   const tareaEditandoRef = useRef(null);
   const rafRef = useRef(0);
@@ -228,6 +241,10 @@ const GestorEquipos = () => {
 
   const [equipos, setEquipos] = useState([]);
   const [equipoActivo, setEquipoActivo] = useState(null);
+  // Admin de ESTE equipo (miembros_equipo.rol). No confundir con el admin
+  // global de la plataforma (usuarios.rol), que no autoriza nada sobre los
+  // chats de otros equipos.
+  const soyAdminEquipo = equipoActivo?.rol === 'admin';
   const [miembros, setMiembros] = useState([]);
   const [tareas, setTareas] = useState([]);
   const [mensajes, setMensajes] = useState([]);
@@ -242,9 +259,26 @@ const GestorEquipos = () => {
   const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
   const [sidebarMinimizado, setSidebarMinimizado] = useState(false);
 
-  // Botón "ir al final" del chat: aparece cuando scrolleás hacia arriba
+  // Botón "ir al final" del chat: visible solo cuando el usuario sube del último mensaje
   const [mostrarBotonChat, setMostrarBotonChat] = useState(false);
   const [nuevosSinVer, setNuevosSinVer] = useState(0);
+
+  // Mensaje al que se está respondiendo (null = envío normal).
+  const [respondiendoA, setRespondiendoA] = useState(null);
+  // Menú contextual de "Responder" abierto por clic derecho: guarda mensaje y posición.
+  const [menuResponder, setMenuResponder] = useState(null);
+
+  // Mensaje pendiente de confirmar borrado (solo para admins del equipo).
+  const [mensajeABorrar, setMensajeABorrar] = useState(null);
+  // Modal de vaciado completo: null = cerrado. Guardamos además lo que el
+  // admin está escribiendo, porque el botón solo se habilita con "BORRAR".
+  const [modalVaciar, setModalVaciar] = useState(false);
+  const [confirmacionVaciar, setConfirmacionVaciar] = useState('');
+
+  // Buscador de mensajes del chat
+  const [buscadorAbierto, setBuscadorAbierto] = useState(false);
+  const [busquedaChat, setBusquedaChat] = useState('');
+  const [coincidenciaActual, setCoincidenciaActual] = useState(0);
 
   // Paginación de mensajes antiguos (scroll hacia arriba)
   const [cargandoAnteriores, setCargandoAnteriores] = useState(false);
@@ -352,6 +386,51 @@ const GestorEquipos = () => {
 
   /* ---------------- realtime ---------------- */
 
+  /* Estas tres van ANTES de los efectos que las usan. Un useCallback
+     declarado más abajo queda en zona muerta temporal cuando el array de
+     dependencias del efecto —que se evalúa durante el render— lo referencia
+     antes, y eso revienta el componente entero con ReferenceError. El build
+     no lo detecta: compilar no es ejecutar. */
+  // Deja el panel de chat como recién abierto. Se usa tras vaciar el historial,
+  // y no solo para `mensajes`: si no se limpian la búsqueda, la respuesta en
+  // curso y el contador de pendientes, quedan apuntando a filas que ya no existen.
+  const resetearChat = useCallback(() => {
+    setMensajes([]);
+    setSinMasMensajes(true);
+    setCargandoAnteriores(false);
+    setBusquedaChat('');
+    setCoincidenciaActual(0);
+    setRespondiendoA(null);
+    setMenuResponder(null);
+    setMensajeABorrar(null);
+    setNuevosSinVer(0);
+    setMensajesNoLeidos(0);
+    estaAbajoRef.current = true;
+    setMostrarBotonChat(false);
+  }, []);
+
+  const cerrarModalVaciar = useCallback(() => {
+    setModalVaciar(false);
+    setConfirmacionVaciar('');
+  }, []);
+
+  const vaciarHistorial = useCallback(async () => {
+    const equipoId = equipoActivoRef.current;
+    if (!equipoId) return;
+    cerrarModalVaciar();
+    try {
+      const res = await api.delete(`${API_URL}/chat/historial/${equipoId}`);
+      resetearChat();
+      toast.success(`Se borraron ${res.data.borrados} mensaje(s)`);
+    } catch (err) {
+      if (err.response?.status === 403) {
+        toast.error('Solo el administrador del equipo puede vaciar el historial');
+      } else {
+        toast.error('Error al vaciar el historial');
+      }
+    }
+  }, [resetearChat, cerrarModalVaciar]);
+
   useEffect(() => {
     const socket = io(API_URL);
     socketRef.current = socket;
@@ -382,14 +461,35 @@ const GestorEquipos = () => {
       setMensajes((prev) => agregarMensaje(msg, prev));
       if (!chatAbiertoRef.current) {
         setMensajesNoLeidos((prev) => prev + 1);
-      } else if (mostrarBotonChat) {
-        // Chat abierto pero usuario scrolleado arriba: cuenta para el botón
+      } else if (!estaAbajoRef.current) {
+        // Chat abierto pero usuario scrolleado arriba: cuenta para el botón.
+        // Antes se leía `mostrarBotonChat` desde este efecto, que solo
+        // depende de [agregarMensaje]: closure congelada en false, nunca contaba.
         setNuevosSinVer((prev) => prev + 1);
       }
     });
 
+    // El admin del equipo borra un mensaje: desaparece para todos, en vivo.
+    socket.on('mensaje-eliminado', ({ mensaje_id }) => {
+      if (!mensaje_id) return;
+      setMensajes((prev) => prev.filter((m) => m.mensaje_id !== mensaje_id));
+      // Si estabas respondiéndole, la cita quedaría colgando de algo que ya no existe.
+      setRespondiendoA((prev) => (prev?.mensaje_id === mensaje_id ? null : prev));
+    });
+
+    // El admin vació el historial. Guardado por equipo_id: si el socket
+    // llega tarde tras cambiar de equipo, no debe vaciar el panel equivocado.
+    socket.on('chat-vaciado', ({ equipo_id, borrados }) => {
+      if (equipo_id !== equipoActivoRef.current) return;
+      resetearChat();
+      toast(`Un administrador vació el chat (${borrados} mensaje(s))`);
+    });
+
     return () => socket.disconnect();
-  }, [agregarMensaje]); // eslint-disable-line react-hooks/exhaustive-deps -- usa refs/funcional
+  // Sin deps más allá de agregarMensaje: el resto del estado que lee el
+  // listener (chatAbiertoRef, estaAbajoRef, equipoActivoRef) vive en refs,
+  // que no cambian de identidad entre renders.
+  }, [agregarMensaje, resetearChat]);
 
   useEffect(() => {
     if (!chatRef.current) return;
@@ -399,10 +499,11 @@ const GestorEquipos = () => {
     const estabaAbajo = el.scrollHeight - el.scrollTop - el.clientHeight < 50;
     if (estabaAbajo) {
       el.scrollTop = el.scrollHeight;
+      estaAbajoRef.current = true;
       // Si estaba abajo, oculta el botón y resetea contador.
       // Functional updates evitan dependencias en el array.
-      setMostrarBotonChat((prev) => (prev ? false : prev));
-      setNuevosSinVer((prev) => (prev ? 0 : prev));
+      setMostrarBotonChat(false);
+      setNuevosSinVer(0);
     }
   }, [mensajes]);
 
@@ -412,14 +513,18 @@ const GestorEquipos = () => {
     const el = e.currentTarget;
     const distanciaAlFinal = el.scrollHeight - el.scrollTop - el.clientHeight;
     const hayEspacio = el.scrollHeight > el.clientHeight;
+    const abajo = !hayEspacio || distanciaAlFinal < UMBRAL_FINAL_CHAT;
 
-    // Botón "ir al final" y contador
-    if (hayEspacio && distanciaAlFinal > 200) {
-      setMostrarBotonChat((prev) => prev ? prev : true);
-    } else {
-      setMostrarBotonChat((prev) => prev ? false : prev);
-      setNuevosSinVer((prev) => prev ? 0 : prev);
-    }
+    // Ref primero: el listener del socket lo consulta en cualquier momento.
+    estaAbajoRef.current = abajo;
+    setMostrarBotonChat(!abajo);
+
+    // El contador se borra SOLO al llegar al final. Antes se reseteaba en
+    // cualquier evento de scroll, así que scrollear arriba o abajo borraba
+    // el "+N" sin que el usuario hubiera leído nada. El +1 vive únicamente
+    // en el listener 'nuevo-mensaje'.
+    if (abajo) setNuevosSinVer(0);
+    setMenuResponder(null);
 
     // Cargar mensajes antiguos al llegar arriba (scrollTop < 80px)
     if (el.scrollTop < 80 && hayEspacio && !cargandoAnteriores && !sinMasMensajes) {
@@ -443,8 +548,163 @@ const GestorEquipos = () => {
     if (!chatRef.current) return;
     const el = chatRef.current;
     el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+    estaAbajoRef.current = true;
     setMostrarBotonChat(false);
     setNuevosSinVer(0);
+  }, []);
+
+  /* ---------------- Responder mensajes (estilo WhatsApp) ---------------- */
+
+  const iniciarRespuesta = useCallback((msg) => {
+    setRespondiendoA(msg);
+    setMenuResponder(null);
+    // El foco al input hace que el usuario pueda escribir de inmediato.
+    requestAnimationFrame(() => document.getElementById('chat-input')?.focus());
+  }, []);
+
+  const cancelarRespuesta = useCallback(() => setRespondiendoA(null), []);
+
+  // Clic derecho sobre una burbuja: abre el mini-menú de "Responder".
+  const abrirMenuResponder = useCallback((e, msg) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Acotamos contra el viewport: sin esto, un clic cerca del borde inferior
+    // abre el menú fuera de la pantalla.
+    const ANCHO = 176;
+    const ALTO = 48;
+    setMenuResponder({
+      msg,
+      x: Math.min(e.clientX, window.innerWidth - ANCHO - 8),
+      y: Math.min(e.clientY, window.innerHeight - ALTO - 8),
+    });
+  }, []);
+
+  // El menú es flotante y vive en un overlay; cualquier click fuera lo cierra.
+  useEffect(() => {
+    if (!menuResponder) return;
+    const cerrar = () => setMenuResponder(null);
+    const onKey = (e) => { if (e.key === 'Escape') cerrar(); };
+    window.addEventListener('click', cerrar);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('click', cerrar);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [menuResponder]);
+
+  // Borrado de mensajes. La autorización real la hace el backend (rol 'admin'
+  // dentro de ese equipo); esto es solo la UI.
+  const confirmarBorrar = useCallback(async () => {
+    if (!mensajeABorrar?.mensaje_id) return;
+    const id = mensajeABorrar.mensaje_id;
+    setMensajeABorrar(null);
+    try {
+      await api.delete(`${API_URL}/chat/mensajes/${id}`);
+      setMensajes((prev) => prev.filter((m) => m.mensaje_id !== id));
+      setRespondiendoA((prev) => (prev?.mensaje_id === id ? null : prev));
+    } catch (err) {
+      if (err.response?.status === 403) {
+        toast.error('Solo el administrador del equipo puede borrar mensajes');
+      } else if (err.response?.status === 404) {
+        toast.error('El mensaje ya no existe');
+      } else {
+        toast.error('Error al borrar el mensaje');
+      }
+    }
+  }, [mensajeABorrar]);
+
+  // Sube al mensaje citado. Busca por id en el DOM ya renderizado.
+  const irAlMensaje = useCallback((mensajeId) => {
+    const el = chatRef.current?.querySelector(`[data-msg-id="${mensajeId}"]`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // Destello para que el usuario ubique el mensaje entre el historial.
+    el.classList.add('ev-msg-resaltada');
+    setTimeout(() => el.classList.remove('ev-msg-resaltada'), 1400);
+  }, []);
+
+  /* ---------------- Buscador de mensajes ---------------- */
+
+  // Índices de los mensajes que contienen la consulta, en orden cronológico.
+  // Busca también en el texto citado: si alguien te respondsió con una
+  // palabra, quieres poder encontrarla desde su mensaje original.
+  const coincidencias = useMemo(() => {
+    const q = busquedaChat.trim().toLowerCase();
+    if (!q) return [];
+    const out = [];
+    mensajes.forEach((m, i) => {
+      const propio = (m.texto || '').toLowerCase();
+      const citado = (m.respuesta_texto || '').toLowerCase();
+      if (propio.includes(q) || citado.includes(q)) out.push(i);
+    });
+    return out;
+  }, [mensajes, busquedaChat]);
+
+  // Parte el texto en segmentos y envuelve las coincidencias en <mark>.
+  // Usa indexOf y no RegExp a propósito: lo que escribe el usuario se iría
+  // directo al patrón, y sin escapar un "(" revienta la búsqueda.
+  const resaltar = (texto, claveActiva) => {
+    const q = busquedaChat.trim();
+    if (!q || !texto) return texto;
+    const bajo = texto.toLowerCase();
+    const aguja = q.toLowerCase();
+    const out = [];
+    let i = 0;
+    let n = 0;
+    while (i < bajo.length) {
+      const p = bajo.indexOf(aguja, i);
+      if (p === -1) { out.push(texto.slice(i)); break; }
+      if (p > i) out.push(texto.slice(i, p));
+      const esActiva = claveActiva === n;
+      out.push(
+        <mark key={`${p}-${n}`} className={`ev-coincidencia${esActiva ? ' ev-coincidencia-activa' : ''}`}>
+          {texto.slice(p, p + aguja.length)}
+        </mark>
+      );
+      i = p + aguja.length;
+      n += 1;
+    }
+    return out;
+  };
+
+  // Con socket pueden llegar mensajes y la lista de coincidencias cambia
+  // sola, así que el índice se acota para no salirse de rango.
+  const totalCoincidencias = coincidencias.length;
+  const indiceSeguro = totalCoincidencias
+    ? Math.min(coincidenciaActual, totalCoincidencias - 1)
+    : 0;
+
+  const moverCoincidencia = useCallback((delta) => {
+    if (!totalCoincidencias) return;
+    const base = Math.min(coincidenciaActual, totalCoincidencias - 1);
+    // Módulo para que en los extremos siga dando la vuelta.
+    setCoincidenciaActual((base + delta + totalCoincidencias) % totalCoincidencias);
+  }, [coincidenciaActual, totalCoincidencias]);
+
+  // Salta al mensaje de la coincidencia activa.
+  useEffect(() => {
+    if (!totalCoincidencias) return;
+    const msg = mensajes[coincidencias[Math.min(coincidenciaActual, totalCoincidencias - 1)]];
+    if (!msg?.mensaje_id) return;
+    const el = chatRef.current?.querySelector(`[data-msg-id="${msg.mensaje_id}"]`);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [coincidencias, coincidenciaActual, mensajes, totalCoincidencias]);
+
+  // Cada cambio de texto vuelve a la primera coincidencia.
+  useEffect(() => {
+    setCoincidenciaActual(0);
+  }, [busquedaChat]);
+
+  const cerrarBuscador = useCallback(() => {
+    setBuscadorAbierto(false);
+    setBusquedaChat('');
+    setCoincidenciaActual(0);
+  }, []);
+
+  const abrirBuscador = useCallback(() => {
+    setBuscadorAbierto(true);
+    setCoincidenciaActual(0);
+    requestAnimationFrame(() => document.getElementById('chat-buscar')?.focus());
   }, []);
 
   useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
@@ -751,6 +1011,10 @@ const GestorEquipos = () => {
     setFiltroMiembro('todos');
     setFiltroFecha('');
     setBusqueda('');
+    setRespondiendoA(null);
+    setMenuResponder(null);
+    setBuscadorAbierto(false);
+    setBusquedaChat('');
     socketRef.current?.emit('unirse-equipo', equipoId);
 
     // Guarda de carrera: si el usuario cambia de equipo antes de que terminen
@@ -783,6 +1047,10 @@ const GestorEquipos = () => {
     setMiembros([]);
     chatAbiertoRef.current = false;
     setMensajesNoLeidos(0);
+    setRespondiendoA(null);
+    setMenuResponder(null);
+    setBuscadorAbierto(false);
+    setBusquedaChat('');
     setSidebarMovil(false);
     setVista('dashboard');
   };
@@ -928,9 +1196,17 @@ const GestorEquipos = () => {
   const enviarMensaje = async () => {
     if (!nuevoMensaje.trim()) return;
     const texto = nuevoMensaje;
+    const citaMsg = respondiendoA;
+    const cita = citaMsg?.mensaje_id ?? null;
     setNuevoMensaje('');
+    setRespondiendoA(null);
     try {
-      const res = await api.post(`${API_URL}/chat/enviar`, { equipo_id: equipoActivo.equipo_id, usuario_id: usuario, texto });
+      const res = await api.post(`${API_URL}/chat/enviar`, {
+        equipo_id: equipoActivo.equipo_id,
+        usuario_id: usuario,
+        texto,
+        respuesta_a: cita,
+      });
       setMensajes((prev) => agregarMensaje(res.data, prev));
       if (res.data.censurado) {
         try {
@@ -939,6 +1215,7 @@ const GestorEquipos = () => {
       }
     } catch (err) {
       setNuevoMensaje(texto);
+      setRespondiendoA(citaMsg); // si falló, la respuesta sigue en pie
       if (err.response?.status === 403) {
         toast.error('No eres miembro de este equipo');
       } else {
@@ -1912,23 +2189,100 @@ const GestorEquipos = () => {
           aria-live="polite"
           aria-label="Chat del equipo"
         >
-          <div className="p-4 border-b border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 min-w-0">
-              <Icono nombre="chat" className="w-4 h-4 text-blue-600 shrink-0" />
-              <h2 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 truncate">Chat del equipo</h2>
+          {/* El header se convierte en el buscador al activarlo: en 340px de
+              panel no caben el título y un campo a la vez sin que uno estorbe. */}
+          {buscadorAbierto ? (
+            <div className="px-3 py-2.5 border-b border-slate-200/70 dark:border-slate-700/70 flex items-center gap-2">
+              <span className="text-slate-400 shrink-0 pointer-events-none">
+                <Icono nombre="buscar" className="w-4 h-4" />
+              </span>
+              <input
+                id="chat-buscar"
+                type="text"
+                value={busquedaChat}
+                onChange={(e) => setBusquedaChat(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') { e.preventDefault(); moverCoincidencia(e.shiftKey ? -1 : 1); }
+                  if (e.key === 'ArrowDown') { e.preventDefault(); moverCoincidencia(1); }
+                  if (e.key === 'ArrowUp') { e.preventDefault(); moverCoincidencia(-1); }
+                  if (e.key === 'Escape') { e.preventDefault(); cerrarBuscador(); }
+                }}
+                placeholder="Buscar en el chat..."
+                aria-label="Buscar mensajes"
+                className="flex-1 min-w-0 px-2 py-1.5 bg-transparent text-sm outline-none text-slate-800 dark:text-slate-100 placeholder:text-slate-400"
+              />
+              <button
+                type="button"
+                onClick={cerrarBuscador}
+                className="ev-focusable grid place-items-center w-7 h-7 shrink-0 rounded-lg text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+                aria-label="Cerrar buscador"
+              >
+                <Icono nombre="cerrar" className="w-4 h-4" />
+              </button>
             </div>
-            <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 shrink-0">{mensajes.length} mensajes</span>
-            <button
-              type="button"
-              onClick={cerrarChatMovil}
-              className="ev-focusable xl:hidden grid place-items-center w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:bg-slate-700 transition-colors shrink-0"
-              aria-label="Cerrar chat"
-            >
-              <Icono nombre="cerrar" className="w-4 h-4" />
-            </button>
-          </div>
+          ) : (
+            <div className="p-4 border-b border-slate-200/70 dark:border-slate-700/70 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2 min-w-0">
+                <Icono nombre="chat" className="w-4 h-4 text-blue-600 shrink-0" />
+                <h2 className="font-extrabold text-sm text-slate-900 dark:text-slate-100 truncate">Chat del equipo</h2>
+              </div>
+              <button
+                type="button"
+                onClick={abrirBuscador}
+                className="ev-focusable grid place-items-center w-8 h-8 rounded-lg text-slate-400 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/15 transition-colors shrink-0"
+                aria-label="Buscar mensajes"
+                title="Buscar mensajes"
+              >
+                <Icono nombre="buscar" className="w-4 h-4" />
+              </button>
+              <span className="text-[10px] font-bold text-slate-400 dark:text-slate-400 shrink-0">{mensajes.length} mensajes</span>
+              <button
+                type="button"
+                onClick={cerrarChatMovil}
+                className="ev-focusable xl:hidden grid place-items-center w-9 h-9 rounded-lg bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:bg-slate-700 transition-colors shrink-0"
+                aria-label="Cerrar chat"
+              >
+                <Icono nombre="cerrar" className="w-4 h-4" />
+              </button>
+            </div>
+          )}
 
-          <div ref={chatRef} className="flex-1 overflow-y-auto p-4 space-y-3 relative" onScroll={handleChatScroll}>
+          {/* Navegación entre coincidencias */}
+          {buscadorAbierto && busquedaChat.trim() && (
+            <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-50 dark:bg-slate-900/60 border-b border-slate-200/70 dark:border-slate-700/70 ev-burbuja">
+              <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 truncate">
+                {totalCoincidencias === 0
+                  ? 'Sin coincidencias'
+                  : `${indiceSeguro + 1} de ${totalCoincidencias}`}
+              </span>
+              <div className="flex items-center gap-1 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => moverCoincidencia(-1)}
+                  disabled={!totalCoincidencias}
+                  className="ev-focusable grid place-items-center w-6 h-6 rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  aria-label="Coincidencia anterior"
+                >
+                  <Icono nombre="volver" className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => moverCoincidencia(1)}
+                  disabled={!totalCoincidencias}
+                  className="ev-focusable grid place-items-center w-6 h-6 rounded-md text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                  aria-label="Coincidencia siguiente"
+                >
+                  <Icono nombre="siguiente" className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* El relative vive acá y no en el <aside>: el botón flotante se
+              ancla al área de mensajes, así no depende de la altura del
+              composer ni de si el chat es panel fijo o drawer móvil. */}
+          <div className="relative flex-1 min-h-0">
+          <div ref={chatRef} className="h-full overflow-y-auto p-4 space-y-3" onScroll={handleChatScroll}>
             {mensajes.length === 0 ? (
               <div className="h-full grid place-items-center text-center">
                 <div>
@@ -1973,6 +2327,17 @@ const GestorEquipos = () => {
 
                 const keyMsg = msg.mensaje_id || `msg-${i}`;
 
+                // Posición de este mensaje dentro de la lista de
+                // coincidencias, o -1. Solo una coincide a la vez; el
+                // resaltado se actualiza solo porque la lista cambia
+                // cuando cambia la consulta.
+                const posCoincidencia = busquedaChat.trim()
+                  ? coincidencias.indexOf(i)
+                  : -1;
+
+                // Foto del autor, ya normalizada. null = toca iniciales.
+                const fotoAutor = urlFoto(msg.autor_foto);
+
                 return (
                   <React.Fragment key={keyMsg}>
                     {mostrarSeparador && (
@@ -1984,18 +2349,91 @@ const GestorEquipos = () => {
                         <div className="flex-1 border-t border-slate-200/50 dark:border-slate-700/50" />
                       </div>
                     )}
-                    <div className={`flex gap-2.5 ${mio ? 'justify-end' : 'justify-start'}`}>
+                    <div
+                      data-msg-id={msg.mensaje_id}
+                      className={`group flex gap-2.5 ${mio ? 'justify-end' : 'justify-start'}`}
+                      onContextMenu={(e) => abrirMenuResponder(e, msg)}
+                    >
                       {!mio && (
-                        <span className={`ev-avatar grid place-items-center w-8 h-8 rounded-full text-white text-xs font-bold shrink-0 ${agrupado ? 'opacity-0' : `bg-gradient-to-br ${tonoDesdeNombre(msg.autor_nombre)}`}`}>
-                          {(msg.autor_nombre || '?').charAt(0).toUpperCase()}
+                        <span className={`ev-avatar relative grid place-items-center w-8 h-8 rounded-full text-white text-xs font-bold shrink-0 overflow-hidden ${agrupado ? 'opacity-0' : `bg-gradient-to-br ${tonoDesdeNombre(msg.autor_nombre)}`}`}>
+                          {/* Foto si hay; si la URL está rota (varias filas de
+                              usuarios apuntan a default-avatar.png, que no
+                              existe) el onError destapa las iniciales de abajo. */}
+                          {fotoAutor && (
+                            <img
+                              src={fotoAutor}
+                              alt=""
+                              aria-hidden="true"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                              className="absolute inset-0 w-full h-full object-cover"
+                            />
+                          )}
+                          <span className="relative">{(msg.autor_nombre || '?').charAt(0).toUpperCase()}</span>
                         </span>
                       )}
-                      <div className={`max-w-[85%] ${agrupado ? '' : 'ev-burbuja'}`}>
+                      <div className={`max-w-[85%] relative ${agrupado ? '' : 'ev-burbuja'}`}>
                         {!mio && !agrupado && (
                           <p className="text-xs font-bold text-blue-600 mb-1">{msg.autor_nombre}</p>
                         )}
                         <div className={`px-3.5 py-2.5 rounded-2xl ${mio ? 'bg-blue-600 hover:bg-blue-700 text-white rounded-br-md' : 'bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-200 border border-slate-200 dark:border-slate-700 rounded-bl-md'}`}>
-                          <p className="text-sm leading-relaxed break-words">{msg.texto}</p>
+                          {/* Acciones sobre la burbuja. Van sobre la esquina en vez de como
+                              hermanos del flex: el panel es de 340px y sumarle
+                              el ancho del avatar lo desbordaba. En escritorio
+                              solo aparecen al hover; en móvil siempre, porque
+                              no hay hover. */}
+                          <div className="absolute -top-2 -right-2 z-10 flex items-center gap-1">
+                            {soyAdminEquipo && (
+                              <button
+                                type="button"
+                                onClick={() => setMensajeABorrar(msg)}
+                                className="ev-focusable grid place-items-center w-7 h-7 rounded-full bg-white dark:bg-slate-800 text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/20 border border-slate-200 dark:border-slate-600 shadow-sm hover:shadow-md transition-all xl:opacity-0 xl:scale-90 xl:group-hover:opacity-100 xl:group-hover:scale-100"
+                                aria-label={`Borrar el mensaje de ${msg.autor_nombre || 'este usuario'}`}
+                                title="Borrar mensaje"
+                              >
+                                <Icono nombre="basura" className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => iniciarRespuesta(msg)}
+                              className="ev-focusable grid place-items-center w-7 h-7 rounded-full bg-white dark:bg-slate-800 text-slate-400 hover:text-blue-600 border border-slate-200 dark:border-slate-600 shadow-sm hover:shadow-md transition-all xl:opacity-0 xl:scale-90 xl:group-hover:opacity-100 xl:group-hover:scale-100"
+                              aria-label={`Responder a ${msg.autor_nombre || 'este mensaje'}`}
+                              title="Responder"
+                            >
+                              <Icono nombre="responder" className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          {/* Cita del mensaje original, si esta es una respuesta */}
+                          {msg.respuesta_a && (
+                            <button
+                              type="button"
+                              onClick={() => irAlMensaje(msg.respuesta_a)}
+                              className={`ev-focusable block w-full text-left mb-1.5 py-1.5 pl-2.5 pr-2 rounded-lg border-l-[3px] transition-colors ${
+                                mio
+                                  ? 'bg-white/15 border-white/60 hover:bg-white/25'
+                                  : 'bg-slate-50 dark:bg-slate-800/60 border-blue-400 dark:border-blue-500 hover:bg-slate-100 dark:hover:bg-slate-800'
+                              }`}
+                            >
+                              <p className={`text-[11px] font-bold truncate ${mio ? 'text-white' : 'text-blue-600 dark:text-blue-300'}`}>
+                                {msg.respuesta_autor_nombre || 'Mensaje eliminado'}
+                              </p>
+                              <p className={`text-xs truncate ${mio ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'}`}>
+                                {/* El buscador también mira el texto citado, así que
+                                    se resalta igual que el cuerpo del mensaje. */}
+                                {msg.respuesta_texto
+                                  ? resaltar(msg.respuesta_texto, posCoincidencia === indiceSeguro ? 0 : -1)
+                                  : 'Mensaje eliminado'}
+                              </p>
+                            </button>
+                          )}
+                          <p className="text-sm leading-relaxed break-words">
+                            {/* En el mensaje activo se pinta la primera
+                                coincidencia en naranja; `resaltar` cuenta
+                                por mensaje, no globalmente. */}
+                            {posCoincidencia >= 0
+                              ? resaltar(msg.texto, posCoincidencia === indiceSeguro ? 0 : -1)
+                              : msg.texto}
+                          </p>
                         </div>
                         <p className={`mt-1 text-[10px] text-slate-400 dark:text-slate-400 ${mio ? 'text-right' : ''}`}>
                           {fechaMsg.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
@@ -2008,27 +2446,56 @@ const GestorEquipos = () => {
             </>          )}
           </div>
 
-          {/* Botón "ir al final" flotante */}
+          {/* Botón "ir al final": oculto cuando ya estás en el último mensaje,
+              visible al subir. Antes se anclaba con absolute al viewport
+              porque ningún ancestro tenía position: relative. */}
           {mostrarBotonChat && (
             <button
               type="button"
               onClick={irAlFinalChat}
-              className="ev-scroll-abajo ev-focusable absolute bottom-4 right-4 z-10 flex items-center gap-1.5 px-3 py-2 rounded-full bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium shadow-lg shadow-blue-600/30"
-              aria-label="Ir al último mensaje"
+              className="ev-scroll-abajo ev-focusable absolute bottom-3 right-3 z-10 flex items-center gap-1.5 pl-2.5 pr-3 py-2 rounded-full bg-blue-600 hover:bg-blue-700 active:scale-95 text-white shadow-lg shadow-blue-600/40 transition-transform"
+              aria-label={nuevosSinVer > 0 ? `Ir al último mensaje (${nuevosSinVer} sin ver)` : 'Ir al último mensaje'}
             >
               <Icono nombre="abajo" className="w-4 h-4" />
-              <span className="hidden sm:inline">{nuevosSinVer > 0 ? `+${nuevosSinVer}` : 'Final'}</span>
+              {nuevosSinVer > 0 && <span className="text-xs font-bold tabular-nums">{nuevosSinVer}</span>}
             </button>
           )}
+          </div>
 
-          <div className="p-3 border-t border-slate-200/70 dark:border-slate-700/70">
+          {/* Vista previa de la respuesta, sobre el input (como WhatsApp) */}
+          {respondiendoA && (
+            <div className="flex items-start gap-2.5 mx-3 mb-2 p-2.5 rounded-xl bg-blue-50 dark:bg-blue-500/10 border border-blue-200 dark:border-blue-500/30 ev-burbuja">
+              <Icono nombre="responder" className="w-4 h-4 mt-0.5 shrink-0 text-blue-500" />
+              <button
+                type="button"
+                onClick={() => irAlMensaje(respondiendoA.mensaje_id)}
+                className="flex-1 min-w-0 text-left ev-focusable"
+              >
+                <p className="text-[11px] font-bold text-blue-600 dark:text-blue-300 truncate">
+                  Respondiendo a {respondiendoA.autor_nombre || '—'}
+                </p>
+                <p className="text-xs text-slate-500 dark:text-slate-400 truncate">{respondiendoA.texto}</p>
+              </button>
+              <button
+                type="button"
+                onClick={cancelarRespuesta}
+                className="ev-focusable grid place-items-center w-6 h-6 shrink-0 rounded-md text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+                aria-label="Cancelar respuesta"
+              >
+                <Icono nombre="cerrar" className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+
+          <div className="p-3 border-t border-slate-200/70 dark:border-slate-700/70 pt-0">
             <div className="flex gap-2">
               <input
+                id="chat-input"
                 type="text"
                 value={nuevoMensaje}
                 onChange={(e) => setNuevoMensaje(e.target.value)}
                 onKeyDown={(e) => { if (e.key === 'Enter') enviarMensaje(); }}
-                placeholder="Escribe un mensaje..."
+                placeholder={respondiendoA ? `Respondiendo a ${respondiendoA.autor_nombre || '...'}` : 'Escribe un mensaje...'}
                 aria-label="Mensaje de chat"
                 maxLength={500}
                 className="ev-field flex-1 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-500/20"
@@ -2043,8 +2510,45 @@ const GestorEquipos = () => {
                 <Icono nombre="enviar" className="w-4 h-4" />
               </button>
             </div>
+
+            {/* Zona destructiva, separada de las acciones del día a día.
+                Enlace y no botón/icono: a 340px un icono de papelera junto
+                al buscador se pulsaría por accidente. */}
+            {soyAdminEquipo && mensajes.length > 0 && (
+              <div className="mt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => setModalVaciar(true)}
+                  className="ev-focusable text-[11px] font-semibold text-red-500/80 hover:text-red-600 dark:text-red-400/80 dark:hover:text-red-300 hover:underline transition-colors"
+                >
+                  Vaciar chat del equipo
+                </button>
+              </div>
+            )}
           </div>
         </aside>
+
+        {/* Menú contextual de "Responder" (clic derecho sobre un mensaje).
+            Va fuera del <aside> para poder posicionarse en coordenadas de
+            pantalla y no quedar recortado por el panel. */}
+      {menuResponder && (
+        <div
+          className="fixed z-[60] ev-menu-chat"
+          style={{ left: menuResponder.x, top: menuResponder.y }}
+          onClick={(e) => e.stopPropagation()}
+          role="menu"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => iniciarRespuesta(menuResponder.msg)}
+            className="ev-focusable flex items-center gap-2.5 w-full px-3.5 py-2.5 text-sm font-medium text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors"
+          >
+            <Icono nombre="responder" className="w-4 h-4 text-blue-500" />
+            Responder
+          </button>
+        </div>
+      )}
       </div>
 
       {/* ---------------- MODAL CREAR TAREA ---------------- */}
@@ -2293,6 +2797,91 @@ const GestorEquipos = () => {
             <div className="mt-6 flex gap-3">
               <button type="button" onClick={() => setTareaAEliminar(null)} className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:bg-slate-700 transition-colors">Cancelar</button>
               <button type="button" onClick={() => { eliminarTarea(tareaAEliminar.tarea_id); setTareaAEliminar(null); }} className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 transition-colors">Eliminar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- CONFIRMAR BORRADO DE MENSAJE ---------------- */}
+      {mensajeABorrar && (
+        <div className="fixed inset-0 bg-slate-900/40 grid place-items-center p-4 z-50 ev-overlay" onClick={() => setMensajeABorrar(null)}>
+          <div className="ev-panel-glass rounded-2xl w-full max-w-sm p-6 ev-modal" onClick={(e) => e.stopPropagation()} role="alertdialog" aria-modal="true" aria-label="Confirmar borrado de mensaje">
+            <span className="mx-auto grid place-items-center w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-500/15 text-red-500">
+              <Icono nombre="basura" className="w-6 h-6" />
+            </span>
+            <h2 className="mt-4 text-center font-extrabold text-slate-900 dark:text-slate-100 text-lg">Borrar mensaje</h2>
+            <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">
+              ¿Seguro que quieres borrar el mensaje de{' '}
+              <span className="font-bold text-slate-700 dark:text-slate-300">{mensajeABorrar.autor_nombre || 'este usuario'}</span>?
+            </p>
+            <div className="mt-3 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/60 max-h-24 overflow-y-auto">
+              <p className="text-xs text-slate-600 dark:text-slate-300 break-words">{mensajeABorrar.texto}</p>
+            </div>
+            <p className="mt-3 text-center text-xs text-red-600 dark:text-red-400 font-semibold">
+              Desaparece para todos y no se puede deshacer.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button type="button" onClick={() => setMensajeABorrar(null)} className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:bg-slate-700 transition-colors">Cancelar</button>
+              <button type="button" onClick={confirmarBorrar} className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 transition-colors">Borrar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- VACIAR HISTORIAL DEL EQUIPO ---------------- */}
+      {modalVaciar && (
+        <div className="fixed inset-0 bg-slate-900/50 grid place-items-center p-4 z-50 ev-overlay" onClick={cerrarModalVaciar}>
+          <div
+            className="ev-panel-glass rounded-2xl w-full max-w-sm p-6 ev-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="titulo-vaciar"
+          >
+            <span className="mx-auto grid place-items-center w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-500/15 text-red-500">
+              <Icono nombre="basura" className="w-6 h-6" />
+            </span>
+            <h2 id="titulo-vaciar" className="mt-4 text-center font-extrabold text-slate-900 dark:text-slate-100 text-lg">
+              Vaciar el chat de {equipoActivo?.nombre}
+            </h2>
+            <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">
+              Se borrarán los <span className="font-bold text-slate-700 dark:text-slate-300">{mensajes.length} mensajes</span> del historial
+              {' '}para <span className="font-bold text-slate-700 dark:text-slate-300">todos los miembros</span>, incluidos los que no has cargado aún.
+            </p>
+            <p className="mt-3 text-center text-xs text-red-600 dark:text-red-400 font-semibold">
+              Esta acción no se puede deshacer.
+            </p>
+
+            <label className="block mt-5 text-xs font-semibold text-slate-600 dark:text-slate-300 text-center">
+              Escribe <span className="font-black text-red-600 dark:text-red-400">BORRAR</span> para confirmar
+            </label>
+            <input
+              type="text"
+              value={confirmacionVaciar}
+              onChange={(e) => setConfirmacionVaciar(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter' && confirmacionVaciar.trim().toUpperCase() === 'BORRAR') vaciarHistorial(); }}
+              placeholder="BORRAR"
+              aria-label="Escribe BORRAR para confirmar"
+              autoComplete="off"
+              className="ev-field w-full mt-2 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-center text-sm font-bold tracking-widest outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/20"
+            />
+
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={cerrarModalVaciar}
+                className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={vaciarHistorial}
+                disabled={confirmacionVaciar.trim().toUpperCase() !== 'BORRAR'}
+                className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-600 transition-colors"
+              >
+                Vaciar todo
+              </button>
             </div>
           </div>
         </div>

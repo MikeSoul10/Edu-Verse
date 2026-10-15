@@ -57,6 +57,23 @@ Una palabra bloqueada **solo dispara si está delimitada** por no-alfanuméricos
 | `computadora` | ✗ | `puta` es subcadena, `o`/`d` son alfanuméricos |
 | `puta3` | ✗ | `3` es alfanumérico |
 | `PUTA` | ✓ | normaliza a minúsculas |
+| `putote` | ✓ | **entrada propia obligatoria** (ver abajo) |
+| `putito` | ✓ | **entrada propia obligatoria** (ver abajo) |
+| `jotito` | ✓ | **entrada propia obligatoria** (ver abajo) |
+| `reputado` | ✗ | `puta` es subcadena, `d`/`o` son alfanuméricos |
+| `putes` | ✗ | no está en la lista |
+
+### Por qué cada variante necesita su propia entrada
+
+El límite de palabra es lo que evita los falsos positivos, pero también
+impide que las variantes se hereden. En `putote`, el `puto` interno queda
+descartado porque la `t` siguiente es alfanumérica; en `putito` ni siquiera
+aparece la subcadena. Sin entradas propias, `putito`, `putote` y `jotito`
+pasaban **sin censurar** aunque `puto` ya estuviera bloqueado.
+
+Por eso no se cuelan términos cortos o ambiguos aunque sean vulgares en
+otros contextos: `huevo`/`huevos` (aquí es "huevo", el alimento) y `concha`
+se dejan fuera a propósito. Sí están `huevon`, `huevona` y `huevones`.
 
 Esto evita falsos positivos en palabras compuestas técnicas (`computadora`,
 `reputación`, `input`, `output`, etc.).
@@ -95,7 +112,15 @@ Si se quiere tapar todo, habría que cambiar la máscara a longitud fija
 mierda, mierdas
 cagar, cagada, cagadas, cagon, cagones, cagona, cagonas
 puta, puto, putas, putos, puton, putona, putones, putonas
+putito, putita, putitos, putitas
+putote, putotes
+putazo, putazos
+putear, puteada, puteadas, puteando, puteo
 joder, jodido, jodidos, jodida, jodidas, jodes
+jotido, jotida, jotidos, jotidas
+jotito, jotita, jotitos, jotitas
+jodito, jodita, joditos, joditas
+jodete
 carajo, carajos
 verga, vergas
 polla, pollas, pola, polas
@@ -187,18 +212,43 @@ router.get('/:equipo_id', verificarToken, async (req, res) => {
 Cuando `filtrado.censurado === true`:
 
 ```sql
-INSERT INTO moderacion_logs (usuario_id, equipo_id, palabras_bloqueadas, sustituciones)
-VALUES ($1, $2, $3, $4);
+INSERT INTO moderacion_logs (usuario_id, equipo_id, palabras_bloqueadas, sustituciones, accion, detalle)
+VALUES ($1, $2, $3, $4, 'censo', NULL);
 ```
 
 - `palabras_bloqueadas`: lista única separada por comas (`puta, mierda`).
 - `sustituciones`: contador total de ocurrencias en el mensaje.
+- `accion` / `detalle`: agregados en `migracion_chat_vaciado.sql` para
+  distinguir este caso del vaciado de historial (§9). El backfill de esa
+  migración marca las filas anteriores como `'censo'`.
 - Usa `SAVEPOINT mod` + `RELEASE` / `ROLLBACK TO mod` → **un fallo en el log
   nunca tira la transacción del mensaje**. El mensaje se guarda aunque el log falle.
 
 Endpoint admin: `GET /admin/moderacion` (requiere rol `admin`) devuelve
 últimos 100 con `usuario_nombre`, `equipo_nombre`, `palabras_bloqueadas`,
-`sustituciones`, `fecha`.
+`sustituciones`, `accion`, `detalle`, `fecha`.
+
+---
+
+## 9. Registro de acciones del admin sobre el chat
+
+Además del filtro, `moderacion_logs` guarda lo que el admin del equipo borra.
+`accion` distingue el motivo y `detalle` guarda el dato variable de cada caso.
+
+| `accion` | Quién la escribe | `palabras_bloqueadas` | `detalle` |
+|---|---|---|---|
+| `censo` | filtro de groserías, automático | palabras censuradas | `NULL` |
+| `chat_vaciado` | `DELETE /chat/historial/:equipo_id` | `NULL` | `"N mensaje(s)"` |
+
+### Diferencias de transacciones entre ambos caminos
+
+- **Censura**: `SAVEPOINT` → si el log falla, el mensaje **igual se guarda**.
+- **Vaciado**: el `DELETE` y el `INSERT` del log van en la **misma transacción**.
+  Si no se puede escribir el registro, el vaciado **tampoco se ejecuta**.
+
+La diferencia es deliberada: perder un registro de censura es aceptable (el
+mensaje ya quedó enmascarado en la base), pero vaciar el historial completo de
+un equipo **siempre** debe dejar rastro de quién lo hizo.
 
 ---
 

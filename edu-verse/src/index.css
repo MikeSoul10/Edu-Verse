@@ -716,17 +716,64 @@
   to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
-/* Botón "ir al final" del chat: flotante, con animación de entrada/salida */
+/* Botón "ir al final" del chat: flotante, con animación de entrada */
 .ev-scroll-abajo {
-  opacity: 0;
-  transform: translateY(16px) scale(0.9);
-  pointer-events: none;
   animation: ev-scroll-abajo-in 200ms var(--ev-ease-out) forwards;
 }
 
 @keyframes ev-scroll-abajo-in {
   from { opacity: 0; transform: translateY(16px) scale(0.9); }
   to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Menú contextual de "Responder" (clic derecho en una burbuja) */
+.ev-menu-chat {
+  min-width: 11rem;
+  transform: translate(4px, 4px);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgb(226 232 240);
+  box-shadow: 0 10px 25px -5px rgb(15 23 42 / 0.18);
+  animation: ev-menu-chat-in 140ms var(--ev-ease-out) both;
+}
+
+.dark .ev-menu-chat {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+@keyframes ev-menu-chat-in {
+  from { opacity: 0; transform: translate(4px, 0) scale(0.97); }
+  to   { opacity: 1; transform: translate(4px, 4px) scale(1); }
+}
+
+/* Destello del mensaje al que saltamos desde una cita */
+.ev-msg-resaltada > div {
+  animation: ev-msg-destello 1.4s var(--ev-ease-out);
+}
+
+@keyframes ev-msg-destello {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(59 130 246 / 0); }
+  20%      { box-shadow: 0 0 0 3px rgb(59 130 246 / 0.55); }
+}
+
+/* Resaltado del buscador de mensajes.
+   El color de texto es propio y no heredado: si heredara el blanco de las
+   burbujas propias (azules), sobre el fondo amarillo quedaría ilegible. */
+.ev-coincidencia {
+  background-color: rgb(253 224 71 / 0.85);
+  color: #1e293b;
+  border-radius: 3px;
+  padding: 0 1px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* La coincidencia por la que estás parado en la navegación */
+.ev-coincidencia-activa {
+  background-color: rgb(251 146 60 / 0.95);
+  box-shadow: 0 0 0 1px rgb(249 115 22 / 0.7);
 }
 
 /* Punto de "en linea" en el header */
@@ -1049,6 +1096,9 @@
   .ev-modal,
   .ev-burbuja,
   .skeleton,
+  .ev-scroll-abajo,
+  .ev-menu-chat,
+  .ev-msg-resaltada > div,
   .bar-grow,
   .bar-row,
   .animate-fade-in-up,

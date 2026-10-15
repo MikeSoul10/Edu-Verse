@@ -11,7 +11,18 @@ const PALABRAS_BLOQUEADAS = [
   'mierda', 'mierdas',
   'cagar', 'cagada', 'cagadas', 'cagon', 'cagones', 'cagona', 'cagonas',
   'puta', 'puto', 'putas', 'putos', 'puton', 'putona', 'putones', 'putonas',
+  // El filtro exige coincidencia de palabra completa, así que las variantes
+  // NO se heredan de "puto": en "putote" el "puto" interno cae por el límite
+  // de palabra y la frase pasaba sin censurar. Cada variante va su entrada.
+  'putito', 'putita', 'putitos', 'putitas',
+  'putote', 'putotes',
+  'putazo', 'putazos',
+  'putear', 'puteada', 'puteadas', 'puteando', 'puteo',
   'joder', 'jodido', 'jodidos', 'jodida', 'jodidas', 'jodes',
+  'jotido', 'jotida', 'jotidos', 'jotidas',
+  'jotito', 'jotita', 'jotitos', 'jotitas',
+  'jodito', 'jodita', 'joditos', 'joditas',
+  'jodete',
   'carajo', 'carajos',
   'verga', 'vergas',
   'polla', 'pollas', 'pola', 'polas',

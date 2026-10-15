@@ -1,0 +1,29 @@
+﻿const handleChatScroll = useCallback((e) => {
+    const el = e.currentTarget;
+    const distanciaAlFinal = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const hayEspacio = el.scrollHeight > el.clientHeight;
+
+    // Botón "ir al final" y contador
+    if (hayEspacio && distanciaAlFinal > 80) {
+      setMostrarBotonChat((prev) => prev ? prev : true);
+    } else {
+      setMostrarBotonChat((prev) => prev ? false : prev);
+      setNuevosSinVer((prev) => prev ? 0 : prev);
+    }
+
+    // Cargar mensajes antiguos al llegar arriba (scrollTop < 80px)
+    if (el.scrollTop < 80 && hayEspacio && !cargandoAnteriores && !sinMasMensajes) {
+      const primerMensaje = mensajes[0];
+      if (primerMensaje?.mensaje_id) {
+        // Guardar scrollHeight actual para restaurar posición después del prepend
+        const alturaAntes = el.scrollHeight;
+        setTimeout(() => {
+          if (chatRef.current) {
+            const diff = chatRef.current.scrollHeight - alturaAntes;
+            chatRef.current.scrollTop += diff;
+          }
+        }, 0);
+        cargarMensajesAnteriores(equipoActivoRef.current, primerMensaje.mensaje_id);
+      }
+    }
+  }, [cargandoAnteriores, sinMasMensajes, mensajes, equipoActivoRef, cargarMensajesAnte
