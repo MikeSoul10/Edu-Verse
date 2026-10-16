@@ -49,6 +49,18 @@ const UMBRAL_FINAL_CHAT = 80;
 // Frases del hero: rotan en la burbuja sobre la ilustracion del equipo.
 const FRASES_HERO = ['¡Juntos rendimos más! ', 'Reparte y avanza en equipo ', '¡Nunca estudies solo! ', 'Tareas claras, equipo fuerte '];
 
+// Letrero que sostiene la mascota del header de equipo. Mismo tono y mismo
+// ritmo que el hero, pero cortos: va al lado de la mascota y el header se
+// estrecha cuando se oculta el calendario.
+const FRASES_MASCOTA = [
+  'Hoy es día de trabajar',
+  '¡Vamos con todo!',
+  'Tarea tras tarea',
+  '¿Cómo vamos?',
+  '¡Sigue así!',
+  'Un paso más',
+];
+
 // Pilares del gestor, en vez de una lista de features vacia.
 const BENEFICIOS = [
   { texto: 'Tablero kanban', icono: 'tablero' },
@@ -230,6 +242,7 @@ const GestorEquipos = () => {
   const heroGlowRef = useRef(null);
   const heroRafRef = useRef(0);
   const [fraseHeroIdx, setFraseHeroIdx] = useState(0);
+  const [fraseMascotaIdx, setFraseMascotaIdx] = useState(0);
   const [tareasPorEquipo, setTareasPorEquipo] = useState({});
 
   // Cifras del dashboard. Se guardan aparte del valor final porque las
@@ -748,6 +761,18 @@ const GestorEquipos = () => {
     if (equipoActivo) return undefined;
     const interval = window.setInterval(() => {
       setFraseHeroIdx((prev) => (prev + 1) % FRASES_HERO.length);
+    }, INTERVALO_FRASE_HERO);
+    return () => window.clearInterval(interval);
+  }, [equipoActivo]);
+
+  // El letrero de la mascota es el caso contrario: solo existe DENTRO de un
+  // equipo, asi que el intervalo se arma cuando hay equipo activo y se apaga
+  // en la vista de equipos. Sin esta guarda correria en la pagina donde el
+  // letrero no esta en pantalla.
+  useEffect(() => {
+    if (!equipoActivo) return undefined;
+    const interval = window.setInterval(() => {
+      setFraseMascotaIdx((prev) => (prev + 1) % FRASES_MASCOTA.length);
     }, INTERVALO_FRASE_HERO);
     return () => window.clearInterval(interval);
   }, [equipoActivo]);
@@ -1273,7 +1298,13 @@ const GestorEquipos = () => {
 
   if (!equipoActivo) {
     return (
-      <div className="ev-bg-nexo min-h-[calc(100vh-64px)] font-['Fredoka',sans-serif] relative">
+      /* El alto del navbar NO es fijo: se arma con py-3.5 (28px) + el logo
+         (h-10 = 40px en movil, sm:h-11 = 44px en escritorio) + border-b (1px).
+         Eso da 69px en movil y 75px en escritorio. Estas clases tienen que
+         restar eso y no los 64px que usan el resto de paginas: con 64 la raiz
+         se pasaba 5-11px y aparecia un segundo scrollbar pegado al primero.
+         Si cambias el padding o la altura del logo en Navbar, ajusta aqui. */
+      <div className="ev-bg-nexo min-h-[calc(100vh-69px)] sm:min-h-[calc(100vh-75px)] font-['Fredoka',sans-serif] relative">
         <div className="ev-gridfield absolute inset-0 pointer-events-none" />
         <div className="relative max-w-6xl mx-auto px-4 sm:px-6 py-6 sm:py-12">
           <header
@@ -1326,7 +1357,7 @@ const GestorEquipos = () => {
                     {/* Aro decorativo detras de la imagen */}
                     <div aria-hidden="true" className="absolute inset-0 rounded-full bg-amber-300/20 blur-2xl scale-90 transition-opacity duration-300 group-hover:opacity-80" />
                     <img
-                      src="/Imagenes_Diseño/super_equipo.png"
+                      src="/Imagenes_Diseño/super_equipo_web.png"
                       alt="Equipo de estudiantes uniendose para trabajar en un proyecto. Crear un equipo nuevo."
                       className="ev-lift-mascota relative w-40 h-auto object-contain drop-shadow-2xl sm:w-56 lg:w-64"
                     />
@@ -1435,7 +1466,7 @@ const GestorEquipos = () => {
                   {/* Ilustracion del equipo */}
                   <div className="ev-float inline-block">
                     <img
-                      src="/Imagenes_Diseño/super_equipo.png"
+                      src="/Imagenes_Diseño/super_equipo_web.png"
                       alt=""
                       aria-hidden="true"
                       className="w-40 h-auto object-contain drop-shadow-xl sm:w-64"
@@ -1471,7 +1502,7 @@ const GestorEquipos = () => {
                 </div>
               </div>
             ) : (
-              <div className="grid gap-5 sm:grid-cols-2">
+              <div className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3">
                 {resumenGlobal.porEquipo.map(({ equipo: eq, total, avance, urgente }, i) => (
                   <button
                     key={eq.equipo_id}
@@ -1581,7 +1612,7 @@ const GestorEquipos = () => {
                   <div className="flex items-center gap-3.5">
                     <div className="ev-float shrink-0">
                       <img
-                        src="/Imagenes_Diseño/asustado.png"
+                        src="/Imagenes_Diseño/asustado_web.png"
                         alt=""
                         aria-hidden="true"
                         className="w-12 sm:w-16 h-auto object-contain drop-shadow-md"
@@ -1673,7 +1704,7 @@ const GestorEquipos = () => {
   /* ---------------- vista: dashboard del equipo ---------------- */
 
   return (
-    <div className="h-[calc(100vh-64px)] overflow-hidden bg-slate-50 dark:bg-slate-900 font-['Fredoka',sans-serif]">
+    <div className="h-[calc(100vh-69px)] sm:h-[calc(100vh-75px)] overflow-hidden bg-slate-50 dark:bg-slate-900 font-['Fredoka',sans-serif]">
       <div className="flex h-full">
         {sidebarMovil && <div className="fixed inset-0 bg-slate-900/40 z-40 lg:hidden ev-overlay" onClick={() => setSidebarMovil(false)} />}
         {chatMovil && <div className="fixed inset-0 bg-slate-900/40 z-40 xl:hidden ev-overlay" onClick={cerrarChatMovil} />}
@@ -1805,7 +1836,38 @@ const GestorEquipos = () => {
 
         {/* Contenido */}
         <div className="flex-1 min-w-0 flex flex-col overflow-y-auto">
-          <header className="ev-mesh text-white relative overflow-hidden">
+          <header className="ev-mesh text-white relative overflow-hidden shrink-0">
+            {/* Mascota. Va como hija DIRECTA del header y antes del div de
+                contenido: ese div es `relative`, asi que al entrar despues
+                pinta encima y la mascota queda de fondo.
+                pointer-events-none es obligatorio: sin esto la imagen
+                interceptaria los clicks de los tabs y los botones.
+                SIN translate-y a proposito: el recorte la dejaba partida a
+                la mitad. El alto depende de `calendarioVisible` porque el header cambia:
+                medido en la app va de 96px (calendario oculto) a 413px (visible).
+                Con un tamano fijo de 128px se pasaba 32px por arriba cuando el
+                calendario estaba apagado y el birrete salia cortado.
+                En movil se oculta (hidden lg:flex): ahi el calendario ocupa
+                casi todo el header y la fila de tabs+botones queda justo en la
+                zona inferior, donde la mascotita se montaba encima y tapaba
+                la pestana "Tablero". */}
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-0 z-0 hidden lg:flex items-end gap-3 pointer-events-none select-none">
+              <img
+                src="/Imagenes_Diseño/mascota_asomada_header.png"
+                alt=""
+                aria-hidden="true"
+                className={`object-contain drop-shadow-[0_10px_18px_rgba(0,0,0,0.25)] ${calendarioVisible ? 'h-32' : 'h-20'}`}
+              />
+              {/* El `key` re-dispara la animacion de entrada del letrero en
+                  cada cambio de frase. pointer-events-none sube desde el
+                  contenedor: sin esto el letrero taparia los botones. */}
+              <span
+                key={fraseMascotaIdx}
+                className="ev-bubble mb-2 whitespace-nowrap rounded-2xl border-2 border-white bg-amber-400 px-3 py-1.5 font-black text-blue-950 shadow-lg"
+              >
+                {FRASES_MASCOTA[fraseMascotaIdx]}
+              </span>
+            </div>
             <div aria-hidden="true" className="absolute -top-16 -right-16 w-64 h-64 bg-white/10 rounded-full blur-2xl" />
             <div className="relative px-4 sm:px-6 py-5 sm:py-6">
               {/* Calendario de vencimientos: va antes de la fila del nombre
@@ -1884,8 +1946,11 @@ const GestorEquipos = () => {
                     </svg>
                   </button>
 
-                  <button type="button" onClick={() => setShowCrearTarea(true)} className="ev-btn ev-shimmer ev-shimmer-claro ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-4 sm:px-5 py-2.5 rounded-xl font-bold shadow-md shrink-0">
+                  <button type="button" onClick={() => setShowCrearTarea(true)} className="ev-btn ev-shimmer ev-shimmer-claro ev-focusable inline-flex cursor-pointer items-center gap-2 bg-white text-blue-700 px-3 sm:px-5 py-2.5 rounded-xl font-bold shadow-md shrink-0" aria-label="Nueva tarea" title="Nueva tarea">
                     <Icono nombre="mas" className="w-4 h-4" />
+                    {/* Antes el texto solo aparecia desde sm y en movil
+                        quedaba un cuadrito con un "+" suelto, sin decir que
+                        lo que abria era una tarea. */}
                     <span className="hidden sm:inline">Nueva tarea</span>
                   </button>
                   <button
@@ -1908,12 +1973,15 @@ const GestorEquipos = () => {
 
           {/* ---------------- DASHBOARD ---------------- */}
           {vista === 'dashboard' && (
-            <div className="ev-view p-4 sm:p-6 space-y-5">
+            <div className="ev-view p-4 sm:p-6 space-y-5 shrink-0">
               {metricas.total === 0 ? (
-                <div className="ev-panel-glass rounded-2xl py-20 text-center">
-                  <span className="mx-auto grid place-items-center w-16 h-16 rounded-2xl bg-blue-50 dark:bg-blue-500/15 text-blue-400">
-                    <Icono nombre="tablero" className="w-8 h-8" />
-                  </span>
+                <div className="ev-panel-glass rounded-2xl py-16 text-center">
+                  <img
+                    src="/Imagenes_Diseño/mascota_mirando_web.png"
+                    alt=""
+                    aria-hidden="true"
+                    className="mx-auto w-32 h-auto object-contain drop-shadow-md ev-float"
+                  />
                   <p className="mt-5 text-slate-700 dark:text-slate-300 font-bold text-lg">Este equipo todavía no tiene tareas</p>
                   <p className="mt-1 text-slate-400 dark:text-slate-400 text-sm">Crea la primera para empezar a repartir el trabajo.</p>
                   <button type="button" onClick={() => setShowCrearTarea(true)} className="ev-btn ev-focusable mt-6 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-5 py-3 rounded-xl font-bold">
@@ -2286,10 +2354,13 @@ const GestorEquipos = () => {
             {mensajes.length === 0 ? (
               <div className="h-full grid place-items-center text-center">
                 <div>
-                  <span className="mx-auto grid place-items-center w-14 h-14 rounded-2xl bg-blue-50 dark:bg-blue-500/15 text-blue-400">
-                    <Icono nombre="chat" className="w-7 h-7" />
-                  </span>
-                  <p className="mt-4 font-bold text-slate-700 dark:text-slate-300">Sin mensajes todavía</p>
+                  <img
+                    src="/Imagenes_Diseño/mascota_mirando_web.png"
+                    alt=""
+                    aria-hidden="true"
+                    className="mx-auto w-24 h-auto object-contain drop-shadow-sm"
+                  />
+                  <p className="mt-3 font-bold text-slate-700 dark:text-slate-300">Sin mensajes todavía</p>
                   <p className="mt-1 text-sm text-slate-400 dark:text-slate-400">Escribe el primero para coordinar al equipo.</p>
                 </div>
               </div>

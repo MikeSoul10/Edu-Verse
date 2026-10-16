@@ -22,14 +22,10 @@ const AdminPanel = () => {
   const [banModal, setBanModal] = useState({ open: false, usuario: null });
   const [banMotivo, setBanMotivo] = useState('');
 
-  useEffect(() => {
-    if (!user || user.rol !== 'admin') navigate('/');
-  }, [user, navigate]);
-
-  useEffect(() => {
-    if (user?.rol === 'admin') fetchStats();
-  }, [user]);
-
+  // Declarada antes de los efectos que la invocan. El cuerpo de un efecto
+  // corre tras el render, así que aquí no hay ReferenceError — pero la regla
+  // no-use-before-define marca el patrón, y basta con que alguien la mueva
+  // abajo o la ponga en un array de dependencias para que reviente todo.
   const fetchStats = async () => {
     try {
       const res = await api.get(`${API_URL}/admin/stats`);
@@ -40,6 +36,14 @@ const AdminPanel = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!user || user.rol !== 'admin') navigate('/');
+  }, [user, navigate]);
+
+  useEffect(() => {
+    if (user?.rol === 'admin') fetchStats();
+  }, [user]);
 
   const fetchUsuarios = async () => {
     try {

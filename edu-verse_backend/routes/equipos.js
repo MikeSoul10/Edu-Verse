@@ -36,7 +36,15 @@ router.post('/crear', verificarToken, async (req, res) => {
       [nuevoEquipo.rows[0].equipo_id, usuario_id, 'admin']
     );
 
-    res.status(201).json({ mensaje: 'Equipo creado', equipo: nuevoEquipo.rows[0] });
+    // Se devuelve el equipo YA con `rol`. El RETURNING * sale de la tabla
+    // equipos, que NO tiene esa columna (vive en miembros_equipo), y el
+    // frontend lee `equipoActivo.rol` para decidir si muestra los controles
+    // de admin del chat. Sin esto, quien crea un equipo no ve borrar
+    // mensajes ni vaciar el chat hasta recargar la pagina.
+    res.status(201).json({
+      mensaje: 'Equipo creado',
+      equipo: { ...nuevoEquipo.rows[0], rol: 'admin' },
+    });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Error al crear equipo');
@@ -62,7 +70,11 @@ router.post('/unirse', verificarToken, async (req, res) => {
       [equipo.rows[0].equipo_id, usuario_id]
     );
 
-    res.json({ mensaje: 'Te uniste al equipo', equipo: equipo.rows[0] });
+    // Mismo motivo que en /crear: `unirseEquipo` usa este objeto para seleccionar
+    // el equipo activo, y `equipoActivo.rol` decide si se muestran los
+    // controles de admin del chat. Sin `rol` aqui, el que se une tampoco los
+    // ve. El INSERT de arriba usa el DEFAULT de la columna, que es 'miembro'.
+    res.json({ mensaje: 'Te uniste al equipo', equipo: { ...equipo.rows[0], rol: 'miembro' } });
   } catch (err) {
     console.error(err.message);
     res.status(500).send('Error al unirse');

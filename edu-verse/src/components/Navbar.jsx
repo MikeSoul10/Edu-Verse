@@ -194,7 +194,7 @@ const Navbar = () => {
       <div className="flex items-center space-x-3">
         <Link to="/" className="ev-focusable flex items-center space-x-2.5 group">
           <img 
-            src="/logo-eduverse.png" 
+            src="/logo-eduverse_web.png" 
             alt="EduVers" 
             className="ev-logo h-10 sm:h-11 w-auto object-contain transition-transform group-hover:scale-110 filter drop-shadow-xs" 
             onError={(e) => { e.target.style.display = 'none'; }} 
