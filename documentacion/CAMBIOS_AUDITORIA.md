@@ -206,6 +206,28 @@ Se realizó una auditoría completa del codebase de Edu-Verse identificando **21
 
 ---
 
+## Cambios Post-Auditoría (octubre 2026)
+
+### Filtro de groserías en chat + Bugs del chat
+- **Archivos backend:**
+  - `edu-verse_backend/middleware/profanity.js`: +40 entradas a `PALABRAS_BLOQUEADAS` (español mexicano + inglés gaming).
+  - `edu-verse_backend/routes/chat.js`: `GET /chat/:equipo_id` ahora exige `verificarToken` + membresía; aplica `filtrarTexto` en lectura (red de seguridad para historial previo). `POST /chat/enviar` ya usaba `filtrarTexto` + `sanitize`.
+  - `edu-verse_backend/_diag2.js`: **borrado** (script temporal de diagnóstico de transacción).
+- **Archivos frontend (`edu-verse/src/pages/GestorEquipos.jsx`):**
+  - **Bug A (carrera al cambiar equipo):** guarda `vigente` + limpieza si `equipoActivoRef !== equipoId`.
+  - **Bug B (socket sin filtro de equipo):** `equipoActivoRef.current` + chequeo `msg.equipo_id === equipoActivoRef.current` en listener.
+  - **Bug C (contador no leídos miente en escritorio):** `useEffect` sincroniza `chatAbiertoRef`: escritorio + equipo activo = `true`; móvil = `chatMovil`.
+  - **Bug D (auto-scroll agresivo):** solo scrollea si usuario ya estaba abajo (`< 50px` del fondo).
+  - **Bug E (keys duplicadas):** `key={msg.mensaje_id \|\| \`msg-\${i}\`}` (índice como fallback).
+  - **Bug F (input sin maxLength):** `maxLength={500}` coincidiendo con backend.
+  - **Accesibilidad:** `role="log" aria-live="polite"` en contenedor del chat; separadores de día en historial; `Escape` cierra drawer móvil.
+- **Documentación:**
+  - `documentacion/FILTRO_CHAT.md` (nuevo): normalización, lista completa, enmascarado, falsos positivos, filtrado en lectura, registro, pruebas.
+  - `documentacion/BACKEND.md`: `GET /chat` ahora requiere auth + filtra en lectura.
+  - `documentacion/FRONTEND.md`: tabla de bugs A–F + accesibilidad.
+
+---
+
 ## Instrucciones de Conversión a PDF
 
 ### Desde VS Code:

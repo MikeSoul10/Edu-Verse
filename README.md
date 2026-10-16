@@ -27,6 +27,10 @@ Plataforma web para el intercambio de apuntes académicos entre estudiantes univ
 - **Comentarios** y **valoraciones con estrellas** (sistema de comunidad)
 - **Perfil de usuario** con foto de perfil y edición de datos
 - **Rutas protegidas** — solo usuarios autenticados acceden a ciertas secciones
+- **Administración** — la ruta `/admin` requiere sesión y rol `admin`; el backend también valida los permisos
+
+La exploración de materiales se concentra en `/biblioteca`. La ruta antigua
+`/apuntes` se conserva como redirección a la biblioteca.
 
 ---
 
@@ -177,20 +181,26 @@ proyecto/
     ├── src/
     │   ├── main.jsx            # Entry point de React
     │   ├── App.jsx             # Router principal y rutas
-    │   ├── config.js           # URL base de la API
+    │   ├── config.js           # Cliente Axios, URL base e interceptores de sesión
     │   ├── components/
-    │   │   └── Navbar.jsx      # Barra de navegación
+    │   │   ├── Navbar.jsx      # Barra de navegación
+    │   │   ├── ApunteCard.jsx  # Tarjeta reutilizable de la biblioteca
+    │   │   └── TaskCard.jsx    # Tarjeta de tarea del tablero de equipos
+    │   ├── services/
+    │   │   └── api.js          # Métodos de acceso a la API sobre el cliente compartido
+    │   ├── context/
+    │   │   └── AuthContext.jsx # Estado de autenticación compartido
     │   └── pages/
     │       ├── Home.jsx        # Página principal
     │       ├── Login.jsx       # Inicio de sesión
     │       ├── Signup.jsx      # Registro
-    │       ├── Apuntes.jsx     # Explorar apuntes
+    │       ├── Biblioteca.jsx  # Explorar, buscar y filtrar apuntes
     │       ├── DetalleApunte.jsx # Detalle de un apunte
     │       ├── Upload.jsx      # Subir apunte
     │       ├── MyNotes.jsx     # Mis apuntes
     │       ├── Favorites.jsx   # Apuntes favoritos
     │       ├── Profile.jsx     # Perfil de usuario
-    │       ├── ProtectedRoute.jsx # Ruta protegida (auth)
+    │       ├── ProtectedRoute.jsx # Protección por sesión y rol
     │       └── NotFound.jsx    # Página 404
     ├── Dockerfile
     ├── nginx.conf              # Configuración Nginx para producción

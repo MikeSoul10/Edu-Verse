@@ -1,0 +1,21 @@
+# Forzar LF en archivos de texto para evitar conflictos CRLF/LF en Windows
+* text=auto eol=lf
+
+# Archivos binarios - no tocar line endings
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.avif binary
+*.svg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+*.zip binary
+*.gz binary
+*.sqlite binary
+*.db binary

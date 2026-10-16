@@ -9,9 +9,19 @@ router.post('/crear', verificarToken, async (req, res) => {
     const { equipo_id, titulo, descripcion, prioridad, fecha_entrega, asignado_a, creado_por } = req.body;
     if (!equipo_id || !titulo) return res.status(400).json('Faltan campos obligatorios');
 
+    // El INSERT va dentro de un CTE para devolver EXACTAMENTE la misma forma que
+    // el GET (t.* + asignado_nombre). Con un RETURNING * pelado, la tarea recién
+    // creada llegaba sin el nombre del asignado y TaskCard lo pintaba vacío
+    // (lo guarda con `asignado_nombre &&`) hasta recargar la página.
     const nueva = await pool.query(
-      `INSERT INTO tareas (equipo_id, titulo, descripcion, prioridad, fecha_entrega, asignado_a, creado_por)
-       VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+      `WITH ins AS (
+         INSERT INTO tareas (equipo_id, titulo, descripcion, prioridad, fecha_entrega, asignado_a, creado_por)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)
+         RETURNING *
+       )
+       SELECT ins.*, u.nombre AS asignado_nombre
+       FROM ins
+       LEFT JOIN usuarios u ON ins.asignado_a = u.usuario_id`,
       [equipo_id, sanitize(titulo), sanitize(descripcion || ''), prioridad || 'verde', fecha_entrega || null, asignado_a || null, creado_por]
     );
 

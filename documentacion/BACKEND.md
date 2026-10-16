@@ -168,8 +168,8 @@ Todas las rutas exigen **token + rol `admin`** (doble middleware `verificarToken
 - `DELETE /tareas/:id` → elimina.
 
 ### `routes/chat.js`
-- `GET /chat/:equipo_id` → últimos 100 mensajes (`LIMIT 100`), orden cronológico, con `autor_nombre`.
-- `POST /chat/enviar` → inserta con `sanitize(texto)`.
+- `GET /chat/:equipo_id` → últimos 100 mensajes (`LIMIT 100`), orden cronológico, con `autor_nombre`. **Autenticación + membresía requerida**; filtra groserías en lectura (red de seguridad para historial previo).
+- `POST /chat/enviar` → inserta con `sanitize(filtrarTexto(texto))`.
 
 ---
 
@@ -180,10 +180,48 @@ Todas las rutas exigen **token + rol `admin`** (doble middleware `verificarToken
 | `auth.js` | `verificarToken` | Lee header `Authorization: Bearer <token>`, verifica con `jwt.verify`, adjunta `req.usuario` |
 | `admin.js` | `verificarAdmin` | Comprueba `req.usuario.rol === 'admin'`, si no → `403` |
 | `sanitize.js` | `sanitize` | Escapa `& < > " '` para prevenir XSS |
+| `profanity.js` | `filtrarTexto`, `contieneInsulto`, `normalizar`, `PALABRAS_BLOQUEADAS` | Normaliza (NFD, quita tildes, mapa leet, colapsa repeticiones), detecta palabras bloqueadas con límites de palabra, enmascara conservando primera letra |
 
 ---
 
-## 12. Arranque
+## 12. Chat (`routes/chat.js`)
+
+### `GET /chat/:equipo_id`
+**Autenticación requerida** (`verificarToken`). Usuario debe ser miembro del equipo (`miembros_equipo`), si no → `403`.
+
+Devuelve los últimos 100 mensajes del equipo con `autor_nombre`.
+**Aplica `filtrarTexto` en lectura** a cada mensaje antes de responder: red de seguridad para mensajes guardados antes de que existiera el filtro. La base de datos no se modifica; el filtrado es solo en la respuesta JSON.
+
+**Paginación (opcional):**
+- Query param `?antes=<mensaje_id>` — devuelve 100 mensajes **anteriores** a ese ID (orden cronológico ASC).
+- Sin el parámetro: comportamiento idéntico al original (últimos 100).
+- Validación: `mensaje_id` debe ser entero positivo; si no, se ignora.
+
+### `POST /chat/enviar`
+**Autenticación requerida** (`verificarToken`).
+
+Body: `{ equipo_id, texto }` — `usuario_id` se toma del token (anti-suplantación).
+
+Validaciones:
+- `texto` obligatorio, ≤ 500 caracteres.
+- Usuario debe ser miembro del equipo (`miembros_equipo`).
+
+Flujo:
+1. Normaliza y filtra `texto` con `filtrarTexto` (leet, tildes, repeticiones, límites de palabra).
+2. Escapa HTML con `sanitize`.
+3. Inserta en `mensajes_chat`.
+4. Si hubo censura, registra en `moderacion_logs` (usuario, equipo, palabras, cantidad).
+5. Emite `nuevo-mensaje` por Socket.IO a la sala `equipo-${equipo_id}` con el mensaje ya filtrado.
+6. Responde `201` con el mensaje + `{ censurado, palabras }`.
+
+### `GET /admin/moderacion`
+**Autenticación + Admin** (`verificarToken`, `verificarAdmin`).
+
+Devuelve últimos 100 registros de `moderacion_logs` con `usuario_nombre`, `equipo_nombre`, `palabras_bloqueadas`, `sustituciones`, `fecha`.
+
+---
+
+## 13. Arranque
 
 ```js
 const PORT = process.env.PORT || 4000;

@@ -31,8 +31,14 @@ export function AuthProvider({ children }) {
     emitAuthChange();
   }, []);
 
+  // localStorage.clear() borraba TODO, incluida la racha de estudio y la
+  // preferencia de tema. Al volver a iniciar sesión la racha reiniciaba en 1
+  // porque ya no había con qué comparar. Ahora solo se quitan las claves de
+  // sesión y se preservan las de preferencias del usuario.
   const logout = useCallback(() => {
-    localStorage.clear();
+    ['token', 'usuario', 'usuario_id', 'foto_url', 'rol'].forEach((clave) =>
+      localStorage.removeItem(clave)
+    );
     setUser(null);
     emitAuthChange();
   }, []);

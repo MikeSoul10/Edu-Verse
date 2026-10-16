@@ -24,6 +24,13 @@ export default defineConfig([
     },
     rules: {
       'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // ATRAPA EL TDZ QUE ROMPIÓ EL GESTOR DE EQUIPOS.
+      // Un useCallback declarado DESPUÉS de un useEffect que lo referencia en
+      // su array de dependencias lanza ReferenceError al renderizar: el array
+      // se evalúa durante el render, cuando la variable todavía no existe.
+      // npm run build no lo ve (compilar no es ejecutar), así que esta regla
+      // es la única red antes de que llegue al navegador.
+      'no-use-before-define': ['error', { functions: false, classes: false, variables: true }],
     },
   },
 ])

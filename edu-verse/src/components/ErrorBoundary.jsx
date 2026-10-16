@@ -20,8 +20,8 @@ class ErrorBoundary extends React.Component {
       return (
         <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-6">
           <div className="text-6xl mb-4">💥</div>
-          <h2 className="text-3xl font-bold text-gray-900 mb-2">Algo salió mal</h2>
-          <p className="text-gray-500 mb-8">Ocurrió un error inesperado. Por favor, intenta de nuevo.</p>
+          <h2 className="text-3xl font-bold text-gray-900 dark:text-slate-100 mb-2">Algo salió mal</h2>
+          <p className="text-gray-500 dark:text-slate-400 mb-8">Ocurrió un error inesperado. Por favor, intenta de nuevo.</p>
           <Link
             to="/"
             onClick={(e) => {

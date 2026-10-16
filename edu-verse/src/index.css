@@ -1,12 +1,194 @@
 @import "tailwindcss";
 
+/* ------------------------------------------------------------------
+   Modo oscuro por clase, no por preferencia del sistema.
+
+   En Tailwind v4 la variante `dark:` viene definida contra
+   `@media (prefers-color-scheme: dark)`. Eso esta bien para landings
+   publicas, pero aqui el tema lo elige el usuario con el boton de la
+   navbar, asi que tiene que depender de la clase `dark` en <html>.
+   Sin esta linea, `dark:bg-slate-900` se activaria por la preferencia
+   del SO y no por el toggle: dos fuentes de verdad que se contradicen.
+   ------------------------------------------------------------------ */
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   body, button, input, select, textarea {
     font-family: 'Fredoka', 'Nunito', system-ui, -apple-system, sans-serif;
   }
+
+  /* El color de texto del body sale del token `--ev-text`.
+
+     Sin esto, el texto hereda el default del navegador, que es NEGRO. El
+     fondo si cambiaba con `--ev-bg`, asi que en modo oscuro quedaba negro
+     sobre azul casi negro: los inputs y textareas que no declaran su propio
+     `text-*` se volvian ilegibles (el del chat fue el primer caso visible).
+
+     `--ev-text` ya existia en `:root` y en `.dark` desde el principio, pero
+     ningun selector lo consumia: el token estaba definido y sin usar. */
+  body {
+    color: var(--ev-text);
+  }
+
+  /* El fondo del <html> se pinta antes de que monte React (script inline
+     en index.html). Sin esto hay un destello blanco en cada recarga al
+     entrar en modo oscuro. */
+  html {
+    background-color: var(--ev-bg, #ffffff);
+  }
+
+  /* Transicion global al cambiar de tema. Se hace sobre `background-color`,
+     `border-color` y `color` con duracion corta: lo suficiente para que el
+     cambio se lea como intencional, sin que el toggle se sienta lento.
+     El scrollbar va con `scrollbar-color` porque no acepta transicion. */
+  body,
+  .ev-tema-suave {
+    transition:
+      background-color var(--ev-t-slow) var(--ev-ease-out),
+      border-color var(--ev-t-slow) var(--ev-ease-out),
+      color var(--ev-t-slow) var(--ev-ease-out);
+  }
+
+  ::-webkit-scrollbar-track {
+    background: var(--ev-surface-sunken);
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--ev-border-strong);
+    border-radius: 9999px;
+  }
+
+  :root {
+    /* Curvas de easing propias: las built-in se sienten debiles */
+    --ev-ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+    --ev-ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+
+    /* Duraciones por tipo de elemento */
+    --ev-t-fast: 140ms;
+    --ev-t-base: 200ms;
+    --ev-t-slow: 380ms;
+    --ev-t-stage: 520ms;
+
+    /* ----------------------------------------------------------------
+       Tokens de superficie del tema.
+
+       Son SEMANTICOS, no de color: las clases `ev-*` los consumen en vez
+       de escribir hexadecitos. Asi el tema oscuro no depende de editar
+       cada clase de cada pagina, sino de redeclarar estas variables.
+
+       Ojo con el contraste: en oscuro el texto de apoyo tiene que SUBIR
+       de claridad (slate-400 -> slate-300), no bajar. Sobre fondo claro
+       un gris claro se lee bien; sobre fondo oscuro desaparece.
+       ---------------------------------------------------------------- */
+    --ev-bg: #ffffff;
+    --ev-bg-halo-1: rgba(96, 165, 250, 0.30);
+    --ev-bg-halo-2: rgba(147, 197, 253, 0.34);
+    --ev-surface: rgba(255, 255, 255, 0.82);
+    --ev-surface-solid: #ffffff;
+    --ev-surface-raised: rgba(255, 255, 255, 0.85);
+    --ev-surface-sunken: rgba(249, 250, 251, 1);
+    --ev-border: rgba(255, 255, 255, 0.6);
+    --ev-border-strong: rgba(226, 232, 240, 1);
+    --ev-border-accent: rgba(147, 197, 253, 0.45);
+    --ev-text: #0f172a;
+    --ev-text-muted: #475569;
+    --ev-text-soft: #64748b;
+    --ev-shadow: 0 18px 50px -24px rgba(30, 58, 138, 0.35);
+
+    /* Rieles de progreso y barras. Tienen que existir aqui tambien:
+       un token declarado solo en `.dark` deja sin valor a los
+       consumidores en claro. Los que llevan fallback propio
+       funcionan "por accidente"; los que no (el donut vacio)
+       se quedan transparentes. */
+    --ev-progress-track: rgba(219, 234, 254, 0.7);
+    --ev-bar-track: rgba(226, 232, 240, 0.6);
+  }
+
+  .dark {
+    --ev-bg: #0b1220;
+    --ev-bg-halo-1: rgba(37, 99, 235, 0.24);
+    --ev-bg-halo-2: rgba(99, 102, 241, 0.20);
+
+    /* Superfices: azul muy oscuro translucido, no gris. El gris puro
+       junto al azul de marca queda sucio. */
+    --ev-surface: rgba(15, 23, 42, 0.72);
+    --ev-surface-solid: #0f172a;
+    --ev-surface-raised: rgba(30, 41, 59, 0.72);
+    --ev-surface-sunken: rgba(2, 6, 23, 0.5);
+
+    --ev-border: rgba(51, 65, 85, 0.7);
+    --ev-border-strong: rgba(51, 65, 85, 0.9);
+    --ev-border-accent: rgba(59, 130, 246, 0.4);
+
+    --ev-text: #e2e8f0;
+    --ev-text-muted: #cbd5e1;
+    --ev-text-soft: #94a3b8;
+    --ev-shadow: 0 18px 50px -24px rgba(0, 0, 0, 0.7);
+    --ev-progress-track: rgba(30, 58, 138, 0.35);
+    --ev-bar-track: rgba(51, 65, 85, 0.5);
+  }
 }
 
-@keyframes mascota-rebote-suave {
+/* ------------------------------------------------------------------
+   Entrada coreografiada (stagger)
+   Nada entra desde scale(0): siempre opacity 0 + desplazamiento leve.
+   ------------------------------------------------------------------ */
+
+@keyframes ev-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ev-enter-card {
+  from { opacity: 0; transform: translateY(14px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes ev-enter-pop {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.ev-enter,
+.ev-enter-card,
+.ev-enter-pop {
+  animation-fill-mode: both;
+  animation-timing-function: var(--ev-ease-out);
+  animation-duration: var(--ev-t-stage);
+}
+
+.ev-enter-card { animation-name: ev-enter-card; }
+
+.ev-enter { animation-name: ev-enter; }
+
+/* Escalonado: la card entra primero, el contenido se despliega sobre ella */
+.ev-d-0   { animation-delay: 0ms; }
+.ev-d-1   { animation-delay: 90ms; }
+.ev-d-2   { animation-delay: 170ms; }
+.ev-d-3   { animation-delay: 250ms; }
+.ev-d-4   { animation-delay: 330ms; }
+.ev-d-5   { animation-delay: 410ms; }
+.ev-d-6   { animation-delay: 490ms; }
+
+/* La burbuja usa una entrada con escala, no un bounce generico */
+.ev-bubble { animation: ev-enter-pop 340ms var(--ev-ease-out) both; }
+
+/* ------------------------------------------------------------------
+   Elementos de escena
+   ------------------------------------------------------------------ */
+
+/* Flotacion idle de la mascota: continua, lenta, no llama la atencion */
+@keyframes ev-float {
+  from { transform: translateY(0); }
+  to   { transform: translateY(-5px); }
+}
+
+.ev-float {
+  animation: ev-float 3.4s var(--ev-ease-in-out) infinite alternate;
+}
+
+/* Rebote suave conservado del proyecto (frases de la mascota) */
+@keyframes ev-rebote-suave {
   0%, 8%, 48%, 88%, 100% { transform: translateY(0); }
   18% { transform: translateY(-13px); }
   30% { transform: translateY(-4px); }
@@ -14,13 +196,953 @@
   74% { transform: translateY(-3px); }
 }
 
-.mascota-rebote-suave {
-  animation: mascota-rebote-suave 2.2s ease-in-out both;
+.ev-rebote-suave {
+  animation: ev-rebote-suave 2.2s var(--ev-ease-in-out) both;
   transform-origin: center bottom;
 }
 
+/* Orbitacion lenta de los circulos decorativos */
+@keyframes ev-drift {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(10px, -14px, 0) scale(1.06); }
+}
+
+.ev-drift { animation: ev-drift 9s var(--ev-ease-in-out) infinite alternate; }
+.ev-drift-lento { animation: ev-drift 13s var(--ev-ease-in-out) infinite alternate-reverse; }
+
+/* ------------------------------------------------------------------
+   Feedback de error
+   ------------------------------------------------------------------ */
+
+@keyframes ev-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-5px); }
+  40% { transform: translateX(5px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+
+.ev-shake { animation: ev-shake 340ms var(--ev-ease-in-out) both; }
+
+/* ------------------------------------------------------------------
+   Shimmer del boton primario
+   ------------------------------------------------------------------ */
+
+.ev-shimmer::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(255, 255, 255, 0.28) 50%,
+    transparent 80%
+  );
+  transform: translateX(-120%);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ev-shimmer:hover::after {
+  animation: ev-sweep 1.1s linear infinite;
+}
+
+/* Variante para botones claros. El brillo de ev-shimmer es blanco al 28%
+   y sobre un boton blanco no se ve: la animacion corre pero es invisible.
+   Esta usa un tinte azul, que ademas refuerza el color de la marca. */
+.ev-shimmer-claro::after {
+  background: linear-gradient(
+    100deg,
+    transparent 20%,
+    rgba(37, 99, 235, 0.22) 50%,
+    transparent 80%
+  );
+}
+
+@keyframes ev-sweep {
+  from { transform: translateX(-120%); opacity: 0.9; }
+  to   { transform: translateX(120%); opacity: 0; }
+}
+
+@keyframes ev-shimmer {
+  from { background-position: 200% 0; }
+  to   { background-position: -200% 0; }
+}
+
+/* ------------------------------------------------------------------
+   Fondo de la pagina: cinco capas, de la mas profunda a la mas cercana
+   1. mesh gradient   2. puntos   3. glow central   4. particulas   5. viñeta
+   ------------------------------------------------------------------ */
+
+.ev-mesh-bg {
+  background-color: var(--ev-bg);
+}
+
+/* Capa 2: puntos, mas ralos que antes pero ahora con presencia real */
+.ev-dotfield {
+  background-image: radial-gradient(circle, rgba(37, 99, 235, 0.5) 3.2px, transparent 3.2px);
+  background-size: 42px 42px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 85% at 50% 45%, #000 50%, transparent 100%);
+  mask-image: radial-gradient(ellipse 90% 85% at 50% 45%, #000 50%, transparent 100%);
+}
+
+/* La capa 3 (halo central) se retiro: sobre fondo blanco difuminaba
+   una mancha azul justo detras de la card. El blanco va puro. */
+
+/* Capa 4: particulas. Solo transform, la duracion viene de cada elemento.
+   El anillo blanco y el halo las separan visualmente del enrejado estatico. */
+@keyframes ev-particle {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to   { transform: translate3d(var(--dx, 14px), var(--dy, -18px), 0) scale(1.18); }
+}
+
+@keyframes ev-twinkle {
+  0%, 100% { opacity: 0.75; }
+  50%      { opacity: 1; }
+}
+
+.ev-particle {
+  position: absolute;
+  border-radius: 9999px;
+  animation:
+    ev-particle var(--dur, 12s) var(--ev-ease-in-out) infinite alternate,
+    ev-twinkle calc(var(--dur, 12s) / 3) ease-in-out infinite;
+  animation-delay: var(--delay, 0s), var(--delay, 0s);
+}
+
+/* La viñeta se retiro: sobre fondo blanco ensuciaba los bordes. */
+
+/* ------------------------------------------------------------------
+   Panel izquierdo: mesh gradient
+   ------------------------------------------------------------------ */
+
+/* Panel izquierdo: identico a Signup.jsx para que ambas paginas
+   se vean como la misma pantalla */
+.ev-mesh {
+  background-image: linear-gradient(to bottom, #2563eb 0%, #1d4ed8 50%, #312e81 100%);
+}
+
+/* ------------------------------------------------------------------
+   Cursor glow: se posiciona con transform via JS (sin reflow)
+   ------------------------------------------------------------------ */
+
+.ev-glow {
+  position: absolute;
+  width: 420px;
+  height: 420px;
+  margin: -210px 0 0 -210px;
+  border-radius: 9999px;
+  background: radial-gradient(circle, rgba(191, 219, 254, 0.28) 0%, rgba(147, 197, 253, 0.1) 45%, transparent 70%);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--ev-t-slow) ease;
+  will-change: transform;
+}
+
+/* ------------------------------------------------------------------
+   Formulario: transiciones especificas (nunca transition: all)
+   ------------------------------------------------------------------ */
+
+.ev-field {
+  transition:
+    background-color var(--ev-t-base) ease,
+    border-color var(--ev-t-base) ease,
+    box-shadow var(--ev-t-base) ease,
+    transform var(--ev-t-fast) var(--ev-ease-out);
+}
+
+/* Al enfocar, el campo se aclara un tono para dar feedback visual. Se usa el
+   token y no un blanco fijo: con `#fff` el input saltaba a blanco en modo
+   oscuro en el instante del focus, que es justo cuando mas se nota. */
+.ev-field:focus {
+  background-color: var(--ev-surface-solid);
+}
+
+.ev-field-label {
+  transition: color var(--ev-t-base) ease;
+}
+
+.ev-field:focus-within .ev-field-label { color: #2563eb; }
+
+.ev-field-icon {
+  opacity: 0.7;
+  transition:
+    transform var(--ev-t-base) var(--ev-ease-out),
+    opacity var(--ev-t-base) ease;
+}
+
+.ev-field:focus-within .ev-field-icon {
+  opacity: 1;
+  transform: translateY(-50%) scale(1.12);
+}
+
+.ev-eye {
+  transition:
+    opacity var(--ev-t-base) var(--ev-ease-out),
+    transform var(--ev-t-base) var(--ev-ease-out);
+}
+
+/* Boton primario */
+.ev-btn {
+  position: relative;
+  overflow: hidden;
+  transition:
+    background-color var(--ev-t-base) ease,
+    box-shadow var(--ev-t-base) ease,
+    transform var(--ev-t-fast) var(--ev-ease-out);
+}
+
+.ev-btn:active { transform: scale(0.97); }
+.ev-btn:disabled { opacity: 0.65; cursor: not-allowed; }
+
+/* ------------------------------------------------------------------
+   Hover: solo en dispositivos con puntero fino
+   ------------------------------------------------------------------ */
+
+/* La transicion vive en la base: en el hover solo cambia el transform,
+   asi el regreso tambien se anima en reversa. */
+.ev-lift,
+.ev-lift-mascota {
+  transition: transform var(--ev-t-base) var(--ev-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ev-lift:hover { transform: translateY(-3px); }
+
+  .ev-lift-mascota:hover { transform: scale(1.05) rotate(-2deg); }
+
+  .ev-panel:hover .ev-glow { opacity: 1; }
+
+  /* OJO: aqui SOLO va la elevacion.
+     Esta regla NO debe tocar `background-color`. Estas clases `ev-*` estan
+     escritas FUERA de `@layer`, y en CSS lo que no tiene capa gana a lo que
+     si la tiene: Tailwind mete sus utilidades en `@layer utilities`, asi que
+     un `background-color` aqui pisa el `hover:bg-*` de cualquier boton, y
+     tambien su `dark:`. Con eso, un boton blanco con texto azul se ponia azul
+     oscuro al hover y el texto desaparecia.
+
+     El color del hover lo declara cada boton con `hover:bg-*`, que es donde se
+     puede expresar "en claro y en oscuro son distintos". */
+  .ev-btn:hover {
+    box-shadow: 0 14px 30px -12px rgba(37, 99, 235, 0.55);
+  }
+
+  .ev-eye-btn:hover {
+    color: #4b5563;
+    transition: color var(--ev-t-base) ease;
+  }
+}
+
+/* Foco de teclado siempre visible */
+.ev-focusable:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 3px;
+}
+
+/* ------------------------------------------------------------------
+   Dashboard de equipos
+   Todo se anima con transform/opacity salvo las barras, donde el ancho
+   es el dato mismo (no hay forma de expresar un porcentaje con scale
+   sin falsear la escala visual).
+   ------------------------------------------------------------------ */
+
+/* Superficie de glass reutilizable */
+.ev-panel-glass {
+  background: var(--ev-surface);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--ev-border);
+  box-shadow: var(--ev-shadow);
+}
+
+/* Sobre el fondo gris azulado el borde blanco se pierde: un hairline azul
+   separa la superficie del fondo sin agregar peso visual. */
+.ev-bg-nexo .ev-panel-glass {
+  border-color: var(--ev-border-accent);
+}
+
+/* Stat card: el hover solo escala, nunca salta de sitio */
+.ev-stat {
+  transition:
+    transform var(--ev-t-base) var(--ev-ease-out),
+    box-shadow var(--ev-t-base) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ev-stat:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 26px 60px -22px rgba(30, 58, 138, 0.42);
+  }
+}
+
+/* Barra de progreso: el ancho es el dato, asi que transiciona width */
+.ev-progress-track {
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--ev-progress-track);
+  overflow: hidden;
+}
+
+.ev-progress-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width var(--ev-t-stage) var(--ev-ease-out);
+}
+
+/* Barra horizontal de los charts */
+.ev-bar-track {
+  height: 10px;
+  border-radius: 9999px;
+  background: var(--ev-bar-track);
+  overflow: hidden;
+}
+
+.ev-bar-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width var(--ev-t-stage) var(--ev-ease-out);
+}
+
+/* Animaciones de entrada para BarrasEquipos y filas de leyenda */
+.bar-grow {
+  transform-origin: left;
+  animation: bar-grow var(--ev-t-stage) var(--ev-ease-out) forwards;
+}
+
+.bar-row {
+  opacity: 0;
+  transform: translateX(-12px);
+  animation: bar-row-in var(--ev-t-base) var(--ev-ease-out) forwards;
+}
+
+.animate-fade-in-up {
+  opacity: 0;
+  transform: translateY(10px);
+  animation: animate-fade-in-up var(--ev-t-base) var(--ev-ease-out) forwards;
+}
+
+@keyframes bar-grow {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+
+@keyframes bar-row-in {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes animate-fade-in-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Skeleton loader (shimmer) */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--ev-bar-track) 25%,
+    var(--ev-surface-raised) 50%,
+    var(--ev-bar-track) 75%
+  );
+  background-size: 200% 100%;
+  animation: ev-shimmer 1.4s infinite linear;
+}
+
+/* Donut de prioridad */
+.ev-donut {
+  border-radius: 9999px;
+  /* conic-gradient lo inyecta el componente segun los datos */
+  transition: transform var(--ev-t-slow) var(--ev-ease-out);
+}
+
+/* El hueco del donut esta sobre el panel, asi que tiene que seguir al
+   token de superficie: con blanco fijo el arco del anillo se partia en dos
+   tonos distintos en modo oscuro. */
+/* Riel del donut cuando no hay datos. Es el unico punto del componente que
+   no viene de los datos, asi que es el unico que puede usar un token: con un
+   gris claro fijo el anillo quedaba como un aro blinding en modo oscuro. */
+.ev-donut-vacio {
+  background: conic-gradient(var(--ev-bar-track) 0deg 360deg);
+}
+
+.ev-donut-hueco {
+  border-radius: 9999px;
+  background: var(--ev-surface-solid);
+  box-shadow: inset 0 0 0 1px var(--ev-border-strong);
+}
+
+/* Riel del donut de estados (SVG). El token NO puede ir en el
+   atributo `stroke`: var() no se resuelve en atributos de
+   presentacion de SVG, solo en propiedades CSS. Por eso el riel
+   se pinta desde aqui y el JSX solo marca la clase. */
+.donut-track {
+  stroke: var(--ev-bar-track);
+}
+
+/* Transicion suave del stroke-width en hover del donut de estados.
+   Antes era un salto brusco (GROSOR -> GROSOR+7). Ahora es progresivo. */
+.donut-segment {
+  transition: stroke-width 150ms var(--ev-ease-out);
+}
+
+/* Atenuacion de los arcos que no estan en hover.
+   El contenedor padre recibe .donut-highlight cuando hay hover. */
+.donut-highlight .donut-segment:not(:hover) {
+  opacity: 0.35;
+  transition: opacity 150ms var(--ev-ease-out);
+}
+
+/* Tabs: transicion de color e indicador, sin keyframes */
+.ev-tab {
+  position: relative;
+  transition:
+    background-color var(--ev-t-base) ease,
+    color var(--ev-t-base) ease,
+    transform var(--ev-t-fast) var(--ev-ease-out);
+}
+
+.ev-tab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 3px;
+  border-radius: 9999px;
+  background: #2563eb;
+  transform: scaleX(0);
+  transition: transform var(--ev-t-base) var(--ev-ease-out);
+}
+
+.ev-tab[aria-selected='true']::after {
+  transform: scaleX(1);
+}
+
+.ev-tab:active { transform: scale(0.97); }
+
+/* Cambio de vista entre tabs: entra desde abajo, nunca desde scale(0) */
+@keyframes ev-view-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ev-view { animation: ev-view-in 260ms var(--ev-ease-out) both; }
+
+/* Chip de filtro activo */
+.ev-chip {
+  transition:
+    background-color var(--ev-t-base) ease,
+    color var(--ev-t-base) ease,
+    border-color var(--ev-t-base) ease,
+    transform var(--ev-t-fast) var(--ev-ease-out);
+}
+
+.ev-chip:active { transform: scale(0.96); }
+
+/* Tarjeta de tarea del kanban */
+.ev-tarea {
+  transition:
+    transform var(--ev-t-base) var(--ev-ease-out),
+    box-shadow var(--ev-t-base) ease,
+    border-color var(--ev-t-base) ease;
+}
+
+.ev-tarea:active { transform: scale(0.98); }
+
+/* La tarjeta se atenua mientras se arrastra, pero NO se rota ni se escala.
+   Un transform en el nodo origen durante el arrastre es lo que hace que el
+   navegador pierda el hit-testing y el primer drop no dispare. */
+.ev-tarea-arrastrando {
+  opacity: 0.4;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ev-tarea:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 16px 36px -18px rgba(30, 58, 138, 0.4);
+  }
+}
+
+/* Zona de drop del kanban */
+.ev-columna {
+  transition:
+    background-color var(--ev-t-base) ease,
+    box-shadow var(--ev-t-base) ease;
+}
+
+/* El cursor de agarrar solo sobre la columna: mientras se arrastra pasa a
+   grabbing, que es la señal de que el drop esta activos. */
+.ev-columna .ev-tarea { cursor: grab; }
+.ev-columna:has(.ev-tarea-arrastrando) { cursor: grabbing; }
+
+.ev-columna-sobre {
+  box-shadow: inset 0 0 0 2px rgba(37, 99, 235, 0.35);
+}
+
+/* Avatar: el color se deriva del nombre, la inicial siempre visible */
+.ev-avatar {
+  transition: transform var(--ev-t-fast) var(--ev-ease-out);
+}
+
+/* Modal: overlay y panel con timings asimetricos (sale mas rapido) */
+.ev-overlay {
+  animation: ev-fade-in 200ms ease both;
+}
+
+@keyframes ev-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.ev-modal {
+  /* los modales son la excepcion: centrados, transform-origin center */
+  transform-origin: center;
+  animation: ev-modal-in 260ms var(--ev-ease-out) both;
+}
+
+@keyframes ev-modal-in {
+  from { opacity: 0; transform: translateY(12px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Burbuja de chat: entra con escala leve, nunca desde cero */
+.ev-burbuja {
+  animation: ev-burbuja-in 220ms var(--ev-ease-out) both;
+}
+
+@keyframes ev-burbuja-in {
+  from { opacity: 0; transform: translateY(6px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Botón "ir al final" del chat: flotante, con animación de entrada */
+.ev-scroll-abajo {
+  animation: ev-scroll-abajo-in 200ms var(--ev-ease-out) forwards;
+}
+
+@keyframes ev-scroll-abajo-in {
+  from { opacity: 0; transform: translateY(16px) scale(0.9); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Menú contextual de "Responder" (clic derecho en una burbuja) */
+.ev-menu-chat {
+  min-width: 11rem;
+  transform: translate(4px, 4px);
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid rgb(226 232 240);
+  box-shadow: 0 10px 25px -5px rgb(15 23 42 / 0.18);
+  animation: ev-menu-chat-in 140ms var(--ev-ease-out) both;
+}
+
+.dark .ev-menu-chat {
+  background: #1e293b;
+  border-color: #334155;
+}
+
+@keyframes ev-menu-chat-in {
+  from { opacity: 0; transform: translate(4px, 0) scale(0.97); }
+  to   { opacity: 1; transform: translate(4px, 4px) scale(1); }
+}
+
+/* Destello del mensaje al que saltamos desde una cita */
+.ev-msg-resaltada > div {
+  animation: ev-msg-destello 1.4s var(--ev-ease-out);
+}
+
+@keyframes ev-msg-destello {
+  0%, 100% { box-shadow: 0 0 0 0 rgb(59 130 246 / 0); }
+  20%      { box-shadow: 0 0 0 3px rgb(59 130 246 / 0.55); }
+}
+
+/* Resaltado del buscador de mensajes.
+   El color de texto es propio y no heredado: si heredara el blanco de las
+   burbujas propias (azules), sobre el fondo amarillo quedaría ilegible. */
+.ev-coincidencia {
+  background-color: rgb(253 224 71 / 0.85);
+  color: #1e293b;
+  border-radius: 3px;
+  padding: 0 1px;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+/* La coincidencia por la que estás parado en la navegación */
+.ev-coincidencia-activa {
+  background-color: rgb(251 146 60 / 0.95);
+  box-shadow: 0 0 0 1px rgb(249 115 22 / 0.7);
+}
+
+/* Punto de "en linea" en el header */
+.ev-online {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.2);
+}
+
+/* ------------------------------------------------------------------
+   Fondo del gestor de equipos: lineas de grid en vez de puntos.
+   El patron de puntos vive en Login/Signup; aqui la textura es mas
+   tecnica y menos ruidosa porque hay contenido denso encima.
+   ------------------------------------------------------------------ */
+
+.ev-gridfield {
+  background-image:
+    linear-gradient(to right, rgba(37, 99, 235, 0.07) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(37, 99, 235, 0.07) 1px, transparent 1px);
+  background-size: 44px 44px;
+  -webkit-mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, #000 40%, transparent 100%);
+  mask-image: radial-gradient(ellipse 90% 80% at 50% 40%, #000 40%, transparent 100%);
+}
+
+/* ------------------------------------------------------------------
+   Dashboard lateral del selector de equipos
+   ------------------------------------------------------------------ */
+
+/* Entrada lateral: las tarjetas se asoman desde la derecha en cascada.
+   Se usa transform, no left, asi no hay reflow durante la entrada. */
+@keyframes ev-slide-right {
+  from { opacity: 0; transform: translate3d(28px, 0, 0); }
+  to   { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+
+.ev-slide-right {
+  animation: ev-slide-right var(--ev-t-stage) var(--ev-ease-out) both;
+}
+
+.ev-sr-0 { animation-delay: 0ms; }
+.ev-sr-1 { animation-delay: 90ms; }
+.ev-sr-2 { animation-delay: 180ms; }
+.ev-sr-3 { animation-delay: 270ms; }
+
+/* Tarjeta del dashboard: sube y encende el borde al hover */
+.ev-card-dash {
+  position: relative;
+  border-color: rgba(147, 197, 253, 0.45);
+  transition:
+    transform var(--ev-t-base) var(--ev-ease-out),
+    box-shadow var(--ev-t-base) ease,
+    border-color var(--ev-t-base) ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ev-card-dash:hover {
+    transform: translateY(-3px);
+    border-color: rgba(59, 130, 246, 0.6);
+    box-shadow: 0 26px 60px -22px rgba(30, 58, 138, 0.45);
+  }
+
+  /* El icono del dato reacts al hover de su tarjeta */
+  .ev-card-dash:hover .ev-stat-icon {
+    transform: translateY(-2px) scale(1.08) rotate(-4deg);
+  }
+}
+
+.ev-stat-icon {
+  transition: transform var(--ev-t-base) var(--ev-ease-out);
+}
+
+/* Barras del dashboard con brillo que recorre el relleno */
+.ev-track-brillo { position: relative; overflow: hidden; }
+
+.ev-track-brillo .ev-progress-fill { position: relative; overflow: hidden; }
+
+.ev-track-brillo .ev-progress-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to right,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 45%,
+    rgba(255, 255, 255, 0.75) 50%,
+    rgba(255, 255, 255, 0.55) 55%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: ev-sweep 2.6s var(--ev-ease-in-out) infinite;
+  animation-delay: 600ms;
+  pointer-events: none;
+}
+
+/* Respiracion del badge urgente: un halo rojo, no un salto de opacidad */
+@keyframes ev-respira {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45); }
+  50%      { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+}
+
+.ev-badge-urgente {
+  animation: ev-respira 2.2s var(--ev-ease-in-out) infinite;
+}
+
+/* Separador con degradado entre secciones */
+.ev-divisor {
+  height: 1px;
+  border: 0;
+  background: linear-gradient(to right, transparent, rgba(147, 197, 253, 0.7), transparent);
+}
+
+/* Acento decorativo de esquina en las tarjetas del dashboard */
+.ev-esquina {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 56px;
+  height: 56px;
+  border-top-right-radius: inherit;
+  background: linear-gradient(225deg, rgba(147, 197, 253, 0.5) 0%, transparent 65%);
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------
+   Fondo del selector de equipos: gris azulado en vez de blanco puro.
+   Los halos en las esquinas dan profundidad sin darkness, y el blanco
+   de las superficies de glass queda como la capa mas luminosa.
+   ------------------------------------------------------------------ */
+
+.ev-bg-nexo {
+  background-color: var(--ev-bg);
+  background-image:
+    radial-gradient(ellipse 55% 45% at 8% 4%, var(--ev-bg-halo-1), transparent 70%),
+    radial-gradient(ellipse 50% 40% at 95% 22%, var(--ev-bg-halo-2), transparent 70%),
+    radial-gradient(ellipse 60% 45% at 88% 96%, rgba(251, 191, 36, 0.16), transparent 72%);
+  background-attachment: fixed;
+}
+
+/* El header azul se apoya sobre el fondo: sin sombra dura se despegaba del
+   blanco, y en oscuro hace falta una todavia mas profunda. */
+.ev-bg-nexo .ev-mesh {
+  box-shadow: 0 26px 70px -26px rgba(30, 58, 138, 0.5);
+}
+
+.dark .ev-bg-nexo .ev-mesh {
+  box-shadow: 0 26px 70px -20px rgba(0, 0, 0, 0.8);
+}
+
+/* ------------------------------------------------------------------
+   Home: fondo de la portada.
+
+   Estaba en un `style` inline, y ahi no hay tema posible: Tailwind no
+   puede aplicarle `dark:` a un atributo `style`. Por eso vive aqui.
+
+   En oscuro va SOLIDO, sin halos. Los degradados claros estan calibrados
+   para leerse sobre blanco; sobre casi negro no dan profundidad, dan ruido,
+   y compiten con las tarjetas. El header azul degradado de arriba queda
+   como unico elemento con relieve de la pagina.
+   ------------------------------------------------------------------ */
+
+.ev-home-fondo {
+  background-color: #f0f6ff;
+  background-image:
+    radial-gradient(ellipse at 25% 10%, rgba(96, 165, 250, 0.30), transparent 48%),
+    radial-gradient(ellipse at 85% 55%, rgba(147, 197, 253, 0.34), transparent 45%);
+}
+
+.dark .ev-home-fondo {
+  background-color: var(--ev-bg);
+  background-image: none;
+}
+
+/* ------------------------------------------------------------------
+   Navbar
+
+   El gradiente va en CSS y no en una clase arbitraria porque el
+   modo oscuro necesita su propia version. En claro arranca en blanco
+   para que el logo (PNG con fondo transparente pero نسخة clara) se
+   lea sobre blanco; en oscuro el mismo blanco se convierte en manchas
+   glaring que rompen la barra, asi que arranca en la propia superficie
+   oscura y el azul entra despues.
+   ------------------------------------------------------------------ */
+
+.ev-navbar {
+  background-image: linear-gradient(
+    to right,
+    #ffffff 0%,
+    #ffffff 31%,
+    #2563eb 75%,
+    #1e1b4b 100%
+  );
+  border-bottom-color: rgba(147, 197, 253, 0.6);
+}
+
+.dark .ev-navbar {
+  background-image: linear-gradient(
+    to right,
+    #0b1220 0%,
+    #0f172a 31%,
+    #1d4ed8 78%,
+    #1e1b4b 100%
+  );
+  border-bottom-color: rgba(51, 65, 85, 0.9);
+  box-shadow: 0 10px 34px -18px rgba(0, 0, 0, 0.9);
+}
+
+/* El logo es azul marino sobre fondo blanco. En oscuro el lado izquierdo
+   de la barra pasa a ser casi negro y el logo se volveria invisible, asi
+   que se invierte a blanco.
+
+   `brightness-0` primero lleva todos los pixeles a negro conservando el
+   alfa, y `invert` los da vuelta: el resultado es un logo blanco con la
+   misma silueta (la parte rellena de "Edu" sigue rellena, la de "Vers"
+   sigue siendo solo contorno). Un `invert(1)` a secas tambien habria
+   funcionado pero dejaba el azul en un tono amarillento sucio. */
+.dark .ev-logo {
+  filter: brightness-0 invert;
+}
+
+/* Menu desplegable de movil */
+.ev-nav-menu {
+  background-color: rgba(30, 58, 138, 0.95);
+  border-bottom-color: #1e3a8a;
+}
+
+.dark .ev-nav-menu {
+  background-color: rgba(2, 6, 23, 0.92);
+  border-bottom-color: rgba(51, 65, 85, 0.9);
+}
+
+.dark .ev-nav-menu hr {
+  border-color: rgba(51, 65, 85, 0.9);
+}
+
+/* Micro barra de progreso dentro de las columnas del kanban */
+.ev-progress-mini {
+  height: 4px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.75);
+  overflow: hidden;
+}
+
+.ev-progress-mini-fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width var(--ev-t-stage) var(--ev-ease-out);
+}
+
+/* Llama de la racha en Home: no es el emoji quieto, sube y gira leve.
+   El transform evita reflow y el retardo hace que no sea un loop mecanico. */
+@keyframes ev-llama {
+  0%, 100% { transform: translateY(0) rotate(-3deg) scale(1); }
+  50%      { transform: translateY(-3px) rotate(3deg) scale(1.06); }
+}
+
+.ev-flama {
+  animation: ev-llama 1.6s var(--ev-ease-in-out) infinite;
+}
+
+/* Estrellas de valoracion en el detalle del apunte */
+.ev-estrella {
+  transition: transform var(--ev-t-fast) var(--ev-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ev-estrella:hover { transform: scale(1.25) rotate(6deg); }
+}
+
+/* Favorito de la biblioteca: la estrella crece y se tiñe al hover. Antes se
+   usaba un emoji 🔖, que no toma la clase de transición. */
+.ev-favorito {
+  transition:
+    color var(--ev-t-base) ease,
+    background-color var(--ev-t-base) ease,
+    transform var(--ev-t-base) var(--ev-ease-out);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .ev-favorito:hover {
+    transform: scale(1.15) rotate(-8deg);
+  }
+}
+
+/* Punto de vencimiento del calendario: late en los dias criticos para que
+   el ojo los encuentre sin tener que leer los numeros. */
+@keyframes ev-latido {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.45; transform: scale(1.35); }
+}
+
+.ev-punto-critico {
+  animation: ev-latido 1.8s var(--ev-ease-in-out) infinite;
+}
+
+/* ------------------------------------------------------------------
+   Reduced motion: menos movimiento, no cero movimiento.
+   Se conservan los cambios de color y opacidad que explican estado.
+   ------------------------------------------------------------------ */
+
 @media (prefers-reduced-motion: reduce) {
-  .mascota-rebote-suave {
-    animation: none;
+  .ev-enter,
+  .ev-enter-card,
+  .ev-enter-pop,
+  .ev-bubble,
+  .ev-shake,
+  .ev-float,
+  .ev-flama,
+  .ev-rebote-suave,
+  .ev-drift,
+  .ev-drift-lento,
+  .ev-particle,
+  .ev-slide-right,
+  .ev-badge-urgente,
+  .ev-punto-critico,
+  .ev-track-brillo .ev-progress-fill::after,
+  .ev-view,
+  .ev-overlay,
+  .ev-modal,
+  .ev-burbuja,
+  .skeleton,
+  .ev-scroll-abajo,
+  .ev-menu-chat,
+  .ev-msg-resaltada > div,
+  .bar-grow,
+  .bar-row,
+  .animate-fade-in-up,
+  .donut-segment,
+  .donut-highlight .donut-segment:not(:hover),
+  .ev-scroll-abajo,
+  .ev-shimmer:hover::after {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+
+  /* El halo y el cursor glow son adorno puro: fuera por completo */
+  .ev-glow { display: none; }
+
+  .ev-field,
+  .ev-field-label,
+  .ev-field-icon,
+  .ev-eye,
+  .ev-btn,
+  .ev-glow,
+  .ev-stat,
+  .ev-estrella,
+  .ev-favorito,
+  .ev-progress-fill,
+  .ev-bar-fill,
+  .ev-donut,
+  .ev-tab,
+  .ev-tab::after,
+  .ev-chip,
+  .ev-tarea,
+  .ev-columna,
+  .ev-progress-mini-fill {
+    transition-duration: 1ms;
+  }
+
+  /* El cambio de tema cruza la pantalla entera. Animatedo cada elemento se
+     percibe como una ola de color que puede llega a marear, asi que el
+     repintado es instantaneo. */
+  body,
+  .ev-tema-suave,
+  .ev-navbar,
+  .ev-nav-menu {
+    transition: none !important;
   }
 }

@@ -2,7 +2,7 @@
 
 **Stack:** React 19 · Vite 8 · Tailwind CSS 4 · React Router 7 · axios · react-hot-toast · socket.io-client
 
-SPA con enrutamiento cliente, autenticación por contexto y notificaciones por toast. Cada página y componente, paso a paso.
+SPA con enrutamiento cliente, autenticación por contexto, una instancia Axios compartida y notificaciones por toast. Cada página y componente, paso a paso.
 
 ---
 
@@ -10,7 +10,7 @@ SPA con enrutamiento cliente, autenticación por contexto y notificaciones por t
 
 ### `main.jsx`
 1. Importa `App` y `AuthProvider`.
-2. Importa `./config` (para que se registren los interceptores de axios).
+2. Importa `./config`, que crea el cliente Axios compartido y registra sus interceptores.
 3. Importa `./index.css` (estilos Tailwind).
 4. Renderiza en `#root`: `React.StrictMode → AuthProvider → App`.
 
@@ -33,23 +33,30 @@ SPA con enrutamiento cliente, autenticación por contexto y notificaciones por t
 | `/mis-apuntes` | `MyNotes` | ✅ |
 | `/favoritos` | `Favorites` | ✅ |
 | `/gestor-equipos` | `GestorEquipos` | ✅ |
-| `/admin` | `AdminPanel` | ✅ |
-| `/apuntes` | `Apuntes` | ✅ |
+| `/admin` | `AdminPanel` | ✅ sesión + rol `admin` |
+| `/apuntes` | Redirección a `/biblioteca` | ❌ (ruta de compatibilidad) |
 | `*` | `NotFound` | ❌ |
 
 ### `ProtectedRoute.jsx`
-1. Lee `localStorage.getItem('token')`.
-2. Si no existe → `<Navigate to="/login" replace />`.
-3. Si existe → renderiza el hijo.
+1. Comprueba el token de sesión y consulta el usuario de `AuthContext`.
+2. Sin token → `<Navigate to="/login" replace />`.
+3. Acepta `requiredRole`; si el rol no coincide, redirige a `/`.
+4. `/admin` usa `requiredRole="admin"`. Este control de ruta mejora la navegación, pero el backend mantiene la autorización efectiva de cada endpoint.
 
 ---
 
 ## 2. Infraestructura transversal
 
 ### `src/config.js`
-1. Exporta `API_URL = ''` → peticiones relativas, resueltas por el proxy de Vite hacia el backend.
-2. **Interceptor de petición:** agrega `Authorization: Bearer <token>` a todas las llamadas si hay token en `localStorage`.
-3. **Interceptor de respuesta:** si devuelve `401`, o `400` con mensaje que contiene "Token", borra `token`, `usuario_id`, `usuario` de `localStorage` y redirige a `/login`.
+1. `API_URL` lee `import.meta.env.VITE_API_URL` y quita barras finales. Si está vacía, las peticiones relativas usan el proxy de Vite.
+2. Exporta una instancia `api` de Axios; las páginas y los métodos de `services/api.js` comparten esa instancia.
+3. **Interceptor de petición:** agrega `Authorization: Bearer <token>` cuando hay token en `localStorage`.
+4. **Interceptor de respuesta:** ante una respuesta `401` (o `400` con mensaje que contiene "Token") de una petición autenticada, elimina los datos de sesión y redirige a `/login`. Los errores de login sin token no provocan ese cierre de sesión.
+
+### `src/services/api.js`
+- Reexporta el cliente común y agrupa métodos de apuntes, equipos y administración.
+- Las páginas que aún llaman endpoints directamente también importan este mismo cliente; así comparten cabeceras, URL base y respuesta ante sesiones vencidas.
+- La subida de apuntes usa `POST /apuntes/upload`; Axios define el boundary multipart al enviar `FormData`.
 
 ### `src/context/AuthContext.jsx`
 Fuente única de verdad del estado de autenticación:
@@ -58,7 +65,7 @@ Fuente única de verdad del estado de autenticación:
 |---------|-------------|
 | Estado inicial | Lee `usuario`, `usuario_id`, `foto_url`, `rol` de `localStorage`; si faltan, `null` |
 | `login(datos)` | Guarda token + datos en `localStorage`, actualiza `user` en state, dispara `emitAuthChange()` |
-| `logout()` | `localStorage.clear()`, `user = null`, dispara evento |
+| `logout()` | Borra **solo** `token`, `usuario`, `usuario_id`, `foto_url`, `rol`; `user = null`, dispara evento |
 | `updateUser(patch)` | Mergea cambios en `user` y persiste `nombre`/`foto` en `localStorage` |
 
 Expone `useAuth()` → `{ user, login, logout, updateUser }`.
@@ -71,20 +78,95 @@ Expone `useAuth()` → `{ user, login, logout, updateUser }`.
 ## 3. Componentes compartidos (`src/components/`)
 
 ### `Navbar.jsx`
-1. Obtiene `user` y `logout` de `useAuth()`.
-2. **Sin sesión:** muestra links a *Iniciar Sesión* y botón *Registrarse*.
-3. **Con sesión:**
-   - Módulos contextuales según `location.pathname`:
-     - En `/` → Biblioteca, Equipos, Tutor IA (deshabilitado "Próximamente").
-     - En `/biblioteca` → Favoritos, Mis Apuntes.
-     - En `/gestor-equipos` → Equipos.
+1. Obtiene `user` y `logout` de `useAuth()`, y `{ oscuro, alternar }` de `useTema()`.
+2. Lado izquierdo: logo y el chip *UDG Comunidad* en login/signup.
+3. Lado derecho — **sin sesión:** muestra links a *Iniciar Sesión* y botón *Registrarse*.
+4. Lado derecho — **con sesión:**
+   - Módulos contextuales según `location.pathname` (ver tabla de `MODULOS`).
    - Si `user.rol === 'admin'` → link `⚡ Admin`.
    - Chip de perfil con foto (fallback a `ui-avatars.com`), rol y nombre.
    - Botón de cerrar sesión → `logout()` + `navigate('/login')`.
-4. **Móvil:** botón hamburguesa que despliega menú dropdown con las mismas opciones y `closeMenu()` en cada link.
+5. Botón de tema: en escritorio, primera posición del grupo de acciones (a la izquierda de los links, del chip de perfil y del logout); en móvil, al borde derecho junto al hamburger. Es el componente `BotonTema` en sus dos instancias.
+6. En móvil, hamburguesa que despliega menú dropdown con las mismas opciones y `closeMenu()` en cada link.
+7. Estilos: `.ev-navbar` (gradiente por tema), `.ev-logo` (inversión en oscuro), `.ev-nav-menu` (dropdown). Ver [Tema claro / oscuro](#tema-claro--oscuro).
+
+#### Los links de módulo son datos, no JSX
+
+`MODULOS` es una lista, y tanto la versión de escritorio como la de móvil la
+consumen. Antes eran dos funciones `getModuleLinks()` / `getMobileModuleLinks()`
+con JSX duplicado.
+
+Con datos, el estado activo se resuelve en un solo lugar (`location.pathname ===
+m.to`) y las dos versiones no pueden desincronizarse. El enlace activo lleva
+`aria-current="page"` y un ámbar con `drop-shadow` tenue.
+
+Si se agrega una sección, se agrega **una fila a `MODULOS`**, no dos bloques de
+JSX.
+
+#### Cierre del menú móvil
+
+Tres vías, en un solo `useEffect` que depende de `menuOpen`:
+
+| Vía | Implementación |
+|---|---|
+| `Escape` | `keydown` en `document` |
+| Clic fuera | `pointerdown` + `navRef.current.contains(e.target)` |
+| Cambio de ruta |Ajuste de estado **durante el render**, no `useEffect` |
+
+El clic fuera se mide contra el `<nav>` completo, no contra el panel del menú: así
+un clic en el botón que lo abrió no lo cierra dos veces en el mismo tick.
+
+El `overflow: hidden` del `body` se restaura al valor previo en la cleanup, no a
+`''` a secas: si otro componente había puesto algo ahí, restaurarlo a vacío lo
+rompe.
+
+El cambio de ruta **no** va en un `useEffect`. Un `setState` dentro de un effect
+cascada un render extra y ESLint lo marca como error
+(`react-hooks/set-state-in-effect`). El patrón correcto es comparar contra un
+estado previo durante el render y ajustarlo ahí:
+
+```jsx
+const [rutaPrevia, setRutaPrevia] = useState(location.pathname);
+if (rutaPrevia !== location.pathname) {
+  setRutaPrevia(location.pathname);
+  setMenuOpen(false);
+}
+```
+
+#### Color del cierre de sesión
+
+El botón de cerrar sesión del menú móvil **no es rojo**. En este proyecto el rojo
+está reservado para urgencia (vencimientos, errores de validación). Un botón rojo
+ahí hace pensar que algo va mal. Es ámbar, el mismo color de hover del navbar.
 
 ### `ErrorBoundary.jsx`
 Clase React con `getDerivedStateFromError` → si un hijo lanza, renderiza pantalla de error con botón que resetea el estado y navega a `/`.
+
+### `InfoModulo.jsx`
+Botón "i" con popover de texto extendido. Lo usa cada tarjeta de módulo del Home.
+
+- **El popover va en `createPortal` a `document.body`**, aunque el botón sí está dentro de la tarjeta. Motivo: el contenedor de las tarjetas tiene `overflow: hidden` y el popover se cortaría a la mitad. Mismo problema y misma solución que el calendario de vencimientos.
+- Se posiciona midiendo el botón, y **recalcula en `scroll` y `resize`**: es `position: fixed`, sin eso se despega al hacer scroll.
+- Cierra con `Escape` o clic fuera. El listener de clic fuera ignora los eventos dentro de `[data-info-modulo]` **y** dentro de `[data-info-popover]`, por la misma razón que el calendario: el popover es un portal a `document.body`, fuera del árbol de React pero dentro del árbol del DOM.
+- **El botón llama `preventDefault()` y `stopPropagation()`.** Vive dentro del `<Link>` que envuelve la tarjeta del módulo, así que sin esto el clic sube al `Link` y React Router navega: el usuario pulsaba "i" y lo mandaba a otra página.
+
+#### Botón dentro de un `Link`
+
+Regla general del proyecto: **un control interactivo anidado en un `Link` decide por evento.** Sin `stopPropagation`, el clic navega.
+
+Es fácil no verlo porque el control se ve correcto y el bug solo aparece al pulsarlo. `InfoModulo` nació con ese bug: en la tarjeta del Home el "i" funcionaba y además cambiaba de página.
+
+Relacionado: `stopPropagation` **no** protege al popover del listener de clic fuera. Ese listener está en `document`, y en el DOM los eventos no tienen tabú de propagación: `stopPropagation` corta el camino hacia abajo (hacia `document`) del evento *original*, pero no exime a los hijos que nazcan en otro lugar del árbol. Por eso el popover necesita marcador propio.
+- `aria-expanded` en el botón, `role="tooltip"` en el popover.
+- Entra con `ev-enter-pop`.
+
+### `CalendarioVencimientos.jsx`
+Calendario de vencimientos del equipo. Ver la sección de `GestorEquipos.jsx` para el detalle de comportamiento.
+
+### `ApunteCard.jsx` y `TaskCard.jsx`
+- `ApunteCard` presenta un apunte tanto en el carrusel como en la cuadrícula de la biblioteca. Recibe el tono, el estado de favorito y los callbacks desde `Biblioteca.jsx`.
+- `TaskCard` presenta una tarea del tablero. Recibe las acciones de arrastre, apertura, eliminación y cambio de estado desde `GestorEquipos.jsx`.
+- La extracción mantiene los datos y el estado en sus páginas, y deja la presentación de las tarjetas en componentes independientes.
 
 ---
 
@@ -109,50 +191,606 @@ Clase React con `getDerivedStateFromError` → si un hijo lanza, renderiza panta
 
 ### `Home.jsx`
 1. Lee `localStorage.usuario` para el saludo.
-2. Array `modulos` con 3 tarjetas: Biblioteca (activo), Gestor de Equipos (activo), Tutor IA (`activo: false`).
+2. Array `modulos` con 3 tarjetas: Biblioteca (activo), Gestor de Equipos (activo), Tutor IA (`activo: false`). Cada una lleva `descripcion` (corta, siempre visible), `detalle` (larga, va en el popover de `InfoModulo`) y `demora` (`ev-d-N` para la entrada escalonada).
 3. Renderiza grid; las activas envuelven en `<Link>`, las inactivas muestran badge "Próximamente" y no navegan.
+4. El fondo va en `.ev-home-fondo` (no en `style`) para que pueda tener versión oscura.
+
+#### Animaciones del Home
+
+Todo con clases del sistema `ev-*`, sin `animate-*` de Tailwind ni CSS suelto:
+
+| Dónde | Clase | Qué hace |
+|---|---|---|
+| Racha (header) | `ev-enter ev-d-1` | Entrada coreografiada |
+| Tarjetas de módulo | `ev-enter` + `ev-d-2/3/4` | **Entran una tras otra** |
+| Tarjeta de módulo | `group` | Agrupa los hover del contenido |
+| Icono del módulo | `group-hover:scale-110 group-hover:-rotate-6` | Reacciona al hover de la tarjeta |
+| Botón "Entrar" | `ev-btn ev-shimmer` | Brillo que lo recorre al hover |
+| Mascota | `ev-float` + `ev-rebote-suave` | Flotación permanente + rebote cada 5 s |
+| Popover de info | `ev-enter-pop` | Entra con escala, no de golpe |
+
+La mascota lleva **las dos**: `ev-float` la mantiene siempre en movimiento (nunca queda quieta 5 segundos) y `ev-rebote-suave` se suma cada 5 s como refuerzo. Antes solo rebotaba, y entre rebotes la imagen se quedaba estática.
+
+Los `ev-d-N` solo declaran `animation-delay`: no animan por sí mismos, así que no necesitan entrada propia en el bloque `prefers-reduced-motion` (la animación base `ev-enter` ya está anulada ahí).
+
+#### Jerarquía de superficies del Home
+
+En claro las tarjetas son **más claras** que el contenedor. En oscuro hay que
+**invertir la relación**: si las tarjetas quedan más oscuras que el contenedor,
+se leen como agujeros y la página pierde profundidad.
+
+| Capa | Claro | Oscuro |
+|---|---|---|
+| Página | `#f0f6ff` + halos | `var(--ev-bg)` sólido |
+| Contenedor | `bg-white/60` | `dark:bg-slate-900/70` |
+| Tarjeta de módulo | `bg-white` | `dark:bg-slate-800` |
+| Tarjeta inactiva | `bg-slate-50/80` | `dark:bg-slate-800/60` |
+
+`border-white/80` no sirve en oscuro: un borde blanco al 80% sobre fondo oscuro
+es una línea brillante. Las tarjetas y el contenedor usan
+`dark:border-slate-700/60`.
 
 ### `Biblioteca.jsx` (explorar apuntes)
 1. `cargarApuntes()` con `useCallback` → `GET /apuntes`, estado `cargando` para skeletons.
-2. `guardarFavorito(id)` → `POST /favoritos` con `usuario_id` de `localStorage`; exige sesión.
-3. `handleSearch()` → `GET /apuntes/buscar?q=`.
-4. Render: header con botón *Subir Material*, buscador, grid con 3 estados → skeleton (6 tarjetas), vacío con botón "Ver todos", o tarjetas reales con botón favorito y link a detalle.
+2. `cargarFavoritos()` → `GET /favoritos/:usuario_id`; guarda un `Set` de `apunte_id` (para el estado de cada estrella) y `listaFavoritos` (los apuntes completos, para el panel lateral). Si no hay sesión, vacía ambos.
+3. `alternarFavorito(apunte)` → alterna entre `POST /favoritos` y `DELETE /favoritos` según el estado actual. Actualización optimista con reversión si el backend rechaza.
+4. `handleSearch()` → `GET /apuntes/buscar?q=`.
+5. Filtro por materia: se aplica en el cliente sobre `apuntes`, no va al backend (el endpoint de búsqueda no acepta ese parámetro).
+6. Carrusel "Recién subidos": `scroll-snap` nativo, flechas y puntos de navegación, auto-avance cada 6 s que se pausa al hover. Solo se renderiza con 4 apuntes o más.
+7. Tarjeta "Último visto": se lee de `localStorage` (`eduverse_ultimo_apunte`), que escribe `DetalleApunte.jsx` al abrir un apunte. Solo aparece si ese apunte sigue existiendo en la lista actual.
+8. **Vista previa de PDF**: dos lugares de acceso, ambos con un modal `ev-modal` compartido en `apuntePreview`.
+   - **Opción B — en el carrusel**: las tarjetas grandes (`w-64 sm:w-72`) embeben un `<iframe>` con `#page=1&view=FitH` en lugar del degradado de la materia. Al hacer hover se oscurece y aparece el rótulo "Ver vista previa".
+     - `loading="lazy"` es obligatorio: el carrusel monta hasta 8 iframes de PDF y sin lazy se descargan varios MB que el usuario ni está mirando.
+     - `pointer-events-none` sobre el iframe: si no, el scroll interno del visor de PDF captura el hover y el clic nunca llega al botón.
+   - **Opción C — en el grid chico**: las tarjetas de `sm:grid-cols-2 xl:grid-cols-3` no embeden nada (serían 20+ iframes). En su lugar hay un botón con ícono de documento que abre el mismo modal.
+   - El modal muestra el documento completo con scroll interno, más dos salidas: "Abrir en pestaña nueva" (`<a target="_blank">`) y "Ver detalle completo" (link al `DetalleApunte`).
+   - `esPdfUrl(url)` detecta el PDF por la extensión de `archivo_url` (`/uploads/<nombre>`), sin pedir el MIME type. Los PNG/JPG caen a un `<img>` y cualquier otro formato a la portada con degradado.
+   - Cierra con la X, con clic en el overlay o con `Escape`. El scroll del body se congela y el foco entra al diálogo.
+9. **Botón "Mis favoritos"**: vive en la barra de acciones, junto a *Subir
+   material* y *Explorar apuntes*. Muestra el total en una píldora ámbar y abre
+   el modal con la lista completa. Solo aparece con sesión iniciada y con al
+   menos un favorito.
+   - El modal reutiliza las clases `ev-modal` / `ev-overlay` que ya existían para los modales de tareas.
+   - Cierra con la X, con el botón "Cerrar", con clic en el overlay o con `Escape`.
+10. **Panel lateral**: dos tarjetas, "Tu biblioteca" con las cifras (apuntes,
+   materias, autores, subidos hoy) y "Materias con más apuntes" con barras
+   horizontales ordenadas por volumen.
+   - Ya **no** hay un panel de favoritos en el lateral. El acceso a favoritos
+     vive únicamente en el botón de la barra de acciones y en el modal.
+11. Render: header con contador de "subiste hoy" e ilustración, barra de acciones, buscador con filtros, grid de apuntes con 3 estados → skeleton, vacío con CTA, o tarjetas reales.
+
+#### Dos modales, un solo listener de Escape
+
+Favoritos y preview comparten `ev-modal` y `ev-overlay`. El teclado tiene **un**
+listener global registrado una vez que cierra los dos; el efecto que congela el
+scroll es el único que mira `modalFavoritos || apuntePreview`. Si cada modal
+registrara su propio listener de Escape, con dos modales abiertos un solo
+Escape dispararía dos handlers.
+
+#### Por qué el botón está en la barra y no en el panel lateral
+
+El acceso a los favoritos es una acción frecuente, no un dato de relleno. Dentro
+del panel lateral quedaba condicionado a tener más de 6 favoritos guardados, así
+que con 2 o 3 no había forma de llegar al listado completo. En la barra de
+acciones se ve siempre, sin scroll. El panel lateral se quitó para no duplicar
+la función en dos lugares.
+
+#### Modal de favoritos: por qué existe
+
+El panel lateral es `lg:sticky`. Con 20 favoritos la lista completa lo estiraría
+y empujaría las barras de materias y el CTA fuera de la vista, dejando un hueco
+incomodo en una columna que debería quedar fija mientras se hace scroll. Por eso
+el panel muestra un tope de 6 y el resto vive en el modal.
 
 ### `Upload.jsx` (subir apunte)
-1. Validación cliente de archivo: tipo (`pdf/png/jpeg`) y tamaño (≤ 10 MB) con toast de error.
-2. `handleSubmit` construye `FormData` (archivo, título, materia, descripción, `usuario_id`).
-3. `POST /apuntes/upload` con header `multipart/form-data`.
-4. Toast de éxito → `navigate('/biblioteca')`.
+1. Validación de archivo en `recibirArchivo()`: tipo (`pdf/png/jpeg`) y tamaño (≤ 10 MB). Además del toast, guarda el motivo en `errorArchivo` y lo muestra dentro de la dropzone, porque un toast se va solo y el usuario puede no ver por qué no se acepta.
+2. **Dropzone con drag and drop**: `onDragOver` / `onDragLeave` / `onDrop`. También responde a `Enter` y `Espacio` porque es un `div` con `role="button"` y sin tabulador no sería usable por teclado.
+3. **Vista previa** en dos columnas junto a la dropzone:
+   - PDF → `<iframe>` con la URL de objetos creada por `URL.createObjectURL(file)`.
+   - Imagen → `<img>`.
+   - La URL del blob se revoca en el cleanup del `useEffect` cuando cambia de archivo; sin eso el objeto queda retenido y la memoria filtra en cada carga.
+4. Al elegir archivo válido aparece una fila con nombre, tamaño (`formatoBytes()`) y botón para quitar. Ese botón también limpia `inputRef.current.value`: sin eso, elegir de nuevo **el mismo** archivo no dispara `onChange` y la vista previa no se regenera.
+5. `handleSubmit` construye `FormData` (archivo, título, materia, descripción, `usuario_id`).
+6. `POST /apuntes/upload` con `FormData`; Axios genera el `Content-Type` y su boundary multipart. El error se muestra con el mensaje del backend si viene como string.
+7. Toast de éxito → `navigate('/biblioteca')`.
+8. El botón de publicar queda deshabilitado sin archivo o durante el envío, en lugar de dejar enviar y fallar.
 
-### `Apuntes.jsx` (repositorio)
-1. `GET /apuntes` → grid de 4 columnas.
-2. Cada tarjeta: título link a `/apunte/:id`, botón *Valorar*, y enlace directo al PDF.
+### `Apuntes.jsx` (ruta de compatibilidad)
+La pantalla independiente ya no se usa. `App.jsx` redirige `/apuntes` a `/biblioteca` para mantener válidos enlaces guardados; búsqueda, filtros, tarjetas y vistas previas se mantienen en `Biblioteca.jsx`.
 
 ### `DetalleApunte.jsx` (detalle + comunidad)
 1. `useParams()` obtiene `id`.
 2. Carga en paralelo `GET /apuntes/detalle/${id}` (incluye `promedio_rating`) y `GET /comentarios/${id}`.
-3. Estado: `rating` (estrellas 1-5), `comentario`, `comentarios`.
-4. `enviarComentario()`:
+3. Al cargar el apunte, escribe en `localStorage` bajo `eduverse_ultimo_apunte` el `apunte_id`, `titulo`, `materia` y `autor`. Lo consume `Biblioteca.jsx` para la tarjeta "Último visto", sin necesidad de otra petición.
+4. Estado: `rating` (estrellas 1-5 del usuario), `comentario`, `comentarios`.
+   - Ojo: el promedio del apunte va en una variable aparte (`promedio`). Si se declarara como `const rating = parseFloat(...)` dentro del render, sombrearía el estado y las estrellas se pintarían según el promedio en vez de la selección actual.
+5. `enviarComentario()`:
    - Valida sesión y que `rating !== 0`.
    - `POST /comentarios` y luego `POST /valoraciones`.
    - Limpia campos y recarga datos.
-5. UI: cabecera con botón *Abrir PDF*, columna de formulario (estrellas + textarea) y columna de lista de comentarios.
+6. UI: header `ev-mesh` con glow que sigue al mouse, botón *Abrir PDF*, columna de descripción + comentarios y columna lateral con el formulario (estrellas SVG + textarea), `lg:sticky`.
+
+La exploración está centralizada en `Biblioteca.jsx` (ver su sección anterior). `Apuntes.jsx` se conserva temporalmente como archivo, pero ya no se monta como ruta.
 
 ### `MyNotes.jsx` (mis apuntes)
-1. `GET /apuntes/mis-apuntes/${usuarioId}`.
-2. `eliminarApunte(id)` → confirm → `DELETE /apuntes/${id}` → recarga lista.
-3. 3 estados: spinner, vacío, lista con *Ver* y *Eliminar*.
+1. `GET /apuntes/mis-apuntes/${usuarioId}`. Ojo: ese endpoint hace `SELECT * FROM apuntes` **sin** el JOIN de usuarios, así que estos apuntes **no traen `autor`**. La UI no lo usa.
+2. `confirmarEliminar()` → `DELETE /apuntes/${id}` y quita el item de la lista en vez de recargar. La recarga completa se siente lenta para algo tan simple.
+3. **La confirmación va en un modal `ev-modal` propio, no con `window.confirm`.** Antes usaba `window.confirm`, que es un diálogo del navegador: no se puede estilar, se ve fuera del sistema de diseño y en algunos navegadores bloquea el hilo.
+4. Cuatro estados: skeleton, error con reintentar, vacío con CTA, y lista.
 
 ### `Favorites.jsx` (favoritos)
-1. `GET /favoritos/${usuarioId}`.
-2. `quitarFavorito(id)` → `DELETE /favoritos` con `data: { usuario_id, apunte_id }` (body en `data` porque es `DELETE`).
-3. Tarjetas con *Abrir PDF* y *Eliminar*.
+1. `GET /favoritos/${usuarioId}`; si no hay `usuario_id` no dispara la petición.
+2. `quitarFavorito(apunte)` → `DELETE /favoritos` con `data: { apunte_id }`. El body va en `data` porque es un `DELETE`.
+   - **No se manda `usuario_id`**: el endpoint lo toma del token (`req.usuario.id`), mandarlo sugería que se usaba y no se usa.
+   - Actualización optimista con reversión si el backend rechaza.
+3. Header con contador de guardados, materias y autores. Tarjetas con insignia de estrella y degradado por materia.
 
 ### `Profile.jsx` (perfil)
 1. `GET /auth/perfil/${usuarioId}` → `nombre`, `email`, `foto_url`.
-2. **Foto:** input oculto → `handleFotoChange` genera preview con `URL.createObjectURL` → botón *Confirmar Nueva Foto* → `PUT /usuarios/foto/${id}` con `FormData` → `updateUser({ foto })`.
-3. **Formulario:** valida nombre ≥ 3 → `PUT /auth/perfil/update/${id}` → `updateUser({ nombre })`. El email va `disabled`.
-4. Arriba: 3 accesos rápidos a módulos (Biblioteca, Equipos, Tutor IA deshabilitado).
+2. **Foto:** input oculto → `handleFotoChange` valida tipo (PNG/JPG) y tamaño (≤ 5 MB) → preview con `URL.createObjectURL` → `PUT /usuarios/foto/${id}` con `FormData` → `updateUser({ foto })`.
+   - **La URL de objetos se revoca** al reemplazarla y al descartarla. Antes nunca se revocaba y cada cambio de foto dejaba el blob retenido en memoria.
+   - Hay opción de *Descartar*, que revoca la URL y limpia el input. Sin limpiar `input.value`, volver a elegir el mismo archivo no dispara `onChange`.
+3. **El avatar de respaldo son iniciales generadas localmente** con `tonoDesdeNombre()`. Antes pegaba a `ui-avatars.com`: rompe sin internet y manda el nombre del usuario a un servicio de terceros.
+4. **Formulario:** valida nombre ≥ 3 → `PUT /auth/perfil/update/${id}` → `updateUser({ nombre })`. El email va `disabled` con una explicación de por qué.
+5. Header `ev-mesh` con avatar, nombre, correo y botón *Cerrar sesión*. Abajo, grid con los accesos a módulos.
+
+### `NotFound.jsx` (404)
+Header con el 404 en degradado de marca (`bg-clip-text`), mensaje y botón al inicio, más un grid con tres atajos a módulos. Un 404 es un callejón sin salida: sin atajos, el retroceso del navegador es la única opción.
+
+### Tema claro / oscuro
+
+**`src/hooks/useTema.js`** — hook `useTema()` que devuelve `{ oscuro, alternar }`.
+
+- El atributo `dark` se pone en `<html>`, no en `<body>`.
+- **El script inline de `index.html` aplica el tema antes de que React monte.** Si se hiciera en un `useEffect`, la página se pintaría en claro un instante y después saltaría a oscuro: un destello blanco en cada recarga.
+- Persistencia en `localStorage`, clave `eduverse_tema`.
+- Si el usuario nunca eligió tema, se sigue a `prefers-color-scheme` **en vivo**: el hook escucha el `change` de la media query y se desuscribe al desmontar.
+- El toggle vive en el `Navbar`, en el **grupo del logo, a la izquierda**: es una preferencia de la aplicación, no una acción de cuenta, y así queda siempre visible sin abrir el menú en móvil.
+- El fondo de `<html>` se pinta con `var(--ev-bg)`, así que el script inline cubre el fondo antes de que exista siquiera el `<body>`.
+
+#### Tokens semánticos de superficie
+
+La paleta oscura **no** se implementó con `dark:` de Tailwind clase por clase. Hay
+~40 superficies distintas y varias páginas con colores inline; hacerlo clase por
+clase es un cambio mecánico gigante y muy fácil de dejar a medias.
+
+En su lugar, `index.css` declara **variables semánticas** en `:root` y las
+redefine en `.dark`. Las clases `ev-*` las consumen:
+
+| Token | Para qué |
+|---|---|
+| `--ev-bg`, `--ev-bg-halo-1/2` | Fondo de página y sus degradados |
+| `--ev-surface`, `--ev-surface-solid`, `--ev-surface-raised`, `--ev-surface-sunken` | Tarjetas, paneles, filas |
+| `--ev-border`, `--ev-border-strong`, `--ev-border-accent` | Bordes |
+| `--ev-text`, `--ev-text-muted`, `--ev-text-soft` | Texto principal, de apoyo y suave |
+| `--ev-shadow` | Sombra de panel |
+| `--ev-progress-track`, `--ev-bar-track` | Rieles de barras y progreso |
+
+Con esto el tema oscuro cubre automáticamente el fondo de página, los paneles de
+vidrio, las barras y los bordes de **todas** las páginas.
+
+#### El detalle que más se olvida: `--ev-text` tiene que Consumirse
+
+Los tokens `--ev-text` existen en `:root` y en `.dark` desde el principio, pero
+**si el `body` no los aplica, no hace nada**:
+
+```css
+body { color: var(--ev-text); }
+```
+
+Sin esa línea, el texto hereda el default del navegador — **negro**. El fondo sí
+cambiaba con `--ev-bg`, así que en modo oscuro quedaba **negro sobre azul casi
+negro**, y cualquier elemento sin `text-*` propio era ilegible: inputs,
+textareas y selects. El del chat del gestor fue el primer caso visible, pero
+afectaba a toda la columna de formularios del proyecto.
+
+No es un bug de un componente: es un token definido y sin usar. Para detectarlo,
+hay que buscar en el CSS compilado que el `body` tenga `color:var(--ev-text)`,
+no solo que la variable esté declarada.
+
+Los elementos que sí declaran su color no se ven afectados: `body` es el
+ancestro y cualquier clase de Tailwind tiene mayor especificidad. El cambio solo
+toca a los que heredaban, que son exactamente los que estaban rotos.
+
+#### Un token declarado solo en `.dark` no existe en claro
+
+`--ev-bar-track` y `--ev-progress-track` estaban definidos únicamente
+en `.dark`. En claro, los consumidores que llevaban fallback propio
+(`var(--ev-bar-track, rgba(...))`) funcionaban "por accidente"; pero
+`.ev-donut-vacio` no tenía fallback y su `conic-gradient` quedaba
+inválido: **el anillo del donut vacío era invisible en modo claro**.
+
+Regla: **todo token se declara dos veces**, en `:root` y en `.dark`,
+con el valor de cada tema. El fallback de `var()` es para el primer
+render, no para compensar un token ausente.
+
+En el mismo arreglo, el riel del donut de estados (`DonutEstados`)
+tenía el color hardcodeado (`#eef2f9` / `#e8eef8`) y usaba una clase
+`donut-track` que no existía en el CSS. Ahora la clase existe y consume
+el token, y los dos `stroke` hardcodeados desaparecieron.
+
+Trampa del SVG: **`var()` no se resuelve en atributos de
+presentación**. `stroke="var(--ev-bar-track)"` no pinta nada — el
+navegador lo ignora y cae en negro. El token va en una regla CSS:
+
+```css
+.donut-track { stroke: var(--ev-bar-track); }
+```
+
+#### Una clase custom que no existe en el CSS no falla: **silenciosamente no hace nada**
+
+Este es el mismo género de bug que `--ev-text` definido y sin usar.
+
+En `GraficosEquipos.jsx` quedaron 6 clases referenciadas en el JSX que **nunca existieron** en `index.css`:
+
+| Clase | Usada en | Consecuencia real |
+|---|---|---|
+| `skeleton` | `<Skeleton>` | Espacio reservado transparente — **no se ve nada** mientras carga |
+| `bar-grow` | Barras de `BarrasEquipos` | Se pintan al ancho final de golpe; `animationDelay` no hace nada |
+| `bar-row` | Filas de leyenda | Sin animación de entrada |
+| `animate-fade-in-up` | Skeletons de métricas | Sin fade de entrada |
+| `donut-segment` | Arcos del donut | Sin transición de `stroke-width` en hover (salto brusco) |
+| `donut-highlight` | Contenedor del donut al hover | Los arcos no se atenúan al pasar el mouse |
+
+**Por qué pasó:** el dashboard usa prefijo `ev-*` (`ev-bar-fill`, `ev-bar-track`, `ev-enter`… existen en CSS). `GraficosEquipos.jsx` quedó fuera del renombrado y seguía llamando a clases a pelo sin prefijo. `git log -S"bar-grow" -- index.css` sale vacío: **nunca estuvieron en el CSS**.
+
+**Cómo se detecta:** en el JSX hay `className="bar-grow"` pero en el CSS compilado no hay `.bar-grow`. La regla no falla, no avisa, simplemente **no se aplica**. El navegador ignora la clase y el elemento queda con estilo por defecto.
+
+**Fix:** definir las clases en `index.css` con keyframes que usan los tokens del proyecto (`--ev-t-base`, `--ev-ease-out`, `--ev-bar-track`), y agregar sus nombres al bloque `@media (prefers-reduced-motion: reduce)` para que se apaguen si el usuario pide menos movimiento.
+
+#### `focus:ring-blue-100`: un anillo claro que no funciona en oscuro
+
+Los campos usaban `focus:ring-4 focus:ring-blue-100`. `blue-100` es casi blanco:
+sobre un input oscuro en modo oscuro, el foco se ve como una mancha clara
+mal formada. Se cambió a `focus:ring-blue-500/20`, un halo azul suave que
+funciona en los dos temas. Aplicado a los 25 campos del proyecto.
+
+#### El detalle que más se olvida
+
+En oscuro el texto de apoyo tiene que **subir** de claridad, no bajar. Sobre
+fondo claro un gris claro se lee bien; sobre fondo oscuro desaparece. Por eso
+`--ev-text-muted` pasa de `#475569` a `#cbd5e1`, y `--ev-text-soft` de `#64748b`
+a `#94a3b8`.
+
+Las superficies en oscuro usan azul muy oscuro translúcido
+(`rgba(15, 23, 42, 0.72)`) y no gris: el gris puro junto al azul de marca queda
+sucio.
+
+#### El `@custom-variant`: lo que hacía que nada funcionara
+
+En **Tailwind v4** la variante `dark:` viene definida contra
+`@media (prefers-color-scheme: dark)`, no contra una clase. Eso está bien para
+una landing pública, pero acá el tema lo elige el usuario con el botón de la
+navbar, así que tiene que depender de la clase.
+
+Sin esto, `dark:bg-slate-900` se activaba por la preferencia del sistema
+operativo y no por el toggle: dos fuentes de verdad que se contradicen, y el
+botón que "no hacía nada".
+
+```css
+@custom-variant dark (&:where(.dark, .dark *));
+```
+
+Es la primera línea de `index.css` después del `@import`. **Si se borra, el modo
+oscuro deja de funcionar de golpe**, sin error de build: el CSS sigue
+compilando, simplemente las reglas nunca aplican.
+
+#### El logo: azul marino sobre barra blanca
+
+`logo-eduverse.png` es azul marino. En claro la barra arranca en blanco y se
+lee bien; en oscuro la barra arranca en `#0b1220` y el logo se volvería
+**invisible**. No es un PNG con fondo blanco opaco (es transparente, alfa 0), así
+que el filtro correcto es invertirlo:
+
+```css
+.dark .ev-logo { filter: brightness-0 invert; }
+```
+
+`brightness-0` primero lleva todos los píxeles a negro **conservando el alfa**,
+y `invert` los da vuelta. El resultado es un logo blanco con la misma silueta
+(la parte rellena de "Edu" sigue rellena, la de "Vers" sigue siendo solo
+contorno). Un `invert(1)` a secas también funcionaba, pero dejaba el azul en un
+tono amarillento sucio y se comía el ámbar de la marca.
+
+#### La navbar
+
+El gradiente vive en CSS y no en una clase arbitraria, porque cada tema tiene
+el suyo:
+
+| | Claro | Oscuro |
+|---|---|---|
+| Gradiente | `#fff 0% → #fff 31% → #2563eb 75% → #1e1b4b` | `#0b1220 0% → #0f172a 31% → #1d4ed8 78% → #1e1b4b` |
+
+En oscuro el blanco inicial se convierte en manchas glaring que rompen la barra.
+Clases: `.ev-navbar`, `.ev-nav-menu`, `.ev-logo`.
+
+El botón de tema tiene **dos instancias** de un solo componente, `BotonTema`,
+definido en `Navbar.jsx`:
+
+| Instancia | Dónde | Visibilidad |
+|---|---|---|
+| Escritorio | Primera del grupo de acciones, antes de los links de módulo, el chip de perfil y el logout | Visible solo en `md+` (hereda `hidden md:flex` del grupo) |
+| Móvil | Último hijo del `<nav>`, pegado al borde derecho junto al hamburger | `md:hidden` |
+
+No es duplicación: es la misma pieza con dos puntos de montaje, porque cada grupo
+del nav se oculta según el breakpoint. Un botón único no puede estar "a la
+izquierda del perfil en escritorio" y "en el borde en móvil" sin una de esas dos
+cosas.
+
+`BotonTema` existe para que el SVG, el `aria-label` y el `title` vivan en un
+solo lugar. Con dos `<button>` escritos a mano, el día que cambie el ícono es
+fácil olvidar uno y quedan estados distintos en cada ancho.
+
+#### Fondos con `style` inline: no tienen tema posible
+
+`Home.jsx` tenía el fondo en un atributo `style`:
+
+```jsx
+style={{ backgroundColor: '#f0f6ff', backgroundImage: 'radial-gradient(...)' }}
+```
+
+Tailwind no puede aplicarle `dark:` a un atributo `style`. Por más variantes que
+se agreguen en las clases vecinas, ese fondo **nunca** cambia: en oscuro quedaba
+un rectángulo claro gigante, que era exactamente lo que se veía mal.
+
+La regla general: **el fondo de una página va en una clase de `index.css`, no en
+`style`.**
+
+| Clase | Claro | Oscuro |
+|---|---|---|
+| `.ev-home-fondo` | `#f0f6ff` + 2 halos azules | `var(--ev-bg)` **sólido, sin halos** |
+| `.ev-bg-nexo` | `#eef4fb` + 3 halos | `var(--ev-bg)` + halos al 24% / 20% |
+| `.ev-mesh-bg` | `var(--ev-bg)` | `var(--ev-bg)` |
+
+En el Home el oscuro va **sin halos** a propósito. Los degradados claros están
+calibrados para leerse sobre blanco; sobre casi negro no dan profundidad, dan
+ruido, y compiten con las tarjetas. El header azul degradado queda como único
+elemento con relieve de la página.
+
+Un `style` inline sí es válido para lo que **depende de los datos**: el color de
+una prioridad, los tramos de un donut, el punto de una materia. Eso no es tema,
+es contenido.
+
+#### Variantes `dark:` en las clases inline
+
+Los colores sueltos de Tailwind sí se adaptaron, con reglas que hay que
+respetar al escribir más código:
+
+| En claro | En oscuro | Regla |
+|---|---|---|
+| `bg-white`, `bg-slate-50`, `bg-gray-50` | `dark:bg-slate-900` | Superficie principal |
+| `bg-slate-100`, `bg-gray-100` | `dark:bg-slate-800` | Superficie hundida, skeleton |
+| `bg-slate-200`, `bg-gray-200` | `dark:bg-slate-700` | Riel, avatar sin foto |
+| `bg-white/60`…`bg-white/95` | `dark:bg-slate-800/60`…`/95` | Cristal: conserva la opacidad |
+| `text-slate-900` / `800` / `700` | `dark:text-slate-100` / `200` / `300` | **Sube** de claridad |
+| `text-slate-600` / `500` / `400` | `dark:text-slate-400` | Se aplana a un solo tono |
+| `bg-blue-50`, `bg-amber-50`, … | `dark:bg-<hue>-500/15` | Tinte de chip |
+| `text-blue-700` sobre tinte | `dark:text-blue-300` | accompanying del tinte |
+| `border-slate-200` | `dark:border-slate-700` | Hairline |
+
+Cuatro excepciones donde **no** se toca, porque el blanco o el tinte bajo es
+decorativo y no superficie:
+
+- `bg-white/10` a `bg-white/30` - realce sobre gradiente de color (iconos,
+  anillos, estados vacíos). Oscurecerlo apaga el elemento.
+- `hover:bg-*-50/100` sin su `dark:hover:` - el hover pone un fondo casi blanco
+  en modo oscuro y el texto claro desaparece. No es una excepción: es un bug.
+  Ver [`hover:bg-*-50` sin `dark: hover`](#hoverbg-50-sin-dark-hover--el-bug-de-los-botones-ilegibles).
+- `bg-white` con texto de color (`text-blue-700`, `text-amber-800`) - es un
+  **botón blanco** sobre header azul. Ahí el blanco es la marca, no una
+  superficie: invertirlo deja texto claro sobre fondo claro. Su hover tampoco
+  lleva `dark:`, porque aclarar un blanco no depende del tema. Ver
+  [`Botones claros`](#botones-claros-nunca-darkhover-con-tinte-translúcido).
+- `text-white`, `text-blue-100`, `text-amber-200` — ya son claros sobre fondo
+  de color.
+- `bg-white` en la etiqueta de vista activa del header de equipo — el tablero
+  oscuro sobre el header claro es el contraste que hace legible la pestaña.
+
+Las paletas de materia y prioridad (`MATERIAS`, `PRIORIDADES`, `ESTADOS`,
+`TONO_OTRAS`) son **strings sueltos**, no atributos `className`. Los procesa
+cualquier script que busque `className="..."` y los deja intactos: hay que
+revisarlos a mano. Cada entrada lleva su par `dark:` en los tres campos:
+
+```js
+{ fondo: 'from-blue-500 to-indigo-600',
+  chip:  'bg-blue-50 dark:bg-blue-500/15 text-blue-700 dark:text-blue-300' }
+```
+
+#### `hover:bg-*-50` sin `dark: hover` — el bug de los botones ilegibles
+
+Un patrón rompe el modo oscuro de una forma muy concreta:
+
+```jsx
+className="hover:bg-slate-50 dark:bg-slate-800"
+```
+
+`hover:bg-slate-50` es `#f8fafc`: casi blanco. Al pasar el cursor, el fondo salta
+de oscuro a casi blanco y el texto claro desaparece. El botón queda ilegible.
+
+Lo que no lo hace evidente es **por qué** funciona en unos sitios y en otros no:
+`.dark .x` y `.x:hover` tienen **la misma especificidad** (0,2,0). Sin
+`dark:hover:`, gana el que Tailwind escribió último en el CSS, y eso depende del
+orden de generación de variantes. Es un empate que se decide por escritorio.
+
+La regla: **todo `hover:bg-*-50/100` lleva su `dark:hover:` explícito.** No es
+redundante, es lo que rompe el empate.
+
+| En claro | En oscuro |
+|---|---|
+| `hover:bg-slate-50` | `dark:hover:bg-slate-700` |
+| `hover:bg-gray-100` | `dark:hover:bg-slate-700` |
+| `hover:bg-gray-50` | `dark:hover:bg-slate-800` |
+
+El hover en oscuro aclara **un tono**, no vuelve al blanco. Se aplicó a los 15
+sitios afectados (tablas del panel de admin, items de lista del gestor, botones
+de la biblioteca, cerrar detalle del calendario).
+
+Verificación: `hover:bg-(gray|slate|blue|...)-(50|100)` sin `dark:hover` en la
+misma línea → no debe salir nada.
+
+#### `.ev-btn:hover` NO puede declarar `background-color` — la causa raíz
+
+Esta es la razón real de "el botón se pone completamente azul y ya no se ve qué
+dice". No es un `dark:` mal puesto: es que `index.css` tenía esto:
+
+```css
+@media (hover: hover) and (pointer: fine) {
+  .ev-btn:hover {
+    background-color: #1d4ed8;   /* azul oscuro, forzado */
+    box-shadow: ...;
+  }
+}
+```
+
+**Por qué gana siempre, sin importar qué ponga el botón:**
+
+`@import "tailwindcss"` mete las utilidades de Tailwind en `@layer utilities`.
+Las clases `ev-*` de `index.css` están escritas **fuera de cualquier capa**, y en
+CSS **lo que no tiene capa gana a lo que sí la tiene**, sin importar la
+especificidad. Un `(0,1,0)` sin capa le gana a un `(0,2,0)` dentro de
+`@layer utilities`.
+
+Entonces ese `background-color` pisaba:
+
+- su propio `hover:bg-blue-50`
+- su `dark:bg-*`
+- su `dark:hover:bg-*`
+- el `bg-white` de la base
+
+Un botón blanco con texto azul se volvía azul oscuro al hover, con texto azul
+encima. Los tres que más se veían eran *Explorar apuntes*, *Mis favoritos* y
+*Volver al inicio* en la Biblioteca: los tres llevan `ev-btn`.
+
+**La regla:** en las clases `ev-*` nunca se declara `background-color` en un
+estado `:hover`. `.ev-btn:hover` aporta **solo** la elevación (`box-shadow`); el
+color lo declara cada botón con `hover:bg-*`, que es lo único donde se puede
+distinguir "en claro y en oscuro son distintos".
+
+Los ~10 botones sólidos de marca que dependían del fondo forzado
+(`bg-blue-600 text-white`) ahora declaran su propio `hover:bg-blue-700`.
+
+**Cómo verificar que no volvió:** en el CSS compilado, `.ev-btn:hover` debe
+contener únicamente `box-shadow`. Si aparece `background-color`, el bug está de
+vuelta.
+
+> Nota: este bug convivió con el de los `hover:bg-*-50` sin `dark:`, y tapaba
+> al anterior. Arreglar el `dark:` sin tocar `.ev-btn` **no produce ningún
+> cambio visible** — se probó y no funcionó. Cuando dos reglas compiten por la
+> misma propiedad, gana la que está fuera de capa.
+
+#### El par `bg` + `text` se escribe siempre completo
+
+El modo oscuro se rompe con más frecuencia de lo que parece por **escribir la
+mitad del par**:
+
+```jsx
+// MALO: el texto se aclara pero el fondo se queda blanco
+bg-white text-slate-600 dark:text-slate-300
+
+// BIEN
+bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300
+```
+
+En claro el primero se ve bien, así que **nada falla de forma visible**: es el
+tema oscuro el que aparece con fondo blanco y texto gris claro encima. Solo se
+detecta mirando esa pantalla, no leyendo el código.
+
+La regla: si el texto tiene `dark:text-*`, el fondo tiene `dark:bg-*`. Y al
+ revés. No es que ambos sean opcionales - es que van juntos.
+
+#### Salir del gestor
+
+`GestorEquipos.jsx` ofrece la salida a `/` en las **tres** pantallas del módulo,
+con el ícono `inicio`:
+
+| Pantalla | Dónde | Estilo |
+|---|---|---|
+| Selector con equipos | Barra de acciones del hero, junto a "Crear equipo" | Botón claro con borde, como el de la Biblioteca |
+| Selector sin equipos | Junto a "Crear mi primer equipo" | Ídem |
+| Vista de equipo | Header azul, junto a "Equipos" | Fantasma sobre azul: `bg-white/15`, `hover:bg-white/30` |
+
+Son dos salidas distintas y conviene no confundirlas:
+
+- **"Equipos"** (`salirDeEquipo`) → cierra el equipo y vuelve al **selector** de
+  equipos. El socket emite `salir-equipo` y se vacían tareas, mensajes y miembros.
+- **"Inicio"** (`<Link to="/">`) → sale del módulo a la pantalla principal.
+
+El de la vista de equipo vive en el header y no en el sidebar, porque el botón
+"Equipos" del sidebar **solo existe cuando el panel no está minimizado**: con el
+panel colapsado no había forma de salir del equipo.
+
+#### Botones claros: nunca `dark:hover` con tinte translúcido
+
+Este sigue siendo un bug real, en botones **sin** `ev-btn`, que no tienen la
+regla anterior encima:
+
+```jsx
+// MALO
+bg-white hover:bg-blue-50 dark:hover:bg-blue-500/15 text-blue-700
+```
+
+El `dark:hover:bg-blue-500/15` es un `rgba(59,130,246,0.15)`. Como es
+translúcido, **reemplaza** el blanco del botón y deja ver el fondo oscuro de la
+página: texto azul oscuro sobre azul oscuro.
+
+Un tinte translúcido solo funciona si hay un fondo **opaco** detrás del cual
+compositar. Un botón blanco no lo tiene.
+
+**Regla:** si el fondo base es opaco e independiente del tema (`bg-white`), el
+hover también debe serlo — `hover:bg-blue-50` y nada más.
+
+| Fondo base | Hover en oscuro |
+|---|---|
+| Opaco e independiente del tema (`bg-white`) | Ninguno: aclara el mismo blanco |
+| Opaco y temático (`dark:bg-slate-900`) | `dark:hover:bg-slate-800`, un tono más claro |
+| Translúcido (`dark:bg-blue-500/15`) | Tinte más fuerte del mismo color, **con** `dark:text-*` |
+
+#### Botón de inicio
+
+`BotonInicio` es un `Link` a `/` con ícono de casa, y sigue la misma regla de
+dos instancias que `BotonTema`: una en el grupo de acciones de escritorio (después
+del toggle de tema) y otra en móvil al borde derecho.
+
+El logo ya es un `Link` a `/`, pero no se lee como "volver al home": es el logo de
+la marca. Este sí lo dice, con ícono y `aria-label`.
+
+Se oculta en estas rutas, declaradas en `RUTAS_SIN_INICIO`:
+
+| Ruta | Por qué |
+|---|---|
+| `/` | No hay a dónde volver |
+| `/login` | Pantalla de autenticación |
+| `/signup` | Ídem: ofrecer "volver al inicio" a medio camino de registrarse confunde más de lo que ayuda |
+
+#### Transición de tema
+
+`body` y `.ev-tema-suave` transicionan `background-color`, `border-color` y
+`color` durante `--ev-t-slow` (380 ms). Suficiente para que el cambio se lea
+como intencional, sin que el botón se sienta lento.
+
+Está en el bloque `prefers-reduced-motion: reduce` con `transition: none`. El
+cambio de tema cruza la pantalla entera: animado elemento por elemento se
+percibe como una ola de color que puede llegar a marear.
+
+---
+
+### Precedencias de `localStorage`
+
+| Clave | Se borra al cerrar sesión |
+|---|---|
+| `token`, `usuario`, `usuario_id`, `foto_url`, `rol` | Sí |
+| `eduverse_racha` | No |
+| `eduverse_tema` | No |
+| `eduverse_calendario_visible` | No |
+| `eduverse_ultimo_apunte` | No |
+
+**`logout()` ya no usa `localStorage.clear()`.** Hacía eso, y borraba también la
+racha: al volver a iniciar sesión no quedaba con qué comparar y la racha
+reiniciaba en 1. Ahora quita solo las claves de sesión, listadas en
+`CLAVES_SESION`. El interceptor de 401 de `src/config.js` ya hacía lo correcto,
+quitando claves específicas.
+
+---
 
 ### `GestorEquipos.jsx` (módulo de equipos — el más complejo)
 
@@ -170,6 +808,23 @@ Clase React con `getDerivedStateFromError` → si un hijo lanza, renderiza panta
 
 **Vista 2 — Equipo activo (layout 3 columnas):**
 1. **Sidebar:** clave del equipo, lista de miembros; plegable (`sidebarMinimizado`) y con overlay en móvil (`sidebarMovil`).
+2. **Calendario de vencimientos** (`components/CalendarioVencimientos.jsx`), en el header `ev-mesh`: inline a la derecha del nombre en `lg+`, y en una fila propia encima en móvil. Se alimenta de `tareas`, ya cargadas: no hace peticiones propias.
+   - El color del punto en cada día codifica **urgencia**, no estado: rojo = vencida o vence hoy, ámbar = 1 a 3 días, azul = 4+ días. Reutiliza los tres colores que el usuario ya aprendió a leer en las tarjetas y en el resumen; no introduce un color nuevo.
+   - Las tareas completadas y las que no tienen fecha no aparecen en la grilla.
+   - Los puntos rojos laten (`ev-punto-critico`) para que el ojo los encuentre sin leer los números.
+   - **"Hoy" es un anillo, no un bloque sólido.** Antes era `bg-white text-blue-700`, y dentro de una grícula casi toda translúcida competía con el punto de urgencia, que es justo el dato que hay que leer. Ahora es `bg-white/15 ring-2 ring-white`: marca el día sin tapar el indicador.
+   - **Un día con más de 2 tareas muestra el número, no el punto.** El color del punto solo codifica urgencia, así que un día con 1 tarea y otro con 5 se veían idénticos. El badge (`bg-{red|amber|sky}-500`) usa un tono más saturado que el punto para marcar el cambio de forma.
+   - **El badge numérico NO lleva `ev-punto-critico`.** Esa animación baja la opacidad a 0.45 y escala 1.35: sobre un punto de 1.5px da un "latido" nice, pero sobre un número lo vuelve borroso justo cuando más importa leerlo. El latido queda solo en el punto chico.
+   - **Botón "Hoy"** junto al nombre del mes, visible solo cuando el mes mostrado no es el actual. Un atajo que no lleva a ningún lado solo suma ruido.
+   - El popover lleva un acento de 4px en el borde superior (`from-blue-500 to-indigo-500`) para que se lea como algo que cuelga del día pulsado.
+   - La lista de tareas del popover tiene `max-h-64 overflow-y-auto`: con muchas tareas en un día, el popover se salía de la pantalla y "Ver en el tablero" quedaba inalcanzable.
+   - Al hacer clic en un día con vencimientos se abre un popover con las tareas, su prioridad, el plazo ("Vence hoy", "Mañana", "En 3 d") y el responsable.
+     - **El popover se monta en un portal (`createPortal` a `document.body`).** El header que lo contiene tiene `overflow: hidden` para recortar sus círculos decorativos: si el popover quedara en el árbol normal, el navegador lo cortaría a la altura del header y nunca se vería. Al ser `position: fixed`, hay que recalcular su posición en `scroll` y `resize`, y limitar el borde izquierdo con `window.innerWidth` para que no se salga en móvil.
+     - "Ver en el tablero" salta a la vista `tablero` con el filtro por fecha aplicado. El filtro se marca con un chip en la barra del tablero que lo quita.
+     - Cierra con `Escape` o clic fuera. El listener de clic fuera ignora los eventos dentro de `[data-calendario]` **y** dentro de `[data-calendario-popover]`:
+   - El primero porque se registra en el mismo tick del clic que lo abrió y cerraría de inmediato.
+   - El segundo porque **el popover sale del árbol de React pero no del árbol del DOM**. Un portal a `document.body` deja de propagar por React, pero el listener está en `document`, así que lo ve igual: sin su propio marcador, cualquier clic dentro del popover lo cerraba.
+     - **Se puede ocultar** con el botón de calendario del header. La preferencia se guarda en `eduverse_calendario_visible` (por defecto visible). El botón queda siempre visible, también con el calendario oculto, para poder volver a mostrarlo sin cambiar de equipo.
 2. **Kanban:** 3 columnas por `ESTADOS` (`pendiente`, `en_progreso`, `completada`) con drag-and-drop nativo (`onDragStart` / `onDrop` / `onDragOver`).
 3. **Tarjeta de tarea:** prioridad (`verde`/`amarillo`/`rojo`), días restantes calculados, asignado, botones rápidos de cambio de estado, botón eliminar (abre modal).
 4. **Crear tarea:** formulario con título, descripción, fecha (que **auto-asigna prioridad** según días: ≤2 rojo, ≤5 amarillo, resto verde), prioridad manual y select de miembros. Al crear → `POST` + `emit('nueva-tarea')`.
@@ -177,9 +832,58 @@ Clase React con `getDerivedStateFromError` → si un hijo lanza, renderiza panta
 6. **Eliminar tarea:** modal de confirmación → `DELETE` + `emit('eliminar-tarea')`.
 7. **Chat:** panel con historial (`GET /chat/:equipo_id`), auto-scroll, `POST /chat/enviar` + `emit('mensaje-chat')`, contador de no leídos.
 
+#### Bugs del chat (corregidos en `GestorEquipos.jsx`)
+
+| Letra | Bug | Causa | Fix |
+|---|---|---|---|
+| A | Carrera al cambiar de equipo | `Promise.all` sin guarda → mensajes del equipo A llegaban después del cambio a B | `vigente` + limpieza si `equipoActivoRef !== equipoId` |
+| B | Socket sin filtro de equipo | `nuevo-mensaje` agregaba siempre; closure veía `equipoActivo === null` | `equipoActivoRef.current` actualizado en `seleccionarEquipo`/`salirDeEquipo`; listener chequea `msg.equipo_id === equipoActivoRef.current` |
+| C | Contador de no leídos miente en escritorio | `chatAbiertoRef` solo `true` en móvil (`abrirChatMovil`); en escritorio el chat siempre visible pero ref `false` | `useEffect` sincroniza: escritorio + equipo activo → `true`; móvil → `chatMovil` |
+| D | Auto-scroll te arrebata la posición | Siempre `scrollTop = scrollHeight` al llegar mensaje | Solo si `scrollHeight - scrollTop - clientHeight < 50` (usuario ya estaba abajo) |
+| E | Keys duplicadas | `key={msg.mensaje_id \|\| msg.fecha_envio}` — `fecha_envio` es DATETIME (segundos), dos mensajes en mismo segundo colisionan | `key={msg.mensaje_id \|\| \`msg-\${i}\`}` (índice como fallback) |
+| F | Input sin `maxLength` | Backend corta a 500; input no → server rechaza 400 y texto vuelve | `maxLength={500}` en el `<input>` |
+
+**Accesibilidad (añadido):**
+- `role="log" aria-live="polite" aria-label="Chat del equipo"` en el `<aside>` del chat → lectores de pantalla anuncian mensajes nuevos.
+- Separadores de día en el historial: muestra fecha completa (`lunes 7 octubre`) cuando cambia el día; evita lista ilegible de solo HH:MM.
+- `Escape` cierra el drawer móvil (igual que el menú de la navbar).
+
+#### Mejoras de navegación del chat (2026-10-11)
+
+| Feature | Qué hace | Implementación |
+|---|---|---|
+| Botón "ir al final" | Flotante abajo-derecha, aparece al scrollear >200px del final; muestra contador `+N` de mensajes nuevos | `ev-scroll-abajo` + keyframe `ev-scroll-abajo-in`; `scrollTo({behavior:'smooth'})`; `aria-label="Ir al último mensaje"` |
+| Scroll infinito hacia arriba | Al llegar `scrollTop < 80px`, pide bloque anterior (`?antes=<primer_mensaje_id>`) | `cargandoAnteriores` + `sinMasMensajes`; preserva posición con `scrollHeight` diff en `setTimeout(0)` |
+| Auto-scroll condicional | Solo scrollea al final si usuario ya estaba abajo (<50px) | `scrollHeight - scrollTop - clientHeight < 50` |
+| App shell fijo | Página en `h-[calc(100vh-64px)] overflow-hidden`; centro scrollea por dentro con `overflow-y-auto` | Chat y sidebar dejan de estirarse al alto del kanban; su `flex-1 overflow-y-auto` ahora recibe altura acotada y scrollea |
+
+**Preservación de posición en prepend:** antes de insertar mensajes viejos, se guarda `scrollHeight` actual; en `setTimeout(0)` se restaura `scrollTop += diff`. Sin esto, el prepend de 100 mensajes teletransporta al usuario al final.
+
+#### Filtros del tablero
+
+`filtroPrioridad` (`todas` | `verde` | `amarillo` | `rojo` | `vencidas`),
+`filtroMiembro`, `busqueda` y `filtroFecha` (clave `YYYY-MM-DD`, la inyecta el
+calendario). `limpiarFiltros()` los revierte todos y se invoca también al
+cambiar de equipo.
+
+El chip "Todas" queda activo solo cuando **no** hay ningún filtro puesto, no
+cuando `filtroPrioridad === 'todas'` a secas: si el calendario filtró por una
+fecha y el chip se viera activo, el tablero parecería sin filtros cuando no lo
+está.
+
+#### Comparación de fechas: dos detalles que importan
+
+- `claveDiaLocal()` construye `YYYY-MM-DD` en hora local. Usar
+  `toISOString().slice(0, 10)` correría el cálculo a UTC y podría corrimiento
+  un día el vencimiento. El calendario genera las claves con la misma función
+  para que ambas coincidan.
+- El calendario no usa `Math.ceil((a - b) / 86400000)` para los días
+  restantes: con cambio de hora el redondeo se va un día. Compara las fechas a
+  medianoche local con `Math.round`.
+
 ### `AdminPanel.jsx` (panel de administración)
-1. Guard 1 (`useEffect`): si no es `admin` → `navigate('/')`.
-2. Guard 2 (render): si no es `admin` → `return null`.
+1. La ruta `/admin` pasa por `ProtectedRoute requiredRole="admin"`; la página conserva una comprobación de rol adicional como respaldo.
+2. El backend protege las operaciones administrativas con su middleware de autorización. La protección en React no sustituye la validación del servidor.
 3. 7 pestañas: Estadísticas, Usuarios, Apuntes, Comentarios, Equipos, Baneados, Actividad.
 4. Cada pestaña trae sus datos con `fetch*` (stats, usuarios+baneados en `Promise.all`, logs, apuntes, comentarios, equipos).
 5. **Estadísticas:** `StatCard` (9 tarjetas de conteo) + `ChartCard` (3 gráficas de barras de 7 días).
@@ -199,8 +903,46 @@ Página 404 con número grande, mensaje y botón *Volver al Inicio*.
 | `vite.config.js` | Server en `0.0.0.0:5173`, `watch.usePolling` (para Docker), y **proxy** de todas las rutas de API (`/auth`, `/apuntes`, `/favoritos`, `/usuarios`, `/comentarios`, `/valoraciones`, `/equipos`, `/tareas`, `/chat`, `/admin`, `/uploads`, `/socket.io` con `ws: true`) hacia `http://backend:4000` |
 | `tailwind.config.js` | Config de Tailwind |
 | `postcss.config.js` | Integra `@tailwindcss/postcss` |
-| `index.html` | Carga Google Fonts **Fredoka** y **Nunito**, título "EduVers - Plataforma Académica" |
-| `src/index.css` | `@import "tailwindcss"` + `@layer base` que aplica Fredoka/Nunito a `body, button, input, select, textarea` |
+| `index.html` | Carga Google Fonts **Fredoka** y **Nunito**, título "EduVers - Plataforma Académica", y el **script inline anti-FOUC** que aplica el tema antes de que monte React |
+| `src/index.css` | `@custom-variant dark` + `@import "tailwindcss"` + `@layer base` con los tokens de superficie, y el sistema de clases `ev-*` (fondos, paneles, animaciones, foco de teclado, reduced-motion) |
+
+### El sistema de clases `ev-*`
+
+Todo el diseño del proyecto se apoya en clases propias de `index.css` en vez de
+estilos sueltos. Las familias principales:
+
+| Prefijo | Para qué |
+|---|---|
+| `ev-mesh`, `ev-mesh-bg`, `ev-dotfield`, `ev-gridfield` | Fondos: degradado azul, puntos, grilla técnica |
+| `ev-panel-glass`, `ev-panel`, `ev-card-dash`, `ev-esquina` | Superficies: glassmorphism, paneles, tarjetas con hover |
+| `ev-enter`, `ev-d-0`…`ev-d-6`, `ev-slide-right`, `ev-sr-0`…`ev-sr-3` | Entradas: fade, escalonado y lateral |
+| `ev-float`, `ev-rebote-suave`, `ev-flama`, `ev-punto-critico` | Animaciones de escena |
+| `ev-shimmer`, `ev-shimmer-claro` | Brillo que recorre el botón al hover |
+| `ev-progress-track` / `-fill`, `ev-bar-track` / `-fill` | Barras de progreso y de charts |
+| `ev-btn`, `ev-chip`, `ev-tab`, `ev-field`, `ev-focusable` | Componentes e interacción |
+| `ev-modal`, `ev-overlay`, `ev-burbuja` | Modales, backdrop y popovers |
+| `ev-navbar`, `ev-logo`, `ev-nav-menu` | Navbar: gradiente por tema, inversión del logo en oscuro, dropdown móvil |
+
+Sobre `ev-focusable`: da el anillo de foco por teclado (`outline: 2px solid
+#2563eb`, `outline-offset: 3px`). **Todo elemento interactivo de la navbar lo
+lleva** — links, botones de icono, toggle de tema. Los botones que solo tienen
+ícono necesitan además `aria-label` o `title`: sin texto visible, un lector de
+pantalla anuncia literalmente "botón".
+| `ev-home-fondo` | Fondo de la portada, con versión propia por tema |
+| `ev-divisor`, `ev-track-brillo`, `ev-favorito`, `ev-estrella`, `ev-stat-icon` | Detalles de tablas y tarjetas |
+
+Dos reglas que se respetan en todo el proyecto:
+
+- **`prefers-reduced-motion`**: toda animación nueva se agrega al bloque del
+  final de `index.css`. Una animación fuera de ese bloque es un fallo de
+  accesibilidad.
+- **`ev-shimmer-claro` en botones claros**: el brillo de `ev-shimmer` es blanco
+  al 28% y sobre un botón blanco no se ve — la animación corre pero es
+  invisible. Los botones con `bg-white` usan la variante con tinte azul.
+- **Ningún color de superficie hardcodeado en CSS**: lo que se usa son
+  `var(--ev-*)`. Si aparece un `#fff` suelto en `index.css`, ese elemento se
+  queda claro en modo oscuro sin que nada lo avise. Ya se corrigieron los dos
+  casos que existían (`.ev-field:focus` y `.ev-donut-hueco`).
 | `src/App.css` | Solo `@import "tailwindcss"` |
 | `nginx.conf` | SPA fallback + proxy de `/uploads/` al backend (producción) |
 
