@@ -29,7 +29,7 @@ services:
       DB_PASSWORD: ${DB_PASSWORD:-postgres}
       DB_PORT: 5432
       PORT: 4000
-      JWT_SECRET: ${JWT_SECRET:-supersecretkey_eduverse_2026}
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en el archivo .env de la raiz}
     volumes:
       - uploads:/app/uploads
       - ./edu-verse_backend:/app

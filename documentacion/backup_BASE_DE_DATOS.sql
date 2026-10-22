@@ -544,6 +544,9 @@ CREATE INDEX IF NOT EXISTS idx_comentarios_tarea_usuario_id ON public.comentario
 
 UPDATE public.usuarios SET rol = 'admin' WHERE usuario_id = 1 AND (rol IS NULL OR rol = 'user');
 
+-- Unicidad de correo sin distinguir mayúsculas (ver migracion_seguridad.sql)
+CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_email_lower ON public.usuarios (lower(email));
+
 --
 -- PostgreSQL database dump complete
 --

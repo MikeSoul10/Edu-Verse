@@ -22,12 +22,12 @@ router.get('/:equipo_id', verificarToken, async (req, res) => {
     // LEFT JOIN a sí misma para traer el texto y el autor de la cita.
     // respuesta_texto queda NULL cuando el original fue borrado (ON DELETE SET NULL).
     let query = `
-      SELECT m.*, u.nombre AS autor_nombre,
+      SELECT m.*, COALESCE(u.nombre, 'Usuario eliminado') AS autor_nombre,
              u.foto_url AS autor_foto,
              r.texto AS respuesta_texto,
              ru.nombre AS respuesta_autor_nombre
       FROM mensajes_chat m
-      JOIN usuarios u ON m.usuario_id = u.usuario_id
+      LEFT JOIN usuarios u ON m.usuario_id = u.usuario_id
       LEFT JOIN mensajes_chat r ON m.respuesta_a = r.mensaje_id
       LEFT JOIN usuarios ru ON r.usuario_id = ru.usuario_id
       WHERE m.equipo_id = $1

@@ -445,7 +445,11 @@ const GestorEquipos = () => {
   }, [resetearChat, cerrarModalVaciar]);
 
   useEffect(() => {
-    const socket = io(API_URL);
+    // El servidor exige el JWT en el handshake. Se pasa como función para que
+    // cada reconexión use el token vigente del localStorage.
+    const socket = io(API_URL, {
+      auth: (cb) => cb({ token: localStorage.getItem('token') }),
+    });
     socketRef.current = socket;
 
     socket.on('tarea-creada', ({ tarea }) =>
@@ -1127,8 +1131,9 @@ const GestorEquipos = () => {
         asignado_a: nuevaTarea.asignado_a || null,
         creado_por: usuario,
       });
-      setTareas((prev) => [res.data.tarea, ...prev]);
-      socketRef.current?.emit('nueva-tarea', { equipo_id: equipoActivo.equipo_id, tarea: res.data.tarea });
+      // Sin duplicar: el servidor también emite 'tarea-creada' y el listener
+      // deduplica por tarea_id, pero la respuesta puede llegar antes que el evento.
+      setTareas((prev) => (prev.some((t) => t.tarea_id === res.data.tarea.tarea_id) ? prev : [res.data.tarea, ...prev]));
       setNuevaTarea({ titulo: '', descripcion: '', prioridad: 'verde', fecha_entrega: '', asignado_a: '' });
       setShowCrearTarea(false);
       toast.success('Tarea creada');
@@ -1145,7 +1150,6 @@ const GestorEquipos = () => {
     try {
       const res = await api.put(`${API_URL}/tareas/${tareaId}/mover`, { estado: nuevoEstado });
       setTareas((prev) => prev.map((t) => (t.tarea_id === tareaId ? res.data.tarea : t)));
-      socketRef.current?.emit('mover-tarea', { equipo_id: equipoActivo.equipo_id, tarea: res.data.tarea });
     } catch {
       setTareas((prev) => prev.map((t) => (t.tarea_id === tareaId ? tarea : t)));
       toast.error('No se pudo mover la tarea');
@@ -1155,7 +1159,9 @@ const GestorEquipos = () => {
   const eliminarTarea = async (tareaId) => {
     try {
       await api.delete(`${API_URL}/tareas/${tareaId}`);
-      socketRef.current?.emit('eliminar-tarea', { equipo_id: equipoActivo.equipo_id, tarea_id: tareaId });
+      // La tarjeta se quita al llegar 'tarea-eliminada' del servidor; se quita
+      // también aquí por si el evento tarda o el socket está reconectando.
+      setTareas((prev) => prev.filter((t) => t.tarea_id !== tareaId));
       toast.success('Tarea eliminada');
     } catch {
       toast.error('Error al eliminar');
@@ -1187,11 +1193,10 @@ const GestorEquipos = () => {
     if (!nuevoComentario.trim() || !tareaEditando) return;
     try {
       const res = await api.post(`${API_URL}/tareas/${tareaEditando.tarea_id}/comentarios`, { texto: nuevoComentario });
-      socketRef.current?.emit('comentario-tarea', {
-        equipo_id: equipoActivo.equipo_id,
-        tarea_id: tareaEditando.tarea_id,
-        comentario: res.data,
-      });
+      // El servidor emite 'comentario-nuevo' a toda la sala (incluido quien
+      // comenta); se agrega aquí también, deduplicando por comentario_id.
+      setComentariosTarea((prev) =>
+        prev.some((c) => c.comentario_id === res.data.comentario_id) ? prev : [...prev, res.data]);
       setNuevoComentario('');
     } catch {
       toast.error('Error al enviar comentario');
@@ -1209,7 +1214,6 @@ const GestorEquipos = () => {
         asignado_a: tareaEditForm.asignado_a || null,
         estado: tareaEditForm.estado || tareaEditando.estado,
       });
-      socketRef.current?.emit('editar-tarea', { equipo_id: equipoActivo.equipo_id, tarea: res.data.tarea });
       setTareas((prev) => prev.map((t) => (t.tarea_id === res.data.tarea.tarea_id ? res.data.tarea : t)));
       cerrarEditorTarea();
       toast.success('Tarea actualizada');

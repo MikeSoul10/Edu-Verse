@@ -6,9 +6,17 @@ const bcrypt = require('bcrypt');
 const pool = require('./db');
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
 const jwt = require('jsonwebtoken');
 require('dotenv').config();
-const JWT_SECRET = process.env.JWT_SECRET || 'supersecretkey_eduverse_2026';
+
+// Sin valor por defecto: un secreto conocido en el repositorio permitiría
+// falsificar tokens (incluso de admin) en cualquier despliegue sin .env.
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('❌ Falta JWT_SECRET. Defínelo en el .env (genera uno con: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))").');
+  process.exit(1);
+}
 
 const app = express();
 const server = http.createServer(app);
@@ -17,52 +25,65 @@ const io = new Server(server, {
 });
 app.set('io', io);
 
-// --- SOCKET.IO ---
-io.on('connection', (socket) => {
-  console.log('🔌 Cliente conectado:', socket.id);
+const verificarToken = require('./middleware/auth');
+const { sanitize } = require('./middleware/sanitize');
+const { obtenerRolEnEquipo, aEnteroPositivo } = require('./middleware/membresia');
 
-  socket.on('unirse-equipo', (equipoId) => {
-    socket.join(`equipo-${equipoId}`);
-    console.log(`👤 ${socket.id} se unió a equipo-${equipoId}`);
+// --- SOCKET.IO ---
+// 1) Solo entran sockets con un JWT válido (el cliente lo manda en `auth`).
+io.use((socket, next) => {
+  try {
+    socket.usuario = jwt.verify(socket.handshake.auth?.token, JWT_SECRET, { algorithms: ['HS256'] });
+    next();
+  } catch {
+    next(new Error('No autorizado'));
+  }
+});
+
+io.on('connection', (socket) => {
+  // 2) Solo se puede entrar a la sala de un equipo del que se es miembro: sin
+  //    esto cualquiera escuchaba el chat y el tablero de cualquier equipo.
+  socket.on('unirse-equipo', async (equipoId, ack) => {
+    try {
+      const id = aEnteroPositivo(equipoId);
+      const rol = id ? await obtenerRolEnEquipo(id, socket.usuario.id) : null;
+      if (!rol) return ack?.({ ok: false });
+      socket.join(`equipo-${id}`);
+      ack?.({ ok: true });
+    } catch {
+      ack?.({ ok: false });
+    }
   });
 
   socket.on('salir-equipo', (equipoId) => {
-    socket.leave(`equipo-${equipoId}`);
+    const id = aEnteroPositivo(equipoId);
+    if (id) socket.leave(`equipo-${id}`);
   });
 
-  socket.on('nueva-tarea', (data) => {
-    io.to(`equipo-${data.equipo_id}`).emit('tarea-creada', data);
-  });
-
-  socket.on('mover-tarea', (data) => {
-    io.to(`equipo-${data.equipo_id}`).emit('tarea-movida', data);
-  });
-
-  socket.on('editar-tarea', (data) => {
-    io.to(`equipo-${data.equipo_id}`).emit('tarea-editada', data);
-  });
-
-  socket.on('comentario-tarea', (data) => {
-    io.to(`equipo-${data.equipo_id}`).emit('comentario-nuevo', data);
-  });
-
-  socket.on('eliminar-tarea', (data) => {
-    io.to(`equipo-${data.equipo_id}`).emit('tarea-eliminada', data);
-  });
-
-  socket.on('disconnect', () => {
-    console.log('🔌 Cliente desconectado:', socket.id);
-  });
+  // 3) Ya NO se retransmiten eventos enviados por clientes (nueva-tarea,
+  //    mover-tarea, ...): los emiten las rutas REST tras escribir en la base,
+  //    así nadie puede falsificarlos.
 });
 
 // --- 1. MIDDLEWARES ---
 app.use(cors());
 app.use(express.json());
-// Servir archivos estáticos (debe estar antes de las rutas)
-app.use('/uploads', express.static('uploads'));
 
-const verificarToken = require('./middleware/auth');
-const { sanitize } = require('./middleware/sanitize');
+// Archivos subidos (debe estar antes de las rutas). Cabeceras defensivas:
+// - nosniff: el navegador no adivina el tipo y respeta el de la extensión.
+// - Cualquier extensión fuera de la lista (p. ej. un .html heredado) se sirve
+//   como descarga y en sandbox, así nunca ejecuta scripts con el origen de la app.
+const EXTENSIONES_PERMITIDAS = ['.pdf', '.png', '.jpg', '.jpeg'];
+app.use('/uploads', express.static('uploads', {
+  setHeaders: (res, rutaArchivo) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    if (!EXTENSIONES_PERMITIDAS.includes(path.extname(rutaArchivo).toLowerCase())) {
+      res.setHeader('Content-Type', 'application/octet-stream');
+      res.setHeader('Content-Disposition', 'attachment');
+      res.setHeader('Content-Security-Policy', "sandbox; default-src 'none'");
+    }
+  }
+}));
 
 // --- 2. CONFIGURACIÓN DE MULTER ---
 const equiposRoutes = require('./routes/equipos');
@@ -72,61 +93,127 @@ const chatRoutes = require('./routes/chat');
 app.use('/equipos', equiposRoutes);
 app.use('/tareas', tareasRoutes);
 app.use('/chat', chatRoutes);
-const storageApuntes = multer.diskStorage({
-  destination: (req, file, cb) => { cb(null, 'uploads/'); },
-  filename: (req, file, cb) => { cb(null, Date.now() + '-' + file.originalname); }
-});
+// --- SUBIDA DE ARCHIVOS ---
+// El mimetype lo declara el cliente y es falsificable, así que un archivo se
+// acepta solo si coinciden TRES cosas: mimetype, extensión y firma real de los
+// primeros bytes (esta última se comprueba en `validarFirma`, tras guardarlo).
+const TIPOS_APUNTE = {
+  '.pdf': ['application/pdf'],
+  '.png': ['image/png'],
+  '.jpg': ['image/jpeg', 'image/jpg'],
+  '.jpeg': ['image/jpeg', 'image/jpg'],
+};
+const TIPOS_FOTO = {
+  '.png': TIPOS_APUNTE['.png'],
+  '.jpg': TIPOS_APUNTE['.jpg'],
+  '.jpeg': TIPOS_APUNTE['.jpeg'],
+};
+
+// Nombre seguro y legible: sin acentos ni caracteres raros, extensión en minúsculas.
+const nombreSeguro = (originalname) => {
+  const ext = path.extname(originalname).toLowerCase();
+  const base = path.basename(originalname, path.extname(originalname))
+    .normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^\w.-]+/g, '_')
+    .replace(/^[._]+|[._]+$/g, '')
+    .slice(0, 80) || 'archivo';
+  return `${Date.now()}-${base}${ext}`;
+};
+
+const filtroArchivo = (tiposPermitidos, mensaje) => (req, file, cb) => {
+  const ext = path.extname(file.originalname).toLowerCase();
+  if (tiposPermitidos[ext]?.includes(file.mimetype)) cb(null, true);
+  else cb(new Error(mensaje));
+};
+
 const upload = multer({
-  storage: storageApuntes,
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => { cb(null, 'uploads/'); },
+    filename: (req, file, cb) => { cb(null, nombreSeguro(file.originalname)); }
+  }),
   limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
-    if (allowed.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Solo se permiten archivos PDF, PNG o JPG'));
-  }
+  fileFilter: filtroArchivo(TIPOS_APUNTE, 'Solo se permiten archivos PDF, PNG o JPG')
 });
 
-const storagePerfil = multer.diskStorage({
-  destination: (req, file, cb) => { cb(null, 'uploads/perfiles/'); },
-  filename: (req, file, cb) => { cb(null, Date.now() + '-' + file.originalname); }
-});
 const uploadPerfil = multer({
-  storage: storagePerfil,
+  storage: multer.diskStorage({
+    destination: (req, file, cb) => { cb(null, 'uploads/perfiles/'); },
+    filename: (req, file, cb) => { cb(null, nombreSeguro(file.originalname)); }
+  }),
   limits: { fileSize: 5 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = ['image/png', 'image/jpeg', 'image/jpg'];
-    if (allowed.includes(file.mimetype)) cb(null, true);
-    else cb(new Error('Solo se permiten imágenes PNG o JPG'));
-  }
+  fileFilter: filtroArchivo(TIPOS_FOTO, 'Solo se permiten imágenes PNG o JPG')
 });
+
+const FIRMAS = {
+  '.pdf': [Buffer.from('%PDF')],
+  '.png': [Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])],
+  '.jpg': [Buffer.from([0xff, 0xd8, 0xff])],
+  '.jpeg': [Buffer.from([0xff, 0xd8, 0xff])],
+};
+
+// Middleware: tras multer, comprueba los primeros bytes. Si no coinciden con la
+// extensión, borra el archivo y rechaza la subida.
+const validarFirma = (req, res, next) => {
+  if (!req.file) return next();
+  try {
+    const ext = path.extname(req.file.filename).toLowerCase();
+    const cabecera = Buffer.alloc(8);
+    const fd = fs.openSync(req.file.path, 'r');
+    try { fs.readSync(fd, cabecera, 0, 8, 0); } finally { fs.closeSync(fd); }
+    const valido = (FIRMAS[ext] || []).some((firma) => cabecera.subarray(0, firma.length).equals(firma));
+    if (valido) return next();
+  } catch { /* se trata como inválido */ }
+  fs.unlink(req.file.path, () => {});
+  res.status(400).json('El contenido del archivo no coincide con su extensión');
+};
 // --- 3. RUTAS GENERALES ---
 app.get('/', (req, res) => {
   res.send("¡El servidor de Edu-Verse está vivo! 🚀");
 });
 
 // --- 4. RUTAS DE AUTENTICACIÓN (Signup/Login) ---
+const DOMINIO_INSTITUCIONAL = '@alumnos.udg.mx';
+const normalizarEmail = (email) => String(email || '').trim().toLowerCase();
+
+// Comparación sin distinguir mayúsculas en AMBOS lados, así también detecta
+// baneos guardados antes de que existiera la normalización.
+const estaBaneado = async (emailNorm) => {
+  const r = await pool.query("SELECT 1 FROM baneados WHERE lower(email) = $1", [emailNorm]);
+  return r.rows.length > 0;
+};
+
 app.post('/auth/signup', async (req, res) => {
   try {
-    const { nombre, email, password } = req.body;
-    if (!nombre || !email || !password) return res.status(400).json("Campos obligatorios faltantes.");
+    const { nombre, email, password } = req.body || {};
+    if (typeof nombre !== 'string' || typeof email !== 'string' || typeof password !== 'string'
+        || !nombre.trim() || !email.trim() || !password) {
+      return res.status(400).json("Campos obligatorios faltantes.");
+    }
 
+    // El email se guarda SIEMPRE en minúsculas. Antes se guardaba tal cual y el
+    // baneo (que compara en minúsculas) se podía evadir registrándose con
+    // mayúsculas en el correo.
+    const emailNorm = normalizarEmail(email);
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) return res.status(400).json("Email no válido.");
-    if (!email.toLowerCase().endsWith('@alumnos.udg.mx')) return res.status(400).json("Solo correos @alumnos.udg.mx");
+    if (!emailRegex.test(emailNorm)) return res.status(400).json("Email no válido.");
+    if (!emailNorm.endsWith(DOMINIO_INSTITUCIONAL)) return res.status(400).json("Solo correos @alumnos.udg.mx");
     if (password.length < 6) return res.status(400).json("Contraseña corta.");
+    if (nombre.trim().length > 100) return res.status(400).json("El nombre no puede superar 100 caracteres.");
 
-    // Verificar si el email está baneado
-    const baneado = await pool.query("SELECT * FROM baneados WHERE email = $1", [email.toLowerCase()]);
-    if (baneado.rows.length > 0) {
+    if (await estaBaneado(emailNorm)) {
       return res.status(403).json("Este correo ha sido suspendido. No puedes crear una cuenta.");
     }
+
+    // Unicidad sin distinguir mayúsculas (cuentas heredadas pueden tenerlas).
+    const existente = await pool.query("SELECT 1 FROM usuarios WHERE lower(email) = $1", [emailNorm]);
+    if (existente.rows.length > 0) return res.status(400).json("El correo ya existe.");
 
     const salt = await bcrypt.genSalt(10);
     const passwordHash = await bcrypt.hash(password, salt);
 
     const nuevoUsuario = await pool.query(
       "INSERT INTO usuarios (nombre, email, password_hash) VALUES ($1, $2, $3) RETURNING *",
-      [nombre, email, passwordHash]
+      [nombre.trim(), emailNorm, passwordHash]
     );
 
     res.status(201).json({
@@ -142,19 +229,25 @@ app.post('/auth/signup', async (req, res) => {
 
 app.post('/auth/login', async (req, res) => {
     try {
-        const { email, password } = req.body;
+        const { email, password } = req.body || {};
+        if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
+            return res.status(400).json("Ingresa tu correo y contraseña.");
+        }
+        const emailNorm = normalizarEmail(email);
 
         // Verificar si el email está baneado
-        const baneado = await pool.query("SELECT * FROM baneados WHERE email = $1", [email.toLowerCase()]);
-        if (baneado.rows.length > 0) {
+        if (await estaBaneado(emailNorm)) {
             return res.status(403).json("Tu cuenta ha sido suspendida. Contacta al administrador.");
         }
 
-        const usuario = await pool.query("SELECT * FROM usuarios WHERE email = $1", [email]);
-        
+        const usuario = await pool.query("SELECT * FROM usuarios WHERE lower(email) = $1 ORDER BY usuario_id LIMIT 1", [emailNorm]);
+
         if (usuario.rows.length === 0) return res.status(401).json("Credenciales incorrectas");
 
-        const validPassword = await bcrypt.compare(password, usuario.rows[0].password_hash);
+        // Una cuenta sin contraseña (p. ej. creada por un proveedor externo)
+        // no puede entrar por aquí: antes bcrypt.compare lanzaba y daba un 500.
+        const hash = usuario.rows[0].password_hash;
+        const validPassword = hash ? await bcrypt.compare(password, hash) : false;
         if (!validPassword) return res.status(401).json("Credenciales incorrectas");
 
         // --- CREAR TOKEN (incluye rol) ---
@@ -177,15 +270,19 @@ app.post('/auth/login', async (req, res) => {
 
 // --- 5. RUTAS DE PERFIL ---
 
-app.get('/auth/perfil/:id', async (req, res) => {
+// Devuelve el correo, así que solo lo puede ver su dueño (o un admin). Antes era
+// público y permitía recorrer ids para recolectar los correos de los alumnos.
+app.get('/auth/perfil/:id', verificarToken, async (req, res) => {
   try {
     const { id } = req.params;
-    // Agregamos foto_url a la consulta
+    if (String(req.usuario.id) !== String(id) && req.usuario.rol !== 'admin') {
+      return res.status(403).json("No autorizado");
+    }
     const usuario = await pool.query(
-      "SELECT nombre, email, foto_url FROM usuarios WHERE usuario_id = $1", 
+      "SELECT nombre, email, foto_url FROM usuarios WHERE usuario_id = $1",
       [id]
     );
-    
+
     if (usuario.rows.length === 0) return res.status(404).json("No encontrado");
     res.json(usuario.rows[0]);
   } catch (err) {
@@ -196,26 +293,51 @@ app.get('/auth/perfil/:id', async (req, res) => {
 app.put('/auth/perfil/update/:id', verificarToken, async (req, res) => {
   try {
     const { id } = req.params;
-    const { nombre, email } = req.body;
+    const { nombre, email } = req.body || {};
     if (String(req.usuario.id) !== String(id)) return res.status(403).json("No autorizado");
-    if (!email.endsWith('@alumnos.udg.mx')) return res.status(400).json("Debe ser @alumnos.udg.mx");
+    if (typeof nombre !== 'string' || !nombre.trim() || typeof email !== 'string') {
+      return res.status(400).json("Nombre y correo son obligatorios");
+    }
+    if (nombre.trim().length > 100) return res.status(400).json("El nombre no puede superar 100 caracteres.");
+
+    const emailNorm = normalizarEmail(email);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailNorm) || !emailNorm.endsWith(DOMINIO_INSTITUCIONAL)) {
+      return res.status(400).json("Debe ser @alumnos.udg.mx");
+    }
+    // Cambiar el correo no debe servir para tomar uno ya baneado ni uno ajeno.
+    if (await estaBaneado(emailNorm)) return res.status(403).json("Este correo ha sido suspendido.");
+    const ocupado = await pool.query(
+      "SELECT 1 FROM usuarios WHERE lower(email) = $1 AND usuario_id <> $2",
+      [emailNorm, id]
+    );
+    if (ocupado.rows.length > 0) return res.status(400).json("El correo ya existe.");
 
     const updateUsuario = await pool.query(
       "UPDATE usuarios SET nombre = $1, email = $2 WHERE usuario_id = $3 RETURNING *",
-      [nombre, email, id]
+      [nombre.trim(), emailNorm, id]
     );
     res.json({ mensaje: "Actualizado", nombre: updateUsuario.rows[0].nombre });
   } catch (err) {
+    if (err.code === '23505') return res.status(400).json("El correo ya existe.");
     res.status(500).send("Error");
   }
 });
 
 // --- 6. RUTAS DE APUNTES ---
-app.post('/apuntes/upload', verificarToken, upload.single('archivo'), async (req, res) => {
+app.post('/apuntes/upload', verificarToken, upload.single('archivo'), validarFirma, async (req, res) => {
   try {
     const { titulo, materia, descripcion } = req.body;
     const usuario_id = req.usuario.id;
     if (!req.file) return res.status(400).json("No hay archivo");
+    const descartarArchivo = () => fs.unlink(req.file.path, () => {});
+    if (typeof titulo !== 'string' || !titulo.trim() || typeof materia !== 'string' || !materia.trim()) {
+      descartarArchivo();
+      return res.status(400).json("Título y materia son obligatorios");
+    }
+    if (titulo.trim().length > 100 || materia.trim().length > 100) {
+      descartarArchivo();
+      return res.status(400).json("Título y materia no pueden superar 100 caracteres");
+    }
 
     const archivo_url = `/uploads/${req.file.filename}`;
     const nuevoApunte = await pool.query(
@@ -317,8 +439,17 @@ app.get('/apuntes/mis-apuntes/:usuario_id', async (req, res) => {
 // ELIMINAR UN APUNTE
 app.delete('/apuntes/:id', verificarToken, async (req, res) => {
   try {
-    const { id } = req.params;
-    // Aquí podrías agregar una validación extra para ver si el archivo existe físicamente y borrarlo también
+    const id = aEnteroPositivo(req.params.id);
+    if (!id) return res.status(400).json("Apunte inválido");
+
+    // Solo el autor (o un admin) puede borrar: antes cualquier usuario con
+    // sesión podía borrar los apuntes de otros.
+    const apunte = await pool.query("SELECT usuario_id FROM apuntes WHERE apunte_id = $1", [id]);
+    if (apunte.rows.length === 0) return res.status(404).json("Apunte no encontrado");
+    if (String(apunte.rows[0].usuario_id) !== String(req.usuario.id) && req.usuario.rol !== 'admin') {
+      return res.status(403).json("Solo el autor puede eliminar este apunte");
+    }
+
     await pool.query("DELETE FROM apuntes WHERE apunte_id = $1", [id]);
     res.json("Apunte eliminado con éxito");
   } catch (err) {
@@ -328,12 +459,14 @@ app.delete('/apuntes/:id', verificarToken, async (req, res) => {
 });
 
 // GUARDAR UN APUNTE COMO FAVORITO
-app.post('/favoritos', async (req, res) => {
+app.post('/favoritos', verificarToken, async (req, res) => {
   try {
-    const { usuario_id, apunte_id } = req.body;
+    const apunte_id = aEnteroPositivo(req.body?.apunte_id);
+    if (!apunte_id) return res.status(400).json({ message: "Apunte inválido" });
+    // La identidad sale del token: no se puede guardar favoritos a nombre de otro.
     await pool.query(
       "INSERT INTO favoritos (usuario_id, apunte_id) VALUES ($1, $2)",
-      [usuario_id, apunte_id]
+      [req.usuario.id, apunte_id]
     );
     res.json({ message: "Añadido a favoritos ⭐" });
   } catch (err) {
@@ -341,15 +474,19 @@ app.post('/favoritos', async (req, res) => {
     if (err.code === '23505') {
       return res.status(400).json({ message: "Ya tienes este apunte en favoritos" });
     }
+    if (err.code === '23503') {
+      return res.status(404).json({ message: "Apunte no encontrado" });
+    }
     console.error(err.message);
     res.status(500).send("Error al guardar favorito");
   }
 });
 
 // OBTENER TODOS LOS FAVORITOS DE UN USUARIO
-app.get('/favoritos/:usuario_id', async (req, res) => {
+app.get('/favoritos/:usuario_id', verificarToken, async (req, res) => {
   try {
     const { usuario_id } = req.params;
+    if (String(req.usuario.id) !== String(usuario_id)) return res.status(403).json("No autorizado");
     const misFavoritos = await pool.query(
       `SELECT apuntes.*, usuarios.nombre AS autor 
        FROM favoritos 
@@ -383,9 +520,17 @@ app.delete('/favoritos', verificarToken, async (req, res) => {
 });
 
 // RUTA PARA ACTUALIZAR FOTO DE PERFIL
-app.put('/usuarios/foto/:id', verificarToken, uploadPerfil.single('foto'), async (req, res) => {
+// La comprobación de dueño va ANTES de multer: así un usuario no autorizado
+// ni siquiera llega a escribir un archivo en el disco.
+const soloMismoUsuario = (req, res, next) => {
+  if (String(req.usuario.id) !== String(req.params.id)) return res.status(403).json("No autorizado");
+  next();
+};
+
+app.put('/usuarios/foto/:id', verificarToken, soloMismoUsuario, uploadPerfil.single('foto'), validarFirma, async (req, res) => {
   try {
     const { id } = req.params;
+    if (!req.file) return res.status(400).json("No hay imagen");
     const urlFoto = `/uploads/perfiles/${req.file.filename}`;
     
     await pool.query(
@@ -430,20 +575,40 @@ app.get('/comentarios/:apunte_id', async (req, res) => {
     res.json(result.rows);
 });
 
+// El usuario sale del token (el `usuario_id` del body se ignora): antes se
+// podía comentar y calificar a nombre de otra persona.
 app.post('/comentarios', verificarToken, async (req, res) => {
-    const { apunte_id, usuario_id, texto } = req.body;
-    await pool.query("INSERT INTO comentarios (apunte_id, usuario_id, texto) VALUES ($1, $2, $3)", [apunte_id, usuario_id, sanitize(texto)]);
-    res.json("Comentario añadido");
+    try {
+        const apunte_id = aEnteroPositivo(req.body?.apunte_id);
+        const { texto } = req.body || {};
+        if (!apunte_id) return res.status(400).json("Apunte inválido");
+        if (typeof texto !== 'string' || !texto.trim()) return res.status(400).json("El comentario no puede estar vacío");
+        await pool.query("INSERT INTO comentarios (apunte_id, usuario_id, texto) VALUES ($1, $2, $3)", [apunte_id, req.usuario.id, sanitize(texto.trim())]);
+        res.json("Comentario añadido");
+    } catch (err) {
+        if (err.code === '23503') return res.status(404).json("Apunte no encontrado");
+        console.error("Error al comentar:", err.message);
+        res.status(500).send("Error al comentar");
+    }
 });
 
 // 3. Valoraciones: Registrar o actualizar
 app.post('/valoraciones', verificarToken, async (req, res) => {
-    const { apunte_id, usuario_id, estrellas } = req.body;
-    await pool.query(
-        "INSERT INTO valoraciones (apunte_id, usuario_id, estrellas) VALUES ($1, $2, $3) ON CONFLICT (apunte_id, usuario_id) DO UPDATE SET estrellas = EXCLUDED.estrellas",
-        [apunte_id, usuario_id, estrellas]
-    );
-    res.json("Valoración guardada");
+    try {
+        const apunte_id = aEnteroPositivo(req.body?.apunte_id);
+        const estrellas = Number(req.body?.estrellas);
+        if (!apunte_id) return res.status(400).json("Apunte inválido");
+        if (!Number.isInteger(estrellas) || estrellas < 1 || estrellas > 5) return res.status(400).json("La valoración debe ser de 1 a 5");
+        await pool.query(
+            "INSERT INTO valoraciones (apunte_id, usuario_id, estrellas) VALUES ($1, $2, $3) ON CONFLICT (apunte_id, usuario_id) DO UPDATE SET estrellas = EXCLUDED.estrellas",
+            [apunte_id, req.usuario.id, estrellas]
+        );
+        res.json("Valoración guardada");
+    } catch (err) {
+        if (err.code === '23503') return res.status(404).json("Apunte no encontrado");
+        console.error("Error al valorar:", err.message);
+        res.status(500).send("Error al valorar");
+    }
 });
 
 // =============================================
@@ -526,25 +691,51 @@ app.get('/admin/usuarios', verificarToken, verificarAdmin, async (req, res) => {
 app.delete('/admin/usuarios/:id', verificarToken, verificarAdmin, async (req, res) => {
   const client = await pool.connect();
   try {
-    const { id } = req.params;
+    const id = aEnteroPositivo(req.params.id);
+    if (!id) return res.status(400).json("Usuario inválido");
     if (String(req.usuario.id) === String(id)) {
       return res.status(400).json("No puedes eliminarte a ti mismo.");
     }
+
+    const objetivo = await client.query("SELECT nombre, email FROM usuarios WHERE usuario_id = $1", [id]);
+    if (objetivo.rows.length === 0) return res.status(404).json("Usuario no encontrado");
+
     await client.query('BEGIN');
-    await client.query("DELETE FROM mensajes_chat WHERE usuario_id = $1", [id]);
-    await client.query("DELETE FROM tareas WHERE asignado_a = $1 OR creado_por = $1", [id]);
-    await client.query("DELETE FROM comentarios WHERE usuario_id = $1", [id]);
-    await client.query("DELETE FROM apuntes WHERE usuario_id = $1", [id]);
-    await client.query("DELETE FROM equipos WHERE creado_por = $1", [id]);
+
+    // Equipos en los que participaba (se consulta ANTES de borrar la membresía).
+    const equipos = await client.query("SELECT equipo_id FROM miembros_equipo WHERE usuario_id = $1", [id]);
+
+    // Las claves foráneas ya hacen lo correcto: sus apuntes, comentarios,
+    // favoritos, valoraciones y membresías se borran en cascada, y sus mensajes,
+    // tareas creadas/asignadas y equipos creados quedan con el autor en NULL.
+    // Antes se borraban a mano TODAS las tareas donde figuraba y TODOS los
+    // equipos que creó, destruyendo el trabajo de los demás miembros.
     await client.query("DELETE FROM usuarios WHERE usuario_id = $1", [id]);
+
+    // Que ningún equipo quede huérfano o sin administrador.
+    for (const { equipo_id } of equipos.rows) {
+      const restantes = await client.query(
+        "SELECT usuario_id, rol FROM miembros_equipo WHERE equipo_id = $1 ORDER BY usuario_id",
+        [equipo_id]
+      );
+      if (restantes.rows.length === 0) {
+        await client.query("DELETE FROM equipos WHERE equipo_id = $1", [equipo_id]);
+      } else if (!restantes.rows.some((m) => m.rol === 'admin')) {
+        await client.query(
+          "UPDATE miembros_equipo SET rol = 'admin' WHERE equipo_id = $1 AND usuario_id = $2",
+          [equipo_id, restantes.rows[0].usuario_id]
+        );
+      }
+    }
+
     await client.query(
       "INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)",
-      [req.usuario.id, 'eliminar_usuario', `Eliminó usuario ID ${id}`]
+      [req.usuario.id, 'eliminar_usuario', `Eliminó usuario ID ${id} (${objetivo.rows[0].email})`]
     );
     await client.query('COMMIT');
     res.json({ mensaje: "Usuario eliminado" });
   } catch (err) {
-    await client.query('ROLLBACK');
+    await client.query('ROLLBACK').catch(() => {});
     console.error("Error al eliminar usuario:", err.message);
     res.status(500).send("Error al eliminar usuario");
   } finally {
@@ -564,7 +755,8 @@ app.post('/admin/ban', verificarToken, verificarAdmin, async (req, res) => {
     const usuario = await client.query("SELECT email FROM usuarios WHERE usuario_id = $1", [usuario_id]);
     if (usuario.rows.length === 0) return res.status(404).json("Usuario no encontrado");
 
-    const email = usuario.rows[0].email;
+    // En minúsculas, igual que se comparan en login y registro.
+    const email = usuario.rows[0].email.toLowerCase();
 
     await client.query('BEGIN');
 
@@ -605,11 +797,11 @@ app.get('/admin/baneados', verificarToken, verificarAdmin, async (req, res) => {
 // Desbanear usuario
 app.delete('/admin/baneados/:email', verificarToken, verificarAdmin, async (req, res) => {
   try {
-    const { email } = req.params;
-    await pool.query("DELETE FROM baneados WHERE email = $1", [decodeURIComponent(email)]);
+    const email = normalizarEmail(decodeURIComponent(req.params.email));
+    await pool.query("DELETE FROM baneados WHERE lower(email) = $1", [email]);
     await pool.query(
       "INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)",
-      [req.usuario.id, 'desbanear', `Desbaneó a ${decodeURIComponent(email)}`]
+      [req.usuario.id, 'desbanear', `Desbaneó a ${email}`]
     );
     res.json({ mensaje: "Email desbaneado" });
   } catch (err) {
@@ -724,11 +916,11 @@ app.get('/admin/comentarios', verificarToken, verificarAdmin, async (req, res) =
 app.get('/admin/equipos', verificarToken, verificarAdmin, async (req, res) => {
   try {
     const resultado = await pool.query(
-      `SELECT e.*, u.nombre AS creador_nombre,
+      `SELECT e.*, COALESCE(u.nombre, 'Usuario eliminado') AS creador_nombre,
        (SELECT COUNT(*) FROM miembros_equipo m WHERE m.equipo_id = e.equipo_id) AS total_miembros,
        (SELECT COUNT(*) FROM tareas t WHERE t.equipo_id = e.equipo_id) AS total_tareas
-       FROM equipos e 
-       JOIN usuarios u ON e.creado_por = u.usuario_id 
+       FROM equipos e
+       LEFT JOIN usuarios u ON e.creado_por = u.usuario_id
        ORDER BY e.fecha_creacion DESC`
     );
     res.json(resultado.rows);
@@ -750,4 +942,27 @@ app.delete('/admin/equipos/:id', verificarToken, verificarAdmin, async (req, res
   } catch (err) {
     res.status(500).send("Error al eliminar equipo");
   }
+});
+
+// =============================================
+// MANEJO DE ERRORES (debe ir DESPUÉS de todas las rutas)
+// =============================================
+// Responde JSON (los errores de subida y de cuerpo mal formado antes salían
+// como un 500 con HTML) y no filtra detalles internos al cliente.
+app.use((err, req, res, next) => {
+  if (res.headersSent) return next(err);
+
+  if (err instanceof multer.MulterError) {
+    const mensaje = err.code === 'LIMIT_FILE_SIZE' ? 'El archivo supera el tamaño máximo permitido' : 'No se pudo procesar el archivo';
+    return res.status(400).json(mensaje);
+  }
+  if (err?.message?.startsWith('Solo se permiten')) {
+    return res.status(400).json(err.message);
+  }
+  if (err?.type === 'entity.parse.failed') {
+    return res.status(400).json('El cuerpo de la petición no es un JSON válido');
+  }
+
+  console.error('❌ Error no controlado:', err?.message);
+  res.status(500).json('Error en el servidor');
 });
