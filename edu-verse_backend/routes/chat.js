@@ -29,7 +29,7 @@ router.get('/:equipo_id', verificarToken, async (req, res) => {
       FROM mensajes_chat m
       LEFT JOIN usuarios u ON m.usuario_id = u.usuario_id
       LEFT JOIN mensajes_chat r ON m.respuesta_a = r.mensaje_id
-      LEFT JOIN usuarios ru ON r.usuario_id = ru.usuario_id
+      LEFT JOIN usuarios ru ON ru.usuario_id = r.usuario_id
       WHERE m.equipo_id = $1
     `;
     const params = [equipo_id];

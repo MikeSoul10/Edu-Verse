@@ -21,7 +21,11 @@ api.interceptors.response.use(
     const teniaSesion = Boolean(error.config?.headers?.Authorization);
     const sesionExpirada = error.response?.status === 401 ||
       (error.response?.status === 400 && typeof msg === 'string' && msg.includes('Token'));
-    if (teniaSesion && sesionExpirada) {
+    // Una cuenta suspendida responde 403 en todas sus peticiones: sin esto el
+    // usuario seguiría con la sesión "viva" en la interfaz, sin poder hacer nada.
+    const cuentaSuspendida = error.response?.status === 403 &&
+      typeof msg === 'string' && msg.toLowerCase().includes('suspendid');
+    if (teniaSesion && (sesionExpirada || cuentaSuspendida)) {
       ['token', 'usuario_id', 'usuario', 'foto_url', 'rol'].forEach((clave) => localStorage.removeItem(clave));
       if (window.location.pathname !== '/login') {
         window.location.href = '/login';

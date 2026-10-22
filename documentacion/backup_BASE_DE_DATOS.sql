@@ -216,7 +216,8 @@ CREATE TABLE public.mensajes_chat (
     equipo_id integer,
     usuario_id integer,
     texto text NOT NULL,
-    fecha_envio timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+    fecha_envio timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    respuesta_a integer
 );
 
 ALTER TABLE public.mensajes_chat OWNER TO postgres;
@@ -462,6 +463,9 @@ ALTER TABLE ONLY public.mensajes_chat
 ALTER TABLE ONLY public.mensajes_chat
     ADD CONSTRAINT mensajes_chat_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(usuario_id) ON DELETE SET NULL;
 
+ALTER TABLE ONLY public.mensajes_chat
+    ADD CONSTRAINT mensajes_chat_respuesta_a_fkey FOREIGN KEY (respuesta_a) REFERENCES public.mensajes_chat(mensaje_id) ON DELETE SET NULL;
+
 ALTER TABLE ONLY public.comentarios_tarea
     ADD CONSTRAINT comentarios_tarea_tarea_id_fkey FOREIGN KEY (tarea_id) REFERENCES public.tareas(tarea_id) ON DELETE CASCADE;
 
@@ -493,9 +497,11 @@ CREATE INDEX idx_tareas_asignado_a ON public.tareas(asignado_a);
 CREATE INDEX idx_tareas_creado_por ON public.tareas(creado_por);
 CREATE INDEX idx_mensajes_chat_equipo_id ON public.mensajes_chat(equipo_id);
 CREATE INDEX idx_mensajes_chat_usuario_id ON public.mensajes_chat(usuario_id);
+CREATE INDEX idx_mensajes_chat_respuesta ON public.mensajes_chat(respuesta_a);
 CREATE INDEX idx_comentarios_tarea_tarea_id ON public.comentarios_tarea(tarea_id);
 CREATE INDEX idx_comentarios_tarea_usuario_id ON public.comentarios_tarea(usuario_id);
 CREATE INDEX idx_baneados_baneado_por ON public.baneados(baneado_por);
+CREATE INDEX idx_baneados_email_lower ON public.baneados (lower(email));
 CREATE INDEX idx_admin_logs_admin_id ON public.admin_logs(admin_id);
 
 -- ============================================================
@@ -526,10 +532,13 @@ CREATE TABLE IF NOT EXISTS public.moderacion_logs (
     equipo_id INTEGER REFERENCES public.equipos(equipo_id) ON DELETE SET NULL,
     palabras_bloqueadas TEXT,
     sustituciones INTEGER NOT NULL DEFAULT 0,
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    accion TEXT,
+    detalle TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_moderacion_logs_fecha ON public.moderacion_logs(fecha DESC);
+CREATE INDEX IF NOT EXISTS idx_moderacion_logs_accion ON public.moderacion_logs(accion, fecha DESC);
 
 CREATE TABLE IF NOT EXISTS public.comentarios_tarea (
     comentario_id SERIAL PRIMARY KEY,

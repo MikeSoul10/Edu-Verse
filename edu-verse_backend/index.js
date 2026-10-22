@@ -25,22 +25,20 @@ const io = new Server(server, {
 });
 app.set('io', io);
 
-const verificarToken = require('./middleware/auth');
-const { sanitize } = require('./middleware/sanitize');
+const { verificarToken, autenticarSocket } = require('./middleware/auth');const { sanitize } = require('./middleware/sanitize');
 const { obtenerRolEnEquipo, aEnteroPositivo } = require('./middleware/membresia');
 
 // --- SOCKET.IO ---
 // 1) Solo entran sockets con un JWT válido (el cliente lo manda en `auth`).
-io.use((socket, next) => {
-  try {
-    socket.usuario = jwt.verify(socket.handshake.auth?.token, JWT_SECRET, { algorithms: ['HS256'] });
-    next();
-  } catch {
-    next(new Error('No autorizado'));
-  }
-});
+//    Se revalida contra la BD: un baneo o un cambio de rol cortan el acceso
+//    en tiempo real, igual que en las rutas REST.
+io.use((socket, next) => autenticarSocket(socket, next));
 
 io.on('connection', (socket) => {
+  // Sala propia del usuario: permite expulsarlo de inmediato (al banearlo)
+  // sin esperar a que el cliente intente reconectar.
+  socket.join(`usuario-${socket.usuario.id}`);
+
   // 2) Solo se puede entrar a la sala de un equipo del que se es miembro: sin
   //    esto cualquiera escuchaba el chat y el tablero de cualquier equipo.
   socket.on('unirse-equipo', async (equipoId, ack) => {
@@ -422,12 +420,17 @@ app.get('/apuntes/:id', async (req, res) => {
 });
 
 // OBTENER APUNTES DE UN USUARIO ESPECÍFICO
-app.get('/apuntes/mis-apuntes/:usuario_id', async (req, res) => {
+// Solo los suyos: antes cualquiera podía recorrer ids y ver el inventario de
+// apuntes de los demás.
+app.get('/apuntes/mis-apuntes/:usuario_id', verificarToken, async (req, res) => {
   try {
     const { usuario_id } = req.params;
+    if (String(usuario_id) !== String(req.usuario.id)) {
+      return res.status(403).json("No autorizado");
+    }
     const misApuntes = await pool.query(
       "SELECT * FROM apuntes WHERE usuario_id = $1 ORDER BY fecha_subida DESC",
-      [usuario_id]
+      [req.usuario.id]
     );
     res.json(misApuntes.rows);
   } catch (err) {
@@ -772,6 +775,13 @@ app.post('/admin/ban', verificarToken, verificarAdmin, async (req, res) => {
     );
 
     await client.query('COMMIT');
+
+    // El baneo corta el acceso de inmediato: se expulsan los sockets del
+    // usuario para que no siga escuchando el chat de sus equipos. Sus
+    // peticiones REST ya las rechaza verificarToken.
+    const io = req.app.get('io');
+    io?.in(`usuario-${usuario_id}`).disconnectSockets(true);
+
     res.json({ mensaje: "Usuario baneado" });
   } catch (err) {
     await client.query('ROLLBACK');

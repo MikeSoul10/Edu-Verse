@@ -32,4 +32,9 @@ UPDATE public.baneados SET email = lower(email) WHERE email <> lower(email);
 -- 4) Unicidad sin distinguir mayúsculas.
 CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_email_lower ON public.usuarios (lower(email));
 
+-- 5) Índice para el chequeo de baneo: ahora se consulta en CADA petición
+--    autenticada (para que un baneo corte el acceso de inmediato), y sin este
+--    índice sería un escaneo de tabla en cada request.
+CREATE INDEX IF NOT EXISTS idx_baneados_email_lower ON public.baneados (lower(email));
+
 COMMIT;
