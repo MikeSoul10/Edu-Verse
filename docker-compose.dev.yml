@@ -1,0 +1,73 @@
+# Configuración de DESARROLLO: hot-reload en backend y frontend.
+# Uso: docker compose -f docker-compose.dev.yml up --build
+# (No lo combines con docker-compose.yml; este archivo ya define los 3 servicios.)
+name: edu-verse
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_DB: ${DB_NAME:-Edu-verseDB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./documentacion/backup_BASE_DE_DATOS.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "127.0.0.1:${DB_PORT_HOST:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d ${DB_NAME:-Edu-verseDB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build:
+      context: ./edu-verse_backend
+      target: development
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      DB_USER: postgres
+      DB_HOST: postgres
+      DB_NAME: ${DB_NAME:-Edu-verseDB}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_PORT: 5432
+      PORT: 4000
+      JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en el archivo .env de la raiz}
+    ports:
+      - "127.0.0.1:${BACKEND_PORT:-4000}:4000"
+    volumes:
+      - uploads:/app/uploads
+      - ./edu-verse_backend:/app
+      - /app/node_modules
+    command: ["npx", "nodemon", "--legacy-watch", "index.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./edu-verse
+      target: development
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: ""
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./edu-verse/src:/app/src
+      - ./edu-verse/public:/app/public
+      - ./edu-verse/index.html:/app/index.html
+      - ./edu-verse/vite.config.js:/app/vite.config.js
+      - ./edu-verse/tailwind.config.js:/app/tailwind.config.js
+      - ./edu-verse/postcss.config.js:/app/postcss.config.js
+      - /app/node_modules
+    command: ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+    depends_on:
+      - backend
+
+volumes:
+  pgdata:
+  uploads:

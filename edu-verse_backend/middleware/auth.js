@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../db');
+const { JWT_SECRET } = require('../config');
 
 // Estado ACTUAL del usuario en la base de datos.
 //
@@ -23,9 +24,8 @@ async function cargarSesion(usuarioId) {
   return r.rows[0] || null;
 }
 
-// El secreto se lee en cada petición (no al cargar el módulo) y NO tiene valor
-// por defecto: index.js aborta el arranque si falta JWT_SECRET, así que firmar
-// y verificar siempre usan el mismo valor.
+// El secreto viene de config.js, la misma fuente que usa el login para firmar.
+// No tiene valor por defecto y el arranque aborta si falta.
 const verificarToken = async (req, res, next) => {
   const cabecera = req.header('Authorization') || '';
   const [esquema, token] = cabecera.split(' ');
@@ -36,7 +36,7 @@ const verificarToken = async (req, res, next) => {
 
   let payload;
   try {
-    payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+    payload = jwt.verify(token, JWT_SECRET, { algorithms: ['HS256'] });
   } catch (err) {
     // 401 (no 400): el cliente interpreta 401 como sesión expirada.
     return res.status(401).json({ mensaje: "Token no válido." });
@@ -69,7 +69,7 @@ const verificarToken = async (req, res, next) => {
 // un baneo no cortaba el acceso en tiempo real y el rol viajaba sin revalidar.
 const autenticarSocket = async (socket, next) => {
   try {
-    const payload = jwt.verify(socket.handshake.auth?.token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
+    const payload = jwt.verify(socket.handshake.auth?.token, JWT_SECRET, { algorithms: ['HS256'] });
     const usuario = await cargarSesion(payload.id);
     if (!usuario) return next(new Error('No autorizado'));
     if (usuario.baneado) return next(new Error('Cuenta suspendida'));

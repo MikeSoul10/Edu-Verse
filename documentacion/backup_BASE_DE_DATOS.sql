@@ -24,6 +24,7 @@ SET default_table_access_method = heap;
 -- Drop tables (order: children before parents)
 --
 
+DROP TABLE IF EXISTS public.moderacion_logs CASCADE;
 DROP TABLE IF EXISTS public.admin_logs CASCADE;
 DROP TABLE IF EXISTS public.baneados CASCADE;
 DROP TABLE IF EXISTS public.mensajes_chat CASCADE;
@@ -45,7 +46,9 @@ CREATE TABLE public.usuarios (
     usuario_id integer NOT NULL,
     nombre character varying(100) NOT NULL,
     email character varying(150) NOT NULL,
-    password_hash character varying(255) NOT NULL,
+    -- Nullable a propósito: las cuentas creadas con Google Sign-In no tienen
+    -- contraseña local. El login manual las rechaza con 401, no con 500.
+    password_hash character varying(255),
     fecha_registro timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
     foto_url text DEFAULT 'default-avatar.png'::text,
     rol character varying(20) DEFAULT 'user'::character varying
@@ -300,6 +303,34 @@ ALTER SEQUENCE public.admin_logs_log_id_seq OWNER TO postgres;
 
 ALTER SEQUENCE public.admin_logs_log_id_seq OWNED BY public.admin_logs.log_id;
 
+-- Logs del filtro de groserías y de vaciado de historial del chat.
+-- Antes solo existía en migracion_moderacion.sql + migracion_chat_vaciado.sql,
+-- así que una instalación desde cero rompía POST /chat/enviar y DELETE /chat/historial.
+CREATE TABLE public.moderacion_logs (
+    moderacion_id integer NOT NULL,
+    usuario_id integer,
+    equipo_id integer,
+    palabras_bloqueadas text,
+    sustituciones integer NOT NULL DEFAULT 0,
+    fecha timestamp without time zone DEFAULT CURRENT_TIMESTAMP,
+    accion text,
+    detalle text
+);
+
+ALTER TABLE public.moderacion_logs OWNER TO postgres;
+
+CREATE SEQUENCE public.moderacion_logs_moderacion_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.moderacion_logs_moderacion_id_seq OWNER TO postgres;
+
+ALTER SEQUENCE public.moderacion_logs_moderacion_id_seq OWNED BY public.moderacion_logs.moderacion_id;
+
 -- ============================================================
 -- DEFAULTS (sequences)
 -- ============================================================
@@ -315,49 +346,37 @@ ALTER TABLE ONLY public.mensajes_chat ALTER COLUMN mensaje_id SET DEFAULT nextva
 ALTER TABLE ONLY public.comentarios_tarea ALTER COLUMN comentario_id SET DEFAULT nextval('public.comentarios_tarea_comentario_id_seq'::regclass);
 ALTER TABLE ONLY public.baneados ALTER COLUMN baneo_id SET DEFAULT nextval('public.baneados_baneo_id_seq'::regclass);
 ALTER TABLE ONLY public.admin_logs ALTER COLUMN log_id SET DEFAULT nextval('public.admin_logs_log_id_seq'::regclass);
+ALTER TABLE ONLY public.moderacion_logs ALTER COLUMN moderacion_id SET DEFAULT nextval('public.moderacion_logs_moderacion_id_seq'::regclass);
 
 -- ============================================================
 -- DATA
 -- ============================================================
 
+-- Cuentas de demostración. Los correos deben pertenecer al dominio que valida
+-- el backend (@alumnos.udg.mx) o el login/registro queda inconsistente con el seed.
+-- foto_url queda en NULL para que el frontend use las iniciales: no se siembran
+-- rutas a archivos que no existen en una instalación limpia.
 COPY public.usuarios (usuario_id, nombre, email, password_hash, fecha_registro, foto_url, rol) FROM stdin;
-1	Miguel	test@edu.mx	$2b$10$AhvoT8OLUUkd8FRmuURIa.5sqg0l3RLT.VBCUI8/ntnKOXK4Qkh9a	2026-03-16 23:33:50.865721	default-avatar.png	admin
-2	Edu	test2@alumno.edu	$2b$10$ZiZeXOhtHVmxSJi48FKJKeQldTNV2HuFNtpYfxZ3o38MneJBRFtNi	2026-03-17 09:46:32.830529	/uploads/perfiles/1778088001198-Arquitectura_Edu-Verse.png	user
-3	Cristoff	test3@alumno.edu	$2b$10$7Emk3./LLPiJnhzkdNIuH.VFXSoPmp.Cug6eop9OS3pmSopQms4Oa	2026-04-13 11:26:03.81259	default-avatar.png	user
-4	Miguel Espinoza	miguel@alumno.edu	$2b$10$Em1mc92xweb5nOEKS4LKWeibfmkpc8eeg0UQg.8A3qCubRs/16ZYG	2026-05-07 14:55:26.256041	/uploads/perfiles/1778375807955-default-avatar.png	user
+1	Miguel	test@alumnos.udg.mx	$2b$10$AhvoT8OLUUkd8FRmuURIa.5sqg0l3RLT.VBCUI8/ntnKOXK4Qkh9a	2026-03-16 23:33:50.865721	\N	admin
+2	Edu	test2@alumnos.udg.mx	$2b$10$ZiZeXOhtHVmxSJi48FKJKeQldTNV2HuFNtpYfxZ3o38MneJBRFtNi	2026-03-17 09:46:32.830529	\N	user
+3	Cristoff	test3@alumnos.udg.mx	$2b$10$7Emk3./LLPiJnhzkdNIuH.VFXSoPmp.Cug6eop9OS3pmSopQms4Oa	2026-04-13 11:26:03.81259	\N	user
+4	Miguel Espinoza	miguel@alumnos.udg.mx	$2b$10$Em1mc92xweb5nOEKS4LKWeibfmkpc8eeg0UQg.8A3qCubRs/16ZYG	2026-05-07 14:55:26.256041	\N	user
 \.
 
-COPY public.apuntes (apunte_id, titulo, materia, descripcion, archivo_url, usuario_id, fecha_subida) FROM stdin;
-3	Palomino	Base de Datos		/uploads/1776221907853-Gemini_Generated_Image_cbj1iucbj1iucbj1.png	2	2026-04-14 20:58:27.910992
-4	Sprint Modular	Modulares	Pendejadas de coordinacion	/uploads/1777328372401-Sprint 3 - Plan de Construccion_Edu-Verse.pdf	2	2026-04-27 16:19:32.433069
-6	Huevos	Calculo Lineal	Modular xd\r\n	/uploads/1777927668853-Plan de Trabajo - EduVerse.pdf	3	2026-05-04 14:47:48.878473
-\.
-
-COPY public.comentarios (comentario_id, apunte_id, usuario_id, texto, fecha_creacion) FROM stdin;
-1	6	2	Muy bueno	2026-05-06 11:41:08.245702
-2	6	4	Me parecio interesante el plan de trabajo	2026-05-07 14:58:31.812789
-\.
-
-COPY public.favoritos (favorito_id, usuario_id, apunte_id, fecha_guardado) FROM stdin;
-16	3	4	2026-05-04 14:54:44.453106
-17	2	4	2026-05-06 11:21:28.29727
-18	4	6	2026-05-07 14:58:41.155286
-\.
-
-COPY public.valoraciones (valoracion_id, apunte_id, usuario_id, estrellas) FROM stdin;
-1	6	2	5
-2	6	4	4
-\.
+-- No se siembran apuntes/comentarios/favoritos/valoraciones: sus archivos viven
+-- en uploads/ y un volumen Docker vacío los oculta. Una instalación limpia
+-- arrancaría con enlaces rotos. Esas tablas quedan vacías a propósito.
 
 -- ============================================================
 -- SEQUENCE RESET
 -- ============================================================
 
 SELECT pg_catalog.setval('public.usuarios_usuario_id_seq', 4, true);
-SELECT pg_catalog.setval('public.apuntes_apunte_id_seq', 6, true);
-SELECT pg_catalog.setval('public.comentarios_comentario_id_seq', 2, true);
-SELECT pg_catalog.setval('public.favoritos_favorito_id_seq', 18, true);
-SELECT pg_catalog.setval('public.valoraciones_valoracion_id_seq', 2, true);
+SELECT pg_catalog.setval('public.apuntes_apunte_id_seq', 1, false);
+SELECT pg_catalog.setval('public.comentarios_comentario_id_seq', 1, false);
+SELECT pg_catalog.setval('public.favoritos_favorito_id_seq', 1, false);
+SELECT pg_catalog.setval('public.valoraciones_valoracion_id_seq', 1, false);
+SELECT pg_catalog.setval('public.moderacion_logs_moderacion_id_seq', 1, false);
 
 -- ============================================================
 -- CONSTRAINTS (PK, UNIQUE, CHECK)
@@ -413,6 +432,9 @@ ALTER TABLE ONLY public.baneados
 
 ALTER TABLE ONLY public.admin_logs
     ADD CONSTRAINT admin_logs_pkey PRIMARY KEY (log_id);
+
+ALTER TABLE ONLY public.moderacion_logs
+    ADD CONSTRAINT moderacion_logs_pkey PRIMARY KEY (moderacion_id);
 
 -- ============================================================
 -- FOREIGN KEYS
@@ -478,6 +500,12 @@ ALTER TABLE ONLY public.baneados
 ALTER TABLE ONLY public.admin_logs
     ADD CONSTRAINT admin_logs_admin_id_fkey FOREIGN KEY (admin_id) REFERENCES public.usuarios(usuario_id) ON DELETE SET NULL;
 
+ALTER TABLE ONLY public.moderacion_logs
+    ADD CONSTRAINT moderacion_logs_usuario_id_fkey FOREIGN KEY (usuario_id) REFERENCES public.usuarios(usuario_id) ON DELETE SET NULL;
+
+ALTER TABLE ONLY public.moderacion_logs
+    ADD CONSTRAINT moderacion_logs_equipo_id_fkey FOREIGN KEY (equipo_id) REFERENCES public.equipos(equipo_id) ON DELETE SET NULL;
+
 -- ============================================================
 -- INDEXES (foreign key columns for performance)
 -- ============================================================
@@ -503,53 +531,34 @@ CREATE INDEX idx_comentarios_tarea_usuario_id ON public.comentarios_tarea(usuari
 CREATE INDEX idx_baneados_baneado_por ON public.baneados(baneado_por);
 CREATE INDEX idx_baneados_email_lower ON public.baneados (lower(email));
 CREATE INDEX idx_admin_logs_admin_id ON public.admin_logs(admin_id);
+CREATE INDEX idx_moderacion_logs_fecha ON public.moderacion_logs(fecha DESC);
+CREATE INDEX idx_moderacion_logs_accion ON public.moderacion_logs(accion, fecha DESC);
+CREATE INDEX idx_moderacion_logs_usuario_id ON public.moderacion_logs(usuario_id);
+CREATE INDEX idx_moderacion_logs_equipo_id ON public.moderacion_logs(equipo_id);
 
 -- ============================================================
 -- MIGRACIÓN ADMIN (compatibilidad con migracion_admin.sql)
 -- ============================================================
 
+-- Todas las columnas que antes vivían solo en migraciones manuales se aplican
+-- aquí de forma idempotente. Así el dump sirve tanto para una instalación desde
+-- cero como para actualizar una base creada con una versión anterior.
 ALTER TABLE public.usuarios ADD COLUMN IF NOT EXISTS rol VARCHAR(20) DEFAULT 'user';
+ALTER TABLE public.usuarios ALTER COLUMN password_hash DROP NOT NULL;
 
-CREATE TABLE IF NOT EXISTS public.baneados (
-    baneo_id SERIAL PRIMARY KEY,
-    email VARCHAR(150) UNIQUE NOT NULL,
-    motivo TEXT,
-    baneado_por INTEGER REFERENCES public.usuarios(usuario_id),
-    fecha_baneo TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+ALTER TABLE public.mensajes_chat
+    ADD COLUMN IF NOT EXISTS respuesta_a INTEGER
+    REFERENCES public.mensajes_chat(mensaje_id) ON DELETE SET NULL;
 
-CREATE TABLE IF NOT EXISTS public.admin_logs (
-    log_id SERIAL PRIMARY KEY,
-    admin_id INTEGER REFERENCES public.usuarios(usuario_id),
-    accion VARCHAR(100) NOT NULL,
-    detalle TEXT,
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+ALTER TABLE public.moderacion_logs
+    ADD COLUMN IF NOT EXISTS accion TEXT,
+    ADD COLUMN IF NOT EXISTS detalle TEXT;
 
-CREATE TABLE IF NOT EXISTS public.moderacion_logs (
-    moderacion_id SERIAL PRIMARY KEY,
-    usuario_id INTEGER REFERENCES public.usuarios(usuario_id) ON DELETE SET NULL,
-    equipo_id INTEGER REFERENCES public.equipos(equipo_id) ON DELETE SET NULL,
-    palabras_bloqueadas TEXT,
-    sustituciones INTEGER NOT NULL DEFAULT 0,
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    accion TEXT,
-    detalle TEXT
-);
-
+CREATE INDEX IF NOT EXISTS idx_mensajes_chat_respuesta ON public.mensajes_chat(respuesta_a);
 CREATE INDEX IF NOT EXISTS idx_moderacion_logs_fecha ON public.moderacion_logs(fecha DESC);
 CREATE INDEX IF NOT EXISTS idx_moderacion_logs_accion ON public.moderacion_logs(accion, fecha DESC);
-
-CREATE TABLE IF NOT EXISTS public.comentarios_tarea (
-    comentario_id SERIAL PRIMARY KEY,
-    tarea_id INTEGER REFERENCES public.tareas(tarea_id) ON DELETE CASCADE,
-    usuario_id INTEGER REFERENCES public.usuarios(usuario_id) ON DELETE CASCADE,
-    texto TEXT NOT NULL,
-    fecha TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_comentarios_tarea_tarea_id ON public.comentarios_tarea(tarea_id);
-CREATE INDEX IF NOT EXISTS idx_comentarios_tarea_usuario_id ON public.comentarios_tarea(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_moderacion_logs_usuario_id ON public.moderacion_logs(usuario_id);
+CREATE INDEX IF NOT EXISTS idx_moderacion_logs_equipo_id ON public.moderacion_logs(equipo_id);
 
 UPDATE public.usuarios SET rol = 'admin' WHERE usuario_id = 1 AND (rol IS NULL OR rol = 'user');
 

@@ -228,6 +228,45 @@ Se realizó una auditoría completa del codebase de Edu-Verse identificando **21
 
 ---
 
+## Corrección de instalación y despliegue (octubre 2026)
+
+### Base de datos e instalación limpia
+- `backup_BASE_DE_DATOS.sql` crea `moderacion_logs` completa (`accion`, `detalle`)
+  y `mensajes_chat.respuesta_a` desde el inicio; ya no depende de migraciones
+  manuales. Incluye `ALTER ... IF NOT EXISTS` idempotentes para bases viejas.
+- `usuarios.password_hash` pasa a ser **nullable** para habilitar Google Sign-In.
+  `migracion_seguridad.sql` aplica el mismo cambio en bases existentes.
+- Seed corregido: correos `@alumnos.udg.mx` (antes `@edu.mx` / `@alumno.edu`) y
+  sin apuntes/comentarios/favoritos/valoraciones que apuntaran a archivos
+  inexistentes en un volumen Docker vacío.
+
+### Autenticación
+- Nuevo `edu-verse_backend/config.js`: única fuente de `JWT_SECRET`, obligatoria
+  y sin fallback. Login, middleware REST y handshake de Socket.IO usan el mismo
+  valor; el servidor aborta si falta.
+- El middleware responde **401** a token ausente, inválido o expirado. Se quitó
+  del frontend el parche que buscaba `"Token"` en respuestas 400.
+- Login con `password_hash = NULL` responde **401**, no **500**.
+- `PUT /auth/perfil/update/:id` normaliza el email, valida baneo y duplicados
+  (`lower(email)`) y mapea `23505` a un 400 claro.
+- `PUT /tareas/:id` actualiza solo campos presentes: omitir `asignado_a` ya no
+  borra al asignado; enviar `null`/vacío desasigna y permite limpiar fecha y
+  descripción.
+
+### Producción
+- `nginx.conf` proxya todas las rutas de API, `/uploads/` y `/socket.io/`
+  (WebSocket), con `client_max_body_size 12m` para las subidas de 10 MB.
+- `Dockerfile` del frontend multi-stage: desarrollo, build y producción con
+  Nginx. El backend tiene targets `development` (`nodemon`) y `production`
+  (`node`, `npm ci --omit=dev`, usuario no root).
+- `docker-compose.yml` es de producción: PostgreSQL sin puerto público, backend
+  en `127.0.0.1:4001`, frontend Nginx en `:8080`. El hot-reload pasó a
+  `docker-compose.dev.yml` (backend `:4000`, frontend `:5173`, Postgres local).
+- `VITE_API_URL` queda vacío: el navegador usa el mismo origen y Nginx/Vite
+  hacen de proxy, sin CORS ni URLs `localhost` compiladas en el bundle.
+
+---
+
 ## Instrucciones de Conversión a PDF
 
 ### Desde VS Code:

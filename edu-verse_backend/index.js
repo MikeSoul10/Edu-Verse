@@ -8,15 +8,9 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
-require('dotenv').config();
-
-// Sin valor por defecto: un secreto conocido en el repositorio permitiría
-// falsificar tokens (incluso de admin) en cualquier despliegue sin .env.
-const JWT_SECRET = process.env.JWT_SECRET;
-if (!JWT_SECRET) {
-  console.error('❌ Falta JWT_SECRET. Defínelo en el .env (genera uno con: node -e "console.log(require(\'crypto\').randomBytes(48).toString(\'hex\'))").');
-  process.exit(1);
-}
+// Fail-fast y con un único valor compartido. Sin valor por defecto: un secreto
+// conocido en el repositorio permitiría falsificar tokens de cualquier rol.
+const { JWT_SECRET } = require('./config');
 
 const app = express();
 const server = http.createServer(app);

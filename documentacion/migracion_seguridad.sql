@@ -37,4 +37,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_usuarios_email_lower ON public.usuarios (l
 --    índice sería un escaneo de tabla en cada request.
 CREATE INDEX IF NOT EXISTS idx_baneados_email_lower ON public.baneados (lower(email));
 
+-- 6) Las cuentas creadas por proveedores externos (Google Sign-In) no tienen
+--    contraseña local: password_hash debe aceptar NULL.
+ALTER TABLE public.usuarios ALTER COLUMN password_hash DROP NOT NULL;
+
 COMMIT;

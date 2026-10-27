@@ -11,7 +11,7 @@ API REST que expone todos los servicios de Edu-Verse. Cada endpoint paso a paso.
 ### 1.1 Configuración inicial
 1. Importa `express`, `http` (para crear el servidor), `socket.io`, `cors`, `bcrypt`, `multer`, `jsonwebtoken` y `dotenv`.
 2. Crea la app de Express y un servidor HTTP aparte (`http.createServer(app)`), necesario para montar Socket.IO sobre el mismo puerto.
-3. Inicializa `JWT_SECRET` desde `process.env.JWT_SECRET` (con fallback `supersecretkey_eduverse_2026`).
+3. Carga `JWT_SECRET` desde `config.js`. Es obligatorio y no tiene fallback: si falta, el proceso aborta al arrancar. El login (firma) y `middleware/auth.js` + Socket.IO (verificación) importan el mismo valor.
 
 ### 1.2 Middleware globales
 | Orden | Middleware | Función |
@@ -74,14 +74,15 @@ Se inicializa sobre el servidor HTTP y maneja las salas por equipo:
 
 ### Flujo paso a paso — `POST /auth/login`
 1. Verifica si el email está en `baneados` → `403` si lo está.
-2. Busca el usuario por email.
-3. Compara contraseña con `bcrypt.compare`.
-4. **Crea token** con payload `{ id, nombre, rol }`, expiración `24h`.
-5. Devuelve `{ mensaje, token, usuario: { id, nombre, foto_url, rol } }`.
+2. Busca el usuario por email (comparación `lower(email)`).
+3. Si `password_hash` es `NULL` (cuenta creada con Google), responde `401` en vez de llamar a `bcrypt.compare` y provocar un `500`.
+4. Compara contraseña con `bcrypt.compare`; si no coincide, `401`.
+5. **Crea token** con payload `{ id, nombre, rol }`, expiración `24h`.
+6. Devuelve `{ mensaje, token, usuario: { id, nombre, foto_url, rol } }`.
 
 ### 4. Rutas de perfil
 - `GET /auth/perfil/:id` → devuelve `nombre`, `email`, `foto_url`.
-- `PUT /auth/perfil/update/:id` → **requiere token**, valida que `req.usuario.id === id`, exige dominio `@alumnos.udg.mx`.
+- `PUT /auth/perfil/update/:id` → **requiere token**, valida que `req.usuario.id === id`, normaliza el email a minúsculas, exige dominio `@alumnos.udg.mx`, comprueba baneo y duplicados (`lower(email)`) y responde `400 "El correo ya existe"` tanto en la precomprobación como si la carrera termina en `23505`.
 
 ---
 
@@ -163,7 +164,7 @@ Todas las rutas exigen **token + rol `admin`** (doble middleware `verificarToken
 ### `routes/tareas.js`
 - `POST /tareas/crear` → inserta con sanitización; prioridad por defecto `verde`.
 - `GET /tareas/equipo/:equipo_id` → lista con nombre del asignado (`LEFT JOIN`).
-- `PUT /tareas/:id` → actualización parcial usando `COALESCE($, columna)`.
+- `PUT /tareas/:id` → actualización parcial: solo agrega al `SET` los campos presentes en el body. Omitir `asignado_a` conserva al asignado; enviarlo en `null`/`''` lo desasigna; `fecha_entrega` y `descripcion` aceptan vacío para limpiarse.
 - `PUT /tareas/:id/mover` → cambio de estado (kanban drag-and-drop).
 - `DELETE /tareas/:id` → elimina.
 
@@ -245,4 +246,5 @@ node index.js        # producción
 npx nodemon index.js # desarrollo
 ```
 
-Servidor: `http://localhost:4000` · Docker mapea `4001 → 4000`.
+Servidor local: `http://localhost:4000`. En producción, Docker publica el backend
+solo en `127.0.0.1:4001` y el tráfico público entra por Nginx (`:8080`).
