@@ -288,6 +288,10 @@ const GestorEquipos = () => {
   const [modalVaciar, setModalVaciar] = useState(false);
   const [confirmacionVaciar, setConfirmacionVaciar] = useState('');
 
+  // Salir del equipo (abandona la membresía) y expulsar a otro miembro.
+  const [modalSalirEquipo, setModalSalirEquipo] = useState(false);
+  const [miembroAExpulsar, setMiembroAExpulsar] = useState(null);
+
   // Buscador de mensajes del chat
   const [buscadorAbierto, setBuscadorAbierto] = useState(false);
   const [busquedaChat, setBusquedaChat] = useState('');
@@ -345,11 +349,19 @@ const GestorEquipos = () => {
 
   const cargarMiembros = useCallback(async (equipoId) => {
     try {
-      setMiembros((await api.get(`${API_URL}/equipos/${equipoId}/miembros`)).data);
+      const datos = (await api.get(`${API_URL}/equipos/${equipoId}/miembros`)).data;
+      setMiembros(datos);
+      // Si otro admin salió y ascendió a este usuario, los controles de admin
+      // deben aparecer sin recargar la página.
+      setEquipoActivo((prev) => {
+        if (!prev || String(prev.equipo_id) !== String(equipoId)) return prev;
+        const yo = datos.find((m) => String(m.usuario_id) === String(usuario));
+        return yo ? { ...prev, rol: yo.rol } : prev;
+      });
     } catch {
       // silencioso
     }
-  }, []);
+  }, [usuario]);
 
   const cargarMensajes = useCallback(async (equipoId) => {
     try {
@@ -502,11 +514,45 @@ const GestorEquipos = () => {
       toast(`Un administrador vació el chat (${borrados} mensaje(s))`);
     });
 
+    // Alguien salió o fue expulsado: refresca la lista de miembros sin recargar.
+    socket.on('miembros-actualizados', ({ equipo_id }) => {
+      if (equipo_id === equipoActivoRef.current) cargarMiembros(equipo_id);
+    });
+
+    // El equipo se quedó sin miembros y se eliminó en el backend.
+    socket.on('equipo-eliminado', ({ equipo_id }) => {
+      setEquipos((prev) => prev.filter((e) => e.equipo_id !== equipo_id));
+      if (equipoActivoRef.current === equipo_id) {
+        equipoActivoRef.current = null;
+        setEquipoActivo(null);
+        setTareas([]);
+        setMensajes([]);
+        setMiembros([]);
+      }
+    });
+
+    // Un admin expulsó al usuario: sale de la sala y vuelve a la lista.
+    socket.on('expulsado-equipo', ({ equipo_id }) => {
+      setEquipos((prev) => prev.filter((e) => e.equipo_id !== equipo_id));
+      if (equipoActivoRef.current === equipo_id) {
+        socket.emit('salir-equipo', equipo_id);
+        equipoActivoRef.current = null;
+        setEquipoActivo(null);
+        setTareas([]);
+        setMensajes([]);
+        setMiembros([]);
+        setMensajesNoLeidos(0);
+        setSidebarMovil(false);
+        setVista('dashboard');
+        toast.error('Un administrador te expulsó del equipo');
+      }
+    });
+
     return () => socket.disconnect();
   // Sin deps más allá de agregarMensaje: el resto del estado que lee el
   // listener (chatAbiertoRef, estaAbajoRef, equipoActivoRef) vive en refs,
   // que no cambian de identidad entre renders.
-  }, [agregarMensaje, resetearChat]);
+  }, [agregarMensaje, resetearChat, cargarMiembros]);
 
   useEffect(() => {
     if (!chatRef.current) return;
@@ -1067,7 +1113,8 @@ const GestorEquipos = () => {
     }
   };
 
-  const salirDeEquipo = () => {
+  // Vuelve a la lista de equipos sin abandonar la membresía.
+  const volverAEquipos = () => {
     socketRef.current?.emit('salir-equipo', equipoActivo.equipo_id);
     setEquipoActivo(null);
     equipoActivoRef.current = null;
@@ -1089,6 +1136,33 @@ const GestorEquipos = () => {
     if (typeof data === 'string') return data;
     if (data?.mensaje) return data.mensaje;
     return 'Ocurrió un error';
+  };
+
+  const abandonarEquipo = async () => {
+    if (!equipoActivo) return;
+    try {
+      const res = await api.post(`${API_URL}/equipos/${equipoActivo.equipo_id}/salir`);
+      toast.success(res.data?.mensaje || 'Saliste del equipo');
+      setModalSalirEquipo(false);
+      socketRef.current?.emit('salir-equipo', equipoActivo.equipo_id);
+      await cargarEquipos();
+      volverAEquipos();
+    } catch (err) {
+      toast.error(getToastMsg(err));
+    }
+  };
+
+  const expulsarMiembro = async () => {
+    if (!miembroAExpulsar || !equipoActivo) return;
+    try {
+      await api.delete(`${API_URL}/equipos/${equipoActivo.equipo_id}/miembros/${miembroAExpulsar.usuario_id}`);
+      setMiembros((prev) => prev.filter((m) => String(m.usuario_id) !== String(miembroAExpulsar.usuario_id)));
+      if (String(filtroMiembro) === String(miembroAExpulsar.usuario_id)) setFiltroMiembro('todos');
+      toast.success(`${miembroAExpulsar.nombre} fue expulsado del equipo`);
+      setMiembroAExpulsar(null);
+    } catch (err) {
+      toast.error(getToastMsg(err));
+    }
   };
 
   const crearEquipo = async () => {
@@ -1721,7 +1795,7 @@ const GestorEquipos = () => {
         >
           <div className={`${sidebarMinimizado ? 'p-2' : 'p-4'} flex items-center border-b border-slate-200/70 dark:border-slate-700/70 gap-2`}>
             {!sidebarMinimizado && (
-              <button type="button" onClick={salirDeEquipo} className="ev-focusable inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-blue-700 transition-colors">
+              <button type="button" onClick={volverAEquipos} className="ev-focusable inline-flex items-center gap-1.5 text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-blue-700 transition-colors">
                 <Icono nombre="volver" className="w-4 h-4" />
                 Equipos
               </button>
@@ -1773,11 +1847,11 @@ const GestorEquipos = () => {
                     const total = carga?.total ?? 0;
                     const maxAbiertas = Math.max(...metricas.carga.map((c) => c.abiertas), 1);
                     return (
-                      <li key={m.usuario_id}>
+                      <li key={m.usuario_id} className="flex items-center gap-1">
                         <button
                           type="button"
                           onClick={() => setFiltroMiembro(filtroMiembro === String(m.usuario_id) ? 'todos' : String(m.usuario_id))}
-                          className={`ev-chip ev-focusable w-full flex items-center gap-2.5 p-2 rounded-lg text-left ${
+                          className={`ev-chip ev-focusable flex-1 min-w-0 flex items-center gap-2.5 p-2 rounded-lg text-left ${
                             filtroMiembro === String(m.usuario_id) ? 'bg-blue-50 dark:bg-blue-500/15 border border-blue-200 dark:border-blue-500/35' : 'border border-transparent hover:bg-slate-100 dark:hover:bg-slate-700'
                           }`}
                           aria-pressed={filtroMiembro === String(m.usuario_id)}
@@ -1802,6 +1876,17 @@ const GestorEquipos = () => {
                             </span>
                           </span>
                         </button>
+                        {soyAdminEquipo && String(m.usuario_id) !== String(usuario) && (
+                          <button
+                            type="button"
+                            onClick={() => setMiembroAExpulsar(m)}
+                            className="ev-focusable shrink-0 grid place-items-center w-8 h-8 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/15 transition-colors"
+                            aria-label={`Expulsar a ${m.nombre} del equipo`}
+                            title="Expulsar del equipo"
+                          >
+                            <Icono nombre="cerrar" className="w-3.5 h-3.5" />
+                          </button>
+                        )}
                       </li>
                     );
                   })}
@@ -1822,6 +1907,15 @@ const GestorEquipos = () => {
                     </span>
                   </button>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => setModalSalirEquipo(true)}
+                  className="ev-focusable mt-4 w-full flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-bold text-red-600 dark:text-red-400 border border-red-200 dark:border-red-500/30 hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+                >
+                  <Icono nombre="salir" className="w-3.5 h-3.5" />
+                  Salir del equipo
+                </button>
               </div>
             </>
           ) : (
@@ -2956,6 +3050,94 @@ const GestorEquipos = () => {
                 className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-red-600 transition-colors"
               >
                 Vaciar todo
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- SALIR DEL EQUIPO ---------------- */}
+      {modalSalirEquipo && (
+        <div className="fixed inset-0 bg-slate-900/50 grid place-items-center p-4 z-50 ev-overlay" onClick={() => setModalSalirEquipo(false)}>
+          <div
+            className="ev-panel-glass rounded-2xl w-full max-w-sm p-6 ev-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="titulo-salir-equipo"
+          >
+            <span className="mx-auto grid place-items-center w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-500/15 text-red-500">
+              <Icono nombre="salir" className="w-6 h-6" />
+            </span>
+            <h2 id="titulo-salir-equipo" className="mt-4 text-center font-extrabold text-slate-900 dark:text-slate-100 text-lg">
+              Salir de {equipoActivo?.nombre}
+            </h2>
+            <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">
+              Perderás acceso al chat, las tareas y los archivos del equipo.
+            </p>
+            <p className="mt-3 text-center text-xs text-red-600 dark:text-red-400 font-semibold">
+              {soyAdminEquipo
+                ? miembros.length === 1
+                  ? 'Eres el último miembro: el equipo se eliminará.'
+                  : 'Eres administrador: el rol pasará a otro miembro.'
+                : 'Esta acción no se puede deshacer.'}
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setModalSalirEquipo(false)}
+                className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={abandonarEquipo}
+                className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                Salir
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ---------------- EXPULSAR MIEMBRO ---------------- */}
+      {miembroAExpulsar && (
+        <div className="fixed inset-0 bg-slate-900/50 grid place-items-center p-4 z-50 ev-overlay" onClick={() => setMiembroAExpulsar(null)}>
+          <div
+            className="ev-panel-glass rounded-2xl w-full max-w-sm p-6 ev-modal"
+            onClick={(e) => e.stopPropagation()}
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="titulo-expulsar"
+          >
+            <span className="mx-auto grid place-items-center w-12 h-12 rounded-2xl bg-red-50 dark:bg-red-500/15 text-red-500">
+              <Icono nombre="cerrar" className="w-6 h-6" />
+            </span>
+            <h2 id="titulo-expulsar" className="mt-4 text-center font-extrabold text-slate-900 dark:text-slate-100 text-lg">
+              Expulsar a {miembroAExpulsar.nombre}
+            </h2>
+            <p className="mt-2 text-center text-sm text-slate-500 dark:text-slate-400">
+              Dejará de ser miembro de <span className="font-bold text-slate-700 dark:text-slate-300">{equipoActivo?.nombre}</span> y perderá acceso al chat y a las tareas.
+            </p>
+            <p className="mt-3 text-center text-xs text-red-600 dark:text-red-400 font-semibold">
+              Para volver tendrá que unirse con el código de invitación.
+            </p>
+            <div className="mt-6 flex gap-3">
+              <button
+                type="button"
+                onClick={() => setMiembroAExpulsar(null)}
+                className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={expulsarMiembro}
+                className="ev-focusable flex-1 py-3 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 transition-colors"
+              >
+                Expulsar
               </button>
             </div>
           </div>

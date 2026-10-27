@@ -1,9 +1,5 @@
 const pool = require('../db');
-
-const aEnteroPositivo = (valor) => {
-  const n = Number(valor);
-  return Number.isInteger(n) && n > 0 ? n : null;
-};
+const { aEnteroPositivo } = require('../utils/validacion');
 
 // Devuelve el rol del usuario dentro del equipo ('admin' | 'miembro'),
 // o null si no pertenece (o si algún id no es válido).

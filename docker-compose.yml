@@ -35,6 +35,7 @@ services:
       DB_PORT: 5432
       PORT: 4000
       JWT_SECRET: ${JWT_SECRET:?Define JWT_SECRET en el archivo .env de la raiz}
+      UPLOAD_QUOTA_MB: ${UPLOAD_QUOTA_MB:-100}
     volumes:
       - uploads:/app/uploads
     # Solo accesible desde el propio host (para depurar); el tráfico público

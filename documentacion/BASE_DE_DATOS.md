@@ -6,7 +6,7 @@ El esquema vive en el dump `documentacion/backup_BASE_DE_DATOS.sql`, que se carg
 
 ---
 
-## 1. Tablas (12)
+## 1. Tablas (13)
 
 | Tabla | Campos principales | Propósito |
 |-------|--------------------|-----------|
@@ -18,6 +18,7 @@ El esquema vive en el dump `documentacion/backup_BASE_DE_DATOS.sql`, que se carg
 | `equipos` | `equipo_id`, `nombre`, `codigo_invitacion`, `creado_por`, `fecha_creacion` | Equipos de estudio; código UNIQUE de 6 chars |
 | `miembros_equipo` | `equipo_id`, `usuario_id`, `rol` | Relación muchos-a-muchos; PK compuesta `(equipo_id, usuario_id)`; rol por defecto `miembro` |
 | `tareas` | `tarea_id`, `equipo_id`, `titulo`, `descripcion`, `estado`, `prioridad`, `fecha_entrega`, `asignado_a`, `creado_por`, `fecha_creacion` | Kanban por equipo; `estado` por defecto `pendiente`, `prioridad` por defecto `verde` |
+| `comentarios_tarea` | `comentario_id`, `tarea_id`, `usuario_id`, `texto`, `fecha` | Comentarios dentro del modal de cada tarea; ambos FK con `ON DELETE CASCADE` |
 | `mensajes_chat` | `mensaje_id`, `equipo_id`, `usuario_id`, `texto`, `fecha_envio`, `respuesta_a` | Chat por equipo; `respuesta_a` cita otro mensaje (`ON DELETE SET NULL`) |
 | `baneados` | `baneo_id`, `email`, `motivo`, `baneado_por`, `fecha_baneo` | Correos suspendidos; `email` UNIQUE |
 | `admin_logs` | `log_id`, `admin_id`, `accion`, `detalle`, `fecha` | Auditoría de acciones de admin |
@@ -43,6 +44,7 @@ miembros_equipo ──equipo_id/──usuario_id → equipos/usuarios (CASCADE, 
 tareas ──equipo_id──> equipos (CASCADE)
 tareas ──asignado_a ──> usuarios (SET NULL)
 tareas ──creado_por──> usuarios (SET NULL)
+comentarios_tarea ──tarea_id/──usuario_id → tareas/usuarios (CASCADE, CASCADE)
 mensajes_chat ──equipo_id──> equipos (CASCADE)
 mensajes_chat ──usuario_id──> usuarios (SET NULL)
 mensajes_chat ──respuesta_a──> mensajes_chat (SET NULL)
@@ -64,7 +66,8 @@ idx_apuntes_usuario_id, idx_comentarios_apunte_id, idx_comentarios_usuario_id,
 idx_favoritos_usuario_id, idx_favoritos_apunte_id, idx_valoraciones_apunte_id,
 idx_valoraciones_usuario_id, idx_equipos_creado_por, idx_miembros_equipo_equipo_id,
 idx_miembros_equipo_usuario_id, idx_tareas_equipo_id, idx_tareas_asignado_a,
-idx_tareas_creado_por, idx_mensajes_chat_equipo_id, idx_mensajes_chat_usuario_id,
+idx_tareas_creado_por, idx_comentarios_tarea_tarea_id, idx_comentarios_tarea_usuario_id,
+idx_mensajes_chat_equipo_id, idx_mensajes_chat_usuario_id,
 idx_mensajes_chat_respuesta, idx_baneados_baneado_por, idx_admin_logs_admin_id,
 idx_moderacion_logs_fecha, idx_moderacion_logs_accion
 ```

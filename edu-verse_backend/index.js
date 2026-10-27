@@ -2,12 +2,15 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const bcrypt = require('bcrypt');
 const pool = require('./db');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const jwt = require('jsonwebtoken');
+const { borrarArchivo, borrarArchivos, tamanoArchivo } = require('./utils/files');
 // Fail-fast y con un único valor compartido. Sin valor por defecto: un secreto
 // conocido en el repositorio permitiría falsificar tokens de cualquier rol.
 const { JWT_SECRET } = require('./config');
@@ -19,7 +22,8 @@ const io = new Server(server, {
 });
 app.set('io', io);
 
-const { verificarToken, autenticarSocket } = require('./middleware/auth');const { sanitize } = require('./middleware/sanitize');
+const { verificarToken, autenticarSocket } = require('./middleware/auth');
+const { sanitize } = require('./middleware/sanitize');
 const { obtenerRolEnEquipo, aEnteroPositivo } = require('./middleware/membresia');
 
 // --- SOCKET.IO ---
@@ -58,8 +62,38 @@ io.on('connection', (socket) => {
 });
 
 // --- 1. MIDDLEWARES ---
+// Detrás de Nginx hay un proxy de confianza: sin esto el rate limit vería la
+// IP del proxy en lugar de la del cliente.
+app.set('trust proxy', 1);
+// Cabeceras defensivas. CSP se desactiva porque este servicio solo devuelve
+// JSON y archivos; la CSP de la aplicación la pone Nginx. Los uploads se sirven
+// a propósito con CORP cross-origin (el frontend vive en otro puerto/origen en
+// desarrollo), pero mantienen nosniff y el sandbox de más abajo.
+app.use(helmet({
+  contentSecurityPolicy: false,
+  crossOriginResourcePolicy: { policy: 'cross-origin' },
+}));
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '1mb' }));
+
+// Fuerza bruta: 10 intentos fallidos por IP cada 15 minutos. Los logins
+// correctos no cuentan, así un usuario legítimo no se bloquea por entrar.
+const limitadorLogin = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 10,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  skipSuccessfulRequests: true,
+  message: 'Demasiados intentos de inicio de sesión. Inténtalo de nuevo en 15 minutos.',
+});
+
+const limitadorRegistro = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  limit: 20,
+  standardHeaders: 'draft-8',
+  legacyHeaders: false,
+  message: 'Demasiados registros desde esta dirección. Inténtalo más tarde.',
+});
 
 // Archivos subidos (debe estar antes de las rutas). Cabeceras defensivas:
 // - nosniff: el navegador no adivina el tipo y respeta el de la extensión.
@@ -158,6 +192,39 @@ const validarFirma = (req, res, next) => {
   fs.unlink(req.file.path, () => {});
   res.status(400).json('El contenido del archivo no coincide con su extensión');
 };
+// Cuota de disco por usuario para apuntes. Sin esto, 10 MB por archivo no
+// impiden que una sola cuenta llene el volumen con cientos de subidas.
+const CUOTA_APUNTES_MB = Number(process.env.UPLOAD_QUOTA_MB) > 0
+  ? Number(process.env.UPLOAD_QUOTA_MB)
+  : 100;
+const CUOTA_APUNTES_BYTES = CUOTA_APUNTES_MB * 1024 * 1024;
+
+async function usoApuntes(usuarioId) {
+  const { rows } = await pool.query(
+    'SELECT archivo_url FROM apuntes WHERE usuario_id = $1',
+    [usuarioId]
+  );
+  const tamanos = await Promise.all(rows.map((fila) => tamanoArchivo(fila.archivo_url)));
+  return tamanos.reduce((total, actual) => total + actual, 0);
+}
+
+const verificarCuotaApuntes = async (req, res, next) => {
+  if (!req.file) return next();
+  try {
+    const usado = await usoApuntes(req.usuario.id);
+    if (usado + req.file.size > CUOTA_APUNTES_BYTES) {
+      await borrarArchivo(`/uploads/${req.file.filename}`);
+      return res.status(413).json(
+        `Superaste la cuota de ${CUOTA_APUNTES_MB} MB de apuntes. Elimina archivos antiguos para liberar espacio.`
+      );
+    }
+    next();
+  } catch (err) {
+    await borrarArchivo(`/uploads/${req.file.filename}`);
+    next(err);
+  }
+};
+
 // --- 3. RUTAS GENERALES ---
 app.get('/', (req, res) => {
   res.send("¡El servidor de Edu-Verse está vivo! 🚀");
@@ -174,7 +241,7 @@ const estaBaneado = async (emailNorm) => {
   return r.rows.length > 0;
 };
 
-app.post('/auth/signup', async (req, res) => {
+app.post('/auth/signup', limitadorRegistro, async (req, res) => {
   try {
     const { nombre, email, password } = req.body || {};
     if (typeof nombre !== 'string' || typeof email !== 'string' || typeof password !== 'string'
@@ -219,7 +286,7 @@ app.post('/auth/signup', async (req, res) => {
   }
 });
 
-app.post('/auth/login', async (req, res) => {
+app.post('/auth/login', limitadorLogin, async (req, res) => {
     try {
         const { email, password } = req.body || {};
         if (typeof email !== 'string' || typeof password !== 'string' || !email.trim() || !password) {
@@ -316,7 +383,7 @@ app.put('/auth/perfil/update/:id', verificarToken, async (req, res) => {
 });
 
 // --- 6. RUTAS DE APUNTES ---
-app.post('/apuntes/upload', verificarToken, upload.single('archivo'), validarFirma, async (req, res) => {
+app.post('/apuntes/upload', verificarToken, upload.single('archivo'), validarFirma, verificarCuotaApuntes, async (req, res) => {
   try {
     const { titulo, materia, descripcion } = req.body;
     const usuario_id = req.usuario.id;
@@ -334,11 +401,15 @@ app.post('/apuntes/upload', verificarToken, upload.single('archivo'), validarFir
     const archivo_url = `/uploads/${req.file.filename}`;
     const nuevoApunte = await pool.query(
       "INSERT INTO apuntes (titulo, materia, descripcion, archivo_url, usuario_id) VALUES ($1, $2, $3, $4, $5) RETURNING *",
-      [titulo, materia, descripcion, archivo_url, usuario_id]
+      [sanitize(titulo.trim()), sanitize(materia.trim()), sanitize(typeof descripcion === 'string' ? descripcion : ''), archivo_url, usuario_id]
     );
 
     res.json({ mensaje: "¡Subido! 🚀", apunte: nuevoApunte.rows[0] });
   } catch (err) {
+    // Si el INSERT falla, el archivo ya está en disco: se borra para no dejar
+    // basura que además consumiría la cuota del usuario.
+    if (req.file) await borrarArchivo(`/uploads/${req.file.filename}`);
+    console.error("Error al subir apunte:", err.message);
     res.status(500).send("Error al subir");
   }
 });
@@ -441,13 +512,18 @@ app.delete('/apuntes/:id', verificarToken, async (req, res) => {
 
     // Solo el autor (o un admin) puede borrar: antes cualquier usuario con
     // sesión podía borrar los apuntes de otros.
-    const apunte = await pool.query("SELECT usuario_id FROM apuntes WHERE apunte_id = $1", [id]);
+    const apunte = await pool.query(
+      "SELECT usuario_id, archivo_url FROM apuntes WHERE apunte_id = $1",
+      [id]
+    );
     if (apunte.rows.length === 0) return res.status(404).json("Apunte no encontrado");
     if (String(apunte.rows[0].usuario_id) !== String(req.usuario.id) && req.usuario.rol !== 'admin') {
       return res.status(403).json("Solo el autor puede eliminar este apunte");
     }
 
     await pool.query("DELETE FROM apuntes WHERE apunte_id = $1", [id]);
+    // El registro ya no existe; el archivo tampoco debe quedarse ocupando disco.
+    await borrarArchivo(apunte.rows[0].archivo_url);
     res.json("Apunte eliminado con éxito");
   } catch (err) {
     console.error(err.message);
@@ -529,14 +605,26 @@ app.put('/usuarios/foto/:id', verificarToken, soloMismoUsuario, uploadPerfil.sin
     const { id } = req.params;
     if (!req.file) return res.status(400).json("No hay imagen");
     const urlFoto = `/uploads/perfiles/${req.file.filename}`;
-    
+
+    const anterior = await pool.query(
+      "SELECT foto_url FROM usuarios WHERE usuario_id = $1",
+      [id]
+    );
+
     await pool.query(
       "UPDATE usuarios SET foto_url = $1 WHERE usuario_id = $2",
       [urlFoto, id]
     );
-    
+
+    // La foto anterior ya no la referencia nadie: se borra para no acumular
+    // archivos huérfanos con cada cambio de avatar.
+    if (anterior.rows[0]?.foto_url && anterior.rows[0].foto_url !== urlFoto) {
+      await borrarArchivo(anterior.rows[0].foto_url);
+    }
+
     res.json({ message: "Foto actualizada", url: urlFoto });
   } catch (err) {
+    if (req.file) await borrarArchivo(`/uploads/perfiles/${req.file.filename}`);
     console.error(err.message);
     res.status(500).send("Error al subir la foto");
   }
@@ -694,13 +782,19 @@ app.delete('/admin/usuarios/:id', verificarToken, verificarAdmin, async (req, re
       return res.status(400).json("No puedes eliminarte a ti mismo.");
     }
 
-    const objetivo = await client.query("SELECT nombre, email FROM usuarios WHERE usuario_id = $1", [id]);
+    const objetivo = await client.query(
+      "SELECT nombre, email, foto_url FROM usuarios WHERE usuario_id = $1",
+      [id]
+    );
     if (objetivo.rows.length === 0) return res.status(404).json("Usuario no encontrado");
 
     await client.query('BEGIN');
 
     // Equipos en los que participaba (se consulta ANTES de borrar la membresía).
     const equipos = await client.query("SELECT equipo_id FROM miembros_equipo WHERE usuario_id = $1", [id]);
+
+    // Archivos asociados: sus apuntes (la fila se borra en cascada) y su foto.
+    const archivos = await client.query("SELECT archivo_url FROM apuntes WHERE usuario_id = $1", [id]);
 
     // Las claves foráneas ya hacen lo correcto: sus apuntes, comentarios,
     // favoritos, valoraciones y membresías se borran en cascada, y sus mensajes,
@@ -730,6 +824,14 @@ app.delete('/admin/usuarios/:id', verificarToken, verificarAdmin, async (req, re
       [req.usuario.id, 'eliminar_usuario', `Eliminó usuario ID ${id} (${objetivo.rows[0].email})`]
     );
     await client.query('COMMIT');
+
+    // Solo después del COMMIT: si algo falló y hubo ROLLBACK, los archivos
+    // siguen siendo necesarios para las filas que no se borraron.
+    await borrarArchivos([
+      objetivo.rows[0].foto_url,
+      ...archivos.rows.map((fila) => fila.archivo_url),
+    ]);
+
     res.json({ mensaje: "Usuario eliminado" });
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
@@ -816,8 +918,17 @@ app.delete('/admin/baneados/:email', verificarToken, verificarAdmin, async (req,
 // Eliminar apunte (como admin)
 app.delete('/admin/apuntes/:id', verificarToken, verificarAdmin, async (req, res) => {
   try {
-    const { id } = req.params;
+    const id = aEnteroPositivo(req.params.id);
+    if (!id) return res.status(400).json("Apunte inválido");
+
+    const apunte = await pool.query(
+      "SELECT archivo_url FROM apuntes WHERE apunte_id = $1",
+      [id]
+    );
+    if (apunte.rows.length === 0) return res.status(404).json("Apunte no encontrado");
+
     await pool.query("DELETE FROM apuntes WHERE apunte_id = $1", [id]);
+    await borrarArchivo(apunte.rows[0].archivo_url);
     await pool.query(
       "INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)",
       [req.usuario.id, 'eliminar_apunte', `Eliminó apunte ID ${id}`]
@@ -951,6 +1062,12 @@ app.delete('/admin/equipos/:id', verificarToken, verificarAdmin, async (req, res
 // =============================================
 // MANEJO DE ERRORES (debe ir DESPUÉS de todas las rutas)
 // =============================================
+// Cualquier URL que no haya coincidido con una ruta responde JSON, no el HTML
+// por defecto de Express.
+app.use((req, res) => {
+  res.status(404).json({ mensaje: 'Ruta no encontrada' });
+});
+
 // Responde JSON (los errores de subida y de cuerpo mal formado antes salían
 // como un 500 con HTML) y no filtra detalles internos al cliente.
 app.use((err, req, res, next) => {

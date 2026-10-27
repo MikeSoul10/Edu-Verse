@@ -15,7 +15,7 @@ El filtro vive en `edu-verse_backend/middleware/profanity.js` y se aplica **solo
    - Normaliza el texto (NFD, quita tildes, mapa leet, colapsa repeticiones).
    - Busca palabras bloqueadas con **límites de palabra** (no subcadenas).
    - Enmascara conservando la primera letra (`puta` → `p***`).
-   - Escapa HTML (`sanitize`) y guarda en `mensajes_chat`.
+   - Normaliza caracteres de control (`sanitize`) y guarda en `mensajes_chat`. No escapa HTML: React lo codifica al renderizar.
    - Si hubo censura, registra en `moderacion_logs` (usuario, equipo, palabras, cantidad).
    - Emite `nuevo-mensaje` por Socket.IO a la sala `equipo-${equipo_id}`.
    - Responde `201` con `{ ..., censurado: true, palabras: [...] }`.
@@ -128,7 +128,7 @@ chingar, chingada, chingadas, chingado, chingados
 chinga, chingas, chingo, chingon, chingona, chinguear
 huevon, huevona, huevones
 pendejo, pendeja, pendejos, pendejas, pendejon, pendejona
-imbecil, imbiciles
+imbecil, imbeciles
 malparido, malparida, malparidos, malparidas
 cabron, cabrona, cabrones
 gilipollas, gilipolla, gilipolas
@@ -163,7 +163,7 @@ bastard, dick, prick, pussy, wanker, twat, jackass
 bollocks, douchebag, dipshit, cocksucker
 ```
 
-**Total: ~95 entradas** (incluye variantes plurales/femeninas).
+**Total: 163 entradas** (incluye variantes plurales/femeninas).
 
 ---
 
@@ -176,7 +176,7 @@ bollocks, douchebag, dipshit, cocksucker
 | `carajo` | cabo de barco, "a la mierda" | Bajo | Marítimo muy raro en chat escolar |
 | `cabron` | cabrón (animal), "qué cabrón" (admiración) | Medio | Límite evita "cabrona" (sí está), "cabrones" (sí está) |
 
-**`perro` / `perra`:** `perra` **sí** está (insulto). `perro` **no** (animal, "qué perro" = cansado). No se agrega `perros` para no capturar "perros guía", "amo a los perros".
+**`perro` / `perra`:** ninguna de las dos está como palabra suelta. Sí están las expresiones `hijodeperra`, `hijadeperra` e `hijosdeperra`. No se agrega `perros` para no capturar "perros guía" ni "amo a los perros".
 
 **`cono` / `conos`:** **fuera**. Médico/geométrico ("cono de luz", "cono truncado"). Límite de palabra lo dispararía solo suelto, pero el riesgo de falso positivo en clase de mates es real.
 
@@ -256,7 +256,7 @@ un equipo **siempre** debe dejar rastro de quién lo hizo.
 
 | Área | Estado | Por qué |
 |---|---|---|
-| Títulos/descripciones de tareas | Sin filtro | Solo `sanitize` (anti-XSS). Decisión: mantener chat aislado. |
+| Títulos/descripciones de tareas | Sin filtro | Solo `sanitize` (caracteres de control); la salida la escapa React. Decisión: mantener chat aislado. |
 | Comentarios de tareas | Sin filtro | Idem. |
 | Nombres de equipos | Sin filtro | Idem. |
 | Apuntes / Biblioteca | Sin filtro | Contenido académico, falso positivo alto. |

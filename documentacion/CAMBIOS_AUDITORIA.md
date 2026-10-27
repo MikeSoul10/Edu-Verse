@@ -8,7 +8,7 @@
 
 ## Resumen Ejecutivo
 
-Se realizó una auditoría completa del codebase de Edu-Verse identificando **21 problemas** clasificados por severidad. Todos fueron corregidos en esta rama.
+Se realizó una auditoría completa del codebase de Edu-Verse identificando **27 problemas** clasificados por severidad. Todos fueron corregidos en esta rama.
 
 | Severidad | Cantidad | Estado |
 |-----------|----------|--------|
@@ -44,7 +44,7 @@ Se realizó una auditoría completa del codebase de Edu-Verse identificando **21
 
 ### 5. Sin sanitización de inputs (XSS)
 - **Problema:** Texto de chat, comentarios, tareas y equipos se insertaba sin escapar.
-- **Corrección:** Se creó `middleware/sanitize.js` con función `escapeHtml()`. Se aplica a: texto de chat, comentarios, título/descripción de tareas, nombre de equipos.
+- **Corrección:** Se creó `middleware/sanitize.js` (en su momento escapaba HTML; la versión actual solo elimina caracteres de control y React escapa la salida). Se aplica a: texto de chat, comentarios, título/descripción de tareas, nombre de equipos.
 
 ---
 
@@ -173,7 +173,7 @@ Se realizó una auditoría completa del codebase de Edu-Verse identificando **21
 |---------|-----------|
 | `.env` (raíz) | Variables de Docker Compose (`DB_PASSWORD`, `DB_NAME`, `JWT_SECRET`) |
 | `edu-verse_backend/middleware/auth.js` | Middleware compartido `verificarToken` |
-| `edu-verse_backend/middleware/sanitize.js` | Utilidad `escapeHtml()` para prevenir XSS |
+| `edu-verse_backend/middleware/sanitize.js` | Normalización de texto plano (elimina caracteres de control; React escapa la salida) |
 | `edu-verse/src/context/AuthContext.jsx` | Context de autenticación reactivo |
 | `edu-verse/src/authEvents.js` | Custom event `auth-change` para sincronización |
 | `edu-verse/src/components/ErrorBoundary.jsx` | Error boundary global |
