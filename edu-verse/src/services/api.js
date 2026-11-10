@@ -19,7 +19,9 @@ export const EquiposAPI = {
   getMiembros: (equipoId) => api.get(`/equipos/${equipoId}/miembros`),
   crearEquipo: (datos) => api.post('/equipos/crear', datos),
   unirse: (datos) => api.post('/equipos/unirse', datos),
-  salir: (equipoId, usuarioId) => api.post(`/equipos/${equipoId}/salir`, { usuarioId }),
+  salir: (equipoId) => api.post(`/equipos/${equipoId}/salir`),
+  expulsarMiembro: (equipoId, usuarioId) =>
+    api.delete(`/equipos/${equipoId}/miembros/${usuarioId}`),
   getTareas: (equipoId) => api.get(`/tareas/equipo/${equipoId}`),
 };
 

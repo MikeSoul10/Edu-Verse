@@ -1,6 +1,6 @@
 # EduVerse
 
-Plataforma web para el intercambio de apuntes académicos entre estudiantes universarios. Los usuarios pueden registrarse con correos institucionales `.edu`, subir apuntes, explorar los de otros estudiantes, guardar favoritos, comentar y valorar contenido.
+Plataforma web para el intercambio de apuntes académicos entre estudiantes universitarios. Los usuarios pueden registrarse con correos institucionales `@alumnos.udg.mx`, subir apuntes, explorar los de otros estudiantes, guardar favoritos, comentar y valorar contenido.
 
 ---
 
@@ -17,7 +17,7 @@ Plataforma web para el intercambio de apuntes académicos entre estudiantes univ
 
 ## Características
 
-- **Registro/Login** solo con correos `.edu`
+- **Registro/Login** solo con correos `@alumnos.udg.mx`
 - **Autenticación JWT** con expiración de 24h
 - **Subida de apuntes** con archivos adjuntos
 - **Búsqueda** de apuntes por título, materia o descripción
@@ -41,45 +41,62 @@ La exploración de materiales se concentra en `/biblioteca`. La ruta antigua
 
 ---
 
-## Setup con Docker (Desarrollo con Hot-Reload)
+## Setup con Docker
 
-1. Clonar el repositorio:
+1. Clonar el repositorio y entrar a la carpeta:
 
 ```bash
 git clone <url-del-repositorio>
 cd proyecto
 ```
 
-2. Crear un archivo `.env` en la raíz con la variable de entorno para JWT:
-
-```env
-JWT_SECRET=tu_clave_secreta_aqui
-```
-
-3. Levantar todos los servicios:
+2. Crear el archivo `.env` de la raíz a partir de la plantilla:
 
 ```bash
-docker compose up --build
+cp .env.example .env
 ```
 
-Esto arrancará:
+Completa al menos `JWT_SECRET` (obligatorio). Puedes generarlo con:
 
-| Servicio  | Puerto | Descripción                                    |
-| --------- | ------ | ---------------------------------------------- |
-| postgres  | 5432   | Base de datos PostgreSQL                       |
-| backend   | 4000   | API REST con Express (nodemon + hot-reload)    |
-| frontend  | 5173   | Frontend con Vite dev server (HMR habilitado)  |
+```bash
+node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+```
 
-4. Abrir en el navegador: `http://localhost:5173`
+3. Levantar los servicios.
 
-> La base de datos se inicializa automáticamente con el archivo `backup.sql` incluido en el repositorio.
+**Producción** (Nginx sirve el build, backend con `node`, PostgreSQL sin puerto público):
 
-### Cómo funciona el Hot-Reload
+```bash
+docker compose up -d --build
+```
 
-- **Backend**: Los cambios en `edu-verse_backend/` se detectan automáticamente gracias a **nodemon**. No es necesario reiniciar el contenedor.
-- **Frontend**: Los cambios en `edu-verse/src/` se reflejan al instante en el navegador gracias al **HMR de Vite**.
+| Servicio | URL / puerto | Descripción |
+| -------- | ------------ | ----------- |
+| frontend | http://localhost:8080 | Nginx: SPA + proxy de API, uploads y Socket.IO |
+| backend  | http://localhost:4001 (solo localhost) | API REST para depuración |
+| postgres | red interna de Docker | No se publica en el host |
 
-> **Nota**: Si necesitas reinstalar dependencias dentro del contenedor, ejecuta `docker compose down -v` y luego `docker compose up --build`.
+**Desarrollo** (hot-reload con Vite + nodemon):
+
+```bash
+docker compose -f docker-compose.dev.yml up --build
+```
+
+| Servicio | Puerto | Descripción |
+| -------- | ------ | ----------- |
+| frontend | 5173 | Vite dev server (HMR) |
+| backend  | 4000 | Express con nodemon |
+| postgres | 5432 (solo localhost) | PostgreSQL |
+
+La base de datos se inicializa automáticamente con
+`documentacion/backup_BASE_DE_DATOS.sql` la primera vez que se crea el volumen.
+Ese dump ya incluye `mensajes_chat.respuesta_a`, `moderacion_logs.accion/detalle`
+y `password_hash` nullable, así que no hay que ejecutar migraciones manuales
+para una instalación limpia.
+
+> **Nota**: Si necesitas reinstalar dependencias o recrear la base, ejecuta
+> `docker compose down -v` (o `docker compose -f docker-compose.dev.yml down -v`)
+> y vuelve a levantar.
 
 ---
 
@@ -95,10 +112,10 @@ docker run -d --name eduverse-db -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=
 
 O usar tu propia instalación de PostgreSQL y crear la base de datos `Edu-verseDB`.
 
-Opcionalmente importa el esquema inicial:
+Importa el esquema inicial:
 
 ```bash
-psql -U postgres -d Edu-verseDB -f backup.sql
+psql -U postgres -d Edu-verseDB -f documentacion/backup_BASE_DE_DATOS.sql
 ```
 
 ### 2. Backend
@@ -106,9 +123,10 @@ psql -U postgres -d Edu-verseDB -f backup.sql
 ```bash
 cd edu-verse_backend
 npm install
+cp .env.example .env
 ```
 
-Crear archivo `.env`:
+Editar `.env` y completar `DB_PASSWORD` y `JWT_SECRET`:
 
 ```env
 DB_USER=postgres
@@ -119,6 +137,9 @@ DB_PORT=5432
 PORT=4000
 JWT_SECRET=tu_clave_secreta_aqui
 ```
+
+> El backend no arranca sin `JWT_SECRET`: el login firma y el middleware
+> verifica con el mismo valor, sin fallbacks hardcodeados.
 
 Ejecutar:
 
@@ -133,14 +154,27 @@ El servidor arranca en `http://localhost:4000`.
 ```bash
 cd edu-verse
 npm install
+cp .env.example .env
 npm run dev
 ```
 
-El frontend arranca en `http://localhost:5173`.
+El frontend arranca en `http://localhost:5173`. Con `VITE_API_URL` vacío usa
+rutas relativas y el proxy de Vite (`vite.config.js`) hacia `backend:4000`.
 
 ---
 
 ## Variables de Entorno
+
+### Raíz (`.env`, usado por Docker Compose)
+
+| Variable      | Descripción | Ejemplo |
+| ------------- | ----------- | ------- |
+| DB_PASSWORD   | Contraseña de PostgreSQL (obligatoria) | `una_clave_larga` |
+| DB_NAME       | Nombre de la base de datos | `Edu-verseDB` |
+| JWT_SECRET    | Secreto para firmar tokens JWT (obligatorio) | `cadena_aleatoria_de_96_hex` |
+| BACKEND_PORT  | Puerto local del backend en producción | `4001` |
+| FRONTEND_PORT | Puerto público del frontend en producción | `8080` |
+| VITE_API_URL  | URL de API compilada en el frontend; vacío = mismo origen | `` |
 
 ### Backend (`edu-verse_backend/.env`)
 
@@ -152,13 +186,13 @@ El frontend arranca en `http://localhost:5173`.
 | DB_PASSWORD   | Contraseña de PostgreSQL            | `tu_password`              |
 | DB_PORT       | Puerto de PostgreSQL                | `5432`                     |
 | PORT          | Puerto del servidor Express         | `4000`                     |
-| JWT_SECRET    | Secreto para firmar tokens JWT      | `tu_clave_secreta_aqui`   |
+| JWT_SECRET    | Secreto para firmar tokens JWT (obligatorio) | `cadena_aleatoria` |
 
 ### Frontend (`edu-verse/.env`)
 
 | Variable      | Descripción                                  | Ejemplo                      |
 | ------------- | -------------------------------------------- | ---------------------------- |
-| VITE_API_URL  | URL base del backend para las peticiones API | `http://localhost:4000`      |
+| VITE_API_URL  | URL base del backend para las peticiones API | vacío (mismo origen/proxy)   |
 
 ---
 
@@ -166,14 +200,18 @@ El frontend arranca en `http://localhost:5173`.
 
 ```
 proyecto/
-├── docker-compose.yml          # Orquestación de servicios
-├── backup.sql                  # Dump de la base de datos inicial
+├── docker-compose.yml          # Producción (Nginx + Node + PostgreSQL)
+├── docker-compose.dev.yml      # Desarrollo con hot-reload
+├── .env.example                # Plantilla de variables para Compose
+├── documentacion/
+│   └── backup_BASE_DE_DATOS.sql # Esquema + seed inicial
 │
 ├── edu-verse_backend/          # Backend — Node.js + Express
 │   ├── index.js                # Punto de entrada, rutas y lógica principal
+│   ├── config.js               # Configuración fail-fast (JWT_SECRET)
 │   ├── db.js                   # Conexión al pool de PostgreSQL
-│   ├── Dockerfile
-│   ├── .env                    # Variables de entorno (no incluido en git)
+│   ├── Dockerfile              # Targets development / production
+│   ├── .env.example            # Plantilla de variables del backend
 │   ├── uploads/                # Archivos subidos por usuarios
 │   └── package.json
 │
@@ -202,8 +240,8 @@ proyecto/
     │       ├── Profile.jsx     # Perfil de usuario
     │       ├── ProtectedRoute.jsx # Protección por sesión y rol
     │       └── NotFound.jsx    # Página 404
-    ├── Dockerfile
-    ├── nginx.conf              # Configuración Nginx para producción
+    ├── Dockerfile              # Targets development / build / production
+    ├── nginx.conf              # SPA + proxy de API, uploads y Socket.IO
     ├── vite.config.js
     ├── tailwind.config.js
     └── package.json
@@ -219,8 +257,8 @@ proyecto/
 | ------ | ------------------- | --------------------- | ---- |
 | POST   | `/auth/signup`      | Registrar usuario     | No   |
 | POST   | `/auth/login`       | Iniciar sesión        | No   |
-| GET    | `/auth/perfil/:id`  | Obtener perfil        | No   |
-| PUT    | `/auth/perfil/update/:id` | Actualizar perfil | No   |
+| GET    | `/auth/perfil/:id`  | Obtener perfil        | Sí   |
+| PUT    | `/auth/perfil/update/:id` | Actualizar perfil | Sí   |
 
 ### Apuntes
 

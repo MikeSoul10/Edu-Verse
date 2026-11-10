@@ -21,9 +21,13 @@ Actualmente, el módulo `GestorEquipos.jsx` cuenta con una base sólida de colab
 | **Asignación** | Un solo usuario asignado por tarea. |
 | **Chat** | Tiempo real por equipo con Socket.IO y contador de mensajes no leídos. |
 | **Sincronización** | Emisión de eventos WebSockets para crear, mover, editar y eliminar tareas. |
+| **Comentarios por tarea** | Implementados (1.3): modal de tarea + `comentarios_tarea` + evento `comentario-nuevo`. |
+| **Filtros y búsqueda** | Implementados (1.4) en el tablero: texto, prioridad, miembro, fecha y vencidas. |
+| **Calendario** | Implementado (3.1) con `CalendarioVencimientos` sobre `fecha_entrega`. |
+| **Salir / expulsar miembros** | Implementado en backend y UI; el admin que sale transfiere el rol y el último miembro elimina el equipo. |
 
 ### ⚠️ Limitaciones Diagnosticadas (Oportunidades de Mejora)
-1. **Seguridad Incompleta:** Los permisos del rol `admin` no se validan en backend (cualquier miembro puede borrar tareas o alterar el equipo).
+1. **Seguridad Incompleta:** Las mutaciones de tareas aún no validan `admin` en backend (cualquier miembro puede borrar o mover tareas). El chat y la gestión de miembros sí están restringidos al admin del equipo.
 2. **Sin Desglose de Tareas:** Falta de subtareas o checklists para dividir proyectos complejos.
 3. **Comunicación Aislada:** Discusiones mezcladas en el chat general en lugar de comentarios por tarea.
 4. **Vista Móvil Rígida:** Desplazamiento horizontal incómodo en tableros Kanban móviles.
