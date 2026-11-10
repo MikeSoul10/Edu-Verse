@@ -68,10 +68,13 @@ const { sanitize } = require('./middleware/sanitize');
 const equiposRoutes = require('./routes/equipos');
 const tareasRoutes = require('./routes/tareas');
 const chatRoutes = require('./routes/chat');
+const tutorRoutes = require('./routes/tutor');
 
 app.use('/equipos', equiposRoutes);
 app.use('/tareas', tareasRoutes);
 app.use('/chat', chatRoutes);
+// Tutor IA: /api/tutor/*, /api/mazos/*, /api/flashcards/*
+app.use('/api', tutorRoutes);
 const storageApuntes = multer.diskStorage({
   destination: (req, file, cb) => { cb(null, 'uploads/'); },
   filename: (req, file, cb) => { cb(null, Date.now() + '-' + file.originalname); }
@@ -268,8 +271,13 @@ app.get('/apuntes/buscar', async (req, res) => {
 
 // --- 7. ENCENDIDO ---
 const PORT = process.env.PORT || 4000;
+// Las respuestas del Tutor IA con búsqueda web tardan 30–60 s: el servidor
+// no debe cortar antes de 2 min.
+server.requestTimeout = 120000;
 server.listen(PORT, () => {
   console.log(`🚀 Servidor de Edu-Verse corriendo en el puerto ${PORT}`);
+  require('./services/migraciones').aplicarMigraciones()
+    .then(() => require('./services/groq').revisarModelos());
 });
 
 // --- NUEVA RUTA PARA DETALLE DE APUNTE ---

@@ -22,6 +22,12 @@ export default defineConfig({
       '/chat': 'http://backend:4000',
       '/admin': 'http://backend:4000',
       '/uploads': 'http://backend:4000',
+      // Tutor IA: las respuestas con búsqueda web tardan 30–60 s.
+      '/api': {
+        target: 'http://backend:4000',
+        timeout: 120000,
+        proxyTimeout: 120000,
+      },
       '/socket.io': {
         target: 'http://backend:4000',
         ws: true,

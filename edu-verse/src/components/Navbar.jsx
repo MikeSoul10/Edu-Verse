@@ -40,7 +40,7 @@ const BotonTema = ({ oscuro, alternar, className = '' }) => (
 const MODULOS = [
   { path: '/', etiqueta: 'Biblioteca', to: '/biblioteca', enabled: true },
   { path: '/', etiqueta: 'Equipos', to: '/gestor-equipos', enabled: true },
-  { path: '/', etiqueta: 'Tutor IA', to: null, enabled: false },
+  { path: '/', etiqueta: 'Tutor IA', to: '/tutor', enabled: true },
   { path: '/biblioteca', etiqueta: 'Favoritos', to: '/favoritos', enabled: true },
   { path: '/biblioteca', etiqueta: 'Mis Apuntes', to: '/mis-apuntes', enabled: true },
   { path: '/gestor-equipos', etiqueta: 'Equipos', to: '/gestor-equipos', enabled: true },
