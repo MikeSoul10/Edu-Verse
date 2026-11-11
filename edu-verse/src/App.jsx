@@ -20,6 +20,7 @@ const Favorites = lazy(() => import('./pages/Favorites'));
 const GestorEquipos = lazy(() => import('./pages/GestorEquipos'));
 const AdminPanel = lazy(() => import('./pages/AdminPanel'));
 const TutorIA = lazy(() => import('./pages/TutorIA'));
+const MisMazos = lazy(() => import('./pages/MisMazos'));
 const NotFound = lazy(() => import('./pages/NotFound'));
 
 function App() {
@@ -43,6 +44,7 @@ function App() {
               <Route path="/favoritos" element={<ProtectedRoute><Favorites /></ProtectedRoute>} />
               <Route path="/gestor-equipos" element={<ProtectedRoute><GestorEquipos /></ProtectedRoute>} />
               <Route path="/tutor" element={<ProtectedRoute><TutorIA /></ProtectedRoute>} />
+              <Route path="/tutor/mazos" element={<ProtectedRoute><MisMazos /></ProtectedRoute>} />
               <Route path="/tutor/:sesionId" element={<ProtectedRoute><TutorIA /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute requiredRole="admin"><AdminPanel /></ProtectedRoute>} />
               {/* Mantiene los enlaces antiguos y concentra la exploración en una sola biblioteca. */}

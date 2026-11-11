@@ -116,12 +116,15 @@ const equiposRoutes = require('./routes/equipos');
 const tareasRoutes = require('./routes/tareas');
 const chatRoutes = require('./routes/chat');
 const tutorRoutes = require('./routes/tutor');
+const estudioRoutes = require('./routes/estudio');
 
 app.use('/equipos', equiposRoutes);
 app.use('/tareas', tareasRoutes);
 app.use('/chat', chatRoutes);
 // Tutor IA: /api/tutor/*, /api/mazos/*, /api/flashcards/*
 app.use('/api', tutorRoutes);
+// Mazos, repaso espaciado, mazos compartidos y flashcards desde apuntes.
+app.use('/api', estudioRoutes);
 
 // --- SUBIDA DE ARCHIVOS ---
 // El mimetype lo declara el cliente y es falsificable, así que un archivo se

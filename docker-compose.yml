@@ -5,7 +5,9 @@ name: edu-verse
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector/pgvector:pg16 = PostgreSQL 16 + extensión vector (búsqueda
+    # semántica del Tutor IA). Misma versión mayor: los datos se conservan.
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -43,6 +45,7 @@ services:
       TUTOR_LIMITE_POR_MINUTO: ${TUTOR_LIMITE_POR_MINUTO:-10}
     volumes:
       - uploads:/app/uploads
+      - modelos:/modelos
     # Solo accesible desde el propio host (para depurar); el tráfico público
     # entra por Nginx en el servicio frontend.
     ports:
@@ -56,6 +59,33 @@ services:
       timeout: 5s
       retries: 5
       start_period: 20s
+
+  # Worker del Tutor IA: extrae el texto de los apuntes (PDF y OCR) para que el
+  # tutor pueda buscarlos. Misma imagen que el backend, otro comando, para que
+  # el OCR no bloquee la API.
+  worker:
+    build:
+      context: ./edu-verse_backend
+      target: production
+    restart: unless-stopped
+    command: ["node", "worker/indexador.js"]
+    environment:
+      NODE_ENV: production
+      DB_USER: postgres
+      DB_HOST: postgres
+      DB_NAME: ${DB_NAME:-Edu-verseDB}
+      DB_PASSWORD: ${DB_PASSWORD:?Define DB_PASSWORD en el archivo .env de la raiz}
+      DB_PORT: 5432
+    volumes:
+      # Lee los mismos archivos que sube el backend.
+      - uploads:/app/uploads:ro
+      - modelos:/modelos
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # El backend aplica las migraciones al arrancar.
+      backend:
+        condition: service_healthy
 
   frontend:
     build:
@@ -73,3 +103,5 @@ services:
 volumes:
   pgdata:
   uploads:
+  # Caché del modelo de embeddings (~120 MB): se descarga una sola vez.
+  modelos:

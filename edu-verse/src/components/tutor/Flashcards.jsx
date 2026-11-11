@@ -1,14 +1,21 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { exportarAnki } from './utilidades';
+import BarraCajas from './BarraCajas';
 
-/* Mazo de flashcards de una sesión.
-   - Estudiar: tarjeta con volteo 3D. "Lo sabía" la saca de la ronda,
-     "Repasar" la manda al final. Atajos: Espacio/Enter voltea, ←/→ navega,
-     1 = Lo sabía, 2 = Repasar, Esc cierra.
-   - Editar: lista con edición y borrado de cada tarjeta.
+/* Mazo de flashcards.
+   - Estudiar: tarjeta con volteo 3D. "Lo sabía" la saca de la ronda y la sube
+     de caja (Leitner); "Repasar" la manda al final y la regresa a la caja 1.
+     El progreso se guarda por usuario con `onRepaso`. Atajos: Espacio/Enter
+     voltea, ←/→ navega, 1 = Lo sabía, 2 = Repasar, Esc cierra.
+   - Editar: solo el autor del mazo (en un mazo compartido los demás estudian).
+   - Tarjetas creadas desde un apunte enlazan a su página.
    - Exportar: archivo de texto separado por tabuladores que Anki importa. */
 
-function TarjetaEditable({ tarjeta, onGuardar, onEliminar }) {
+const enlaceApunte = (t) => (t.apunte_id ? `/apunte/${t.apunte_id}${t.pagina ? `?pagina=${t.pagina}` : ''}` : null);
+const textoEnlaceApunte = (t) => `Ver en el apunte${t.pagina ? ` (pág. ${t.pagina})` : ''}`;
+
+function TarjetaEditable({ tarjeta, editable, onGuardar, onEliminar }) {
   const [editando, setEditando] = useState(false);
   const [frente, setFrente] = useState(tarjeta.frente);
   const [reverso, setReverso] = useState(tarjeta.reverso);
@@ -23,6 +30,7 @@ function TarjetaEditable({ tarjeta, onGuardar, onEliminar }) {
   };
 
   const campo = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-600 dark:bg-slate-900 dark:text-white';
+  const enlace = enlaceApunte(tarjeta);
 
   return (
     <li className="rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800">
@@ -44,29 +52,54 @@ function TarjetaEditable({ tarjeta, onGuardar, onEliminar }) {
           <div className="min-w-0 flex-1">
             <p className="font-bold text-slate-800 dark:text-slate-100">{tarjeta.frente}</p>
             <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{tarjeta.reverso}</p>
+            <p className="mt-1.5 flex flex-wrap gap-x-3 text-xs text-slate-400">
+              <span>Caja {tarjeta.caja || 1}</span>
+              {enlace && <Link to={enlace} className="font-semibold text-emerald-700 hover:underline dark:text-emerald-300">📄 {textoEnlaceApunte(tarjeta)}</Link>}
+            </p>
           </div>
-          <div className="flex shrink-0 flex-col gap-1">
-            <button type="button" onClick={() => setEditando(true)} className="cursor-pointer rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700" aria-label="Editar tarjeta" title="Editar">✏️</button>
-            <button type="button" onClick={() => onEliminar(tarjeta.id)} className="cursor-pointer rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-red-600 dark:hover:bg-slate-700" aria-label="Eliminar tarjeta" title="Eliminar">🗑</button>
-          </div>
+          {editable && (
+            <div className="flex shrink-0 flex-col gap-1">
+              <button type="button" onClick={() => setEditando(true)} className="cursor-pointer rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700" aria-label="Editar tarjeta" title="Editar">✏️</button>
+              <button type="button" onClick={() => onEliminar(tarjeta.id)} className="cursor-pointer rounded-lg px-2 py-1 text-sm text-slate-500 hover:bg-slate-100 hover:text-red-600 dark:hover:bg-slate-700" aria-label="Eliminar tarjeta" title="Eliminar">🗑</button>
+            </div>
+          )}
         </div>
       )}
     </li>
   );
 }
 
-export default function Flashcards({ mazo, onCerrar, onRegenerar, regenerando, onEditar, onEliminar }) {
+export default function Flashcards({
+  mazo,
+  onCerrar,
+  onRepaso,
+  onRegenerar,
+  regenerando,
+  onEditar,
+  onEliminar,
+  subtitulo,
+}) {
+  const editable = Boolean(mazo.es_autor && onEditar && onEliminar);
   const [modo, setModo] = useState('estudiar');
   // Cola de ids pendientes en esta ronda de repaso.
   const [cola, setCola] = useState(() => mazo.tarjetas.map((t) => t.id));
   const [posicion, setPosicion] = useState(0);
   const [volteada, setVolteada] = useState(false);
   const [sabidas, setSabidas] = useState(0);
+  // Caja de cada tarjeta tras responder en esta sesión (optimista).
+  const [cajasLocales, setCajasLocales] = useState({});
 
   const porId = useMemo(() => new Map(mazo.tarjetas.map((t) => [t.id, t])), [mazo.tarjetas]);
   const colaValida = useMemo(() => cola.filter((id) => porId.has(id)), [cola, porId]);
   const actual = porId.get(colaValida[Math.min(posicion, colaValida.length - 1)]);
   const terminado = colaValida.length === 0;
+
+  const cajaDe = useCallback((t) => cajasLocales[t.id] ?? t.caja ?? 1, [cajasLocales]);
+  const cajas = useMemo(() => {
+    const c = [0, 0, 0, 0, 0];
+    mazo.tarjetas.forEach((t) => { c[cajaDe(t) - 1] += 1; });
+    return c;
+  }, [mazo.tarjetas, cajaDe]);
 
   const reiniciar = useCallback(() => {
     setCola(mazo.tarjetas.map((t) => t.id));
@@ -83,6 +116,9 @@ export default function Flashcards({ mazo, onCerrar, onRegenerar, regenerando, o
   const responder = useCallback((loSabia) => {
     if (!actual) return;
     setVolteada(false);
+    const cajaNueva = loSabia ? Math.min(cajaDe(actual) + 1, 5) : 1;
+    setCajasLocales((c) => ({ ...c, [actual.id]: cajaNueva }));
+    onRepaso?.(actual.id, loSabia ? 'sabia' : 'repasar');
     setCola((c) => {
       const resto = c.filter((id) => id !== actual.id);
       return loSabia ? resto : [...resto, actual.id];
@@ -92,7 +128,7 @@ export default function Flashcards({ mazo, onCerrar, onRegenerar, regenerando, o
       const largo = loSabia ? colaValida.length - 1 : colaValida.length;
       return largo > 0 ? Math.min(p, largo - 1) : 0;
     });
-  }, [actual, colaValida.length]);
+  }, [actual, colaValida.length, cajaDe, onRepaso]);
 
   useEffect(() => {
     const alTeclear = (e) => {
@@ -121,31 +157,41 @@ export default function Flashcards({ mazo, onCerrar, onRegenerar, regenerando, o
   );
 
   const cara = 'absolute inset-0 flex flex-col items-center justify-center overflow-y-auto rounded-2xl p-6 text-center shadow-lg sm:p-10';
+  const enlaceActual = actual ? enlaceApunte(actual) : null;
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm sm:p-6" role="dialog" aria-modal="true" aria-labelledby="flashcards-titulo" onMouseDown={(e) => e.target === e.currentTarget && onCerrar()}>
       <div className="ev-enter-pop flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-3xl bg-slate-50 shadow-2xl dark:bg-slate-900">
-        <header className="flex flex-wrap items-center gap-3 border-b border-slate-200 px-5 py-4 dark:border-slate-700">
-          <div className="min-w-0 flex-1">
-            <h2 id="flashcards-titulo" className="truncate text-lg font-black text-slate-900 dark:text-white">🃏 {mazo.tema}</h2>
-            <p className="text-xs text-slate-500 dark:text-slate-400">{mazo.tarjetas.length} tarjetas</p>
+        <header className="border-b border-slate-200 px-5 py-4 dark:border-slate-700">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 id="flashcards-titulo" className="truncate text-lg font-black text-slate-900 dark:text-white">🃏 {mazo.tema}</h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                {subtitulo || `${mazo.tarjetas.length} tarjetas${mazo.es_autor === false && mazo.autor ? ` · compartido por ${mazo.autor}` : ''}`}
+              </p>
+            </div>
+            {editable && (
+              <div className="flex rounded-xl bg-slate-200/70 p-1 dark:bg-slate-800">
+                {pestaña('estudiar', 'Estudiar')}
+                {pestaña('editar', 'Editar')}
+              </div>
+            )}
+            <button type="button" onClick={onCerrar} className="ev-focusable grid h-9 w-9 cursor-pointer place-items-center rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700" aria-label="Cerrar flashcards">✕</button>
           </div>
-          <div className="flex rounded-xl bg-slate-200/70 p-1 dark:bg-slate-800">
-            {pestaña('estudiar', 'Estudiar')}
-            {pestaña('editar', 'Editar')}
-          </div>
-          <button type="button" onClick={onCerrar} className="ev-focusable grid h-9 w-9 cursor-pointer place-items-center rounded-full text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700" aria-label="Cerrar flashcards">✕</button>
+          {mazo.tarjetas.length > 0 && <div className="mt-3"><BarraCajas cajas={cajas} /></div>}
         </header>
 
         <div className="flex-1 overflow-y-auto p-5 sm:p-7">
           {mazo.tarjetas.length === 0 ? (
-            <p className="py-10 text-center text-slate-500">El mazo está vacío. Vuelve a generarlo.</p>
+            <p className="py-10 text-center text-slate-500">No hay tarjetas aquí.</p>
           ) : modo === 'estudiar' ? (
             terminado ? (
               <div className="py-8 text-center">
                 <p className="text-5xl" aria-hidden="true">🎉</p>
                 <p className="mt-3 text-xl font-black text-slate-900 dark:text-white">¡Ronda terminada!</p>
-                <p className="mt-1 text-slate-500 dark:text-slate-400">Dominaste las {sabidas} tarjetas.</p>
+                <p className="mt-1 text-slate-500 dark:text-slate-400">
+                  Dominaste {sabidas} {sabidas === 1 ? 'tarjeta' : 'tarjetas'}. Tu progreso quedó guardado: cada tarjeta vuelve cuando le toca.
+                </p>
                 <button type="button" onClick={reiniciar} className="mt-5 cursor-pointer rounded-xl bg-indigo-600 px-5 py-2.5 font-semibold text-white hover:bg-indigo-700">Repasar otra vez</button>
               </div>
             ) : (
@@ -153,9 +199,6 @@ export default function Flashcards({ mazo, onCerrar, onRegenerar, regenerando, o
                 <div className="mb-3 flex items-center justify-between text-sm text-slate-500 dark:text-slate-400">
                   <span>Tarjeta {Math.min(posicion, colaValida.length - 1) + 1} de {colaValida.length} pendientes</span>
                   <span>✅ {sabidas} sabidas</span>
-                </div>
-                <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700" aria-hidden="true">
-                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-500 to-teal-500 transition-all" style={{ width: `${(sabidas / mazo.tarjetas.length) * 100}%` }} />
                 </div>
 
                 <button
@@ -170,7 +213,11 @@ export default function Flashcards({ mazo, onCerrar, onRegenerar, regenerando, o
                     style={{ transformStyle: 'preserve-3d', transform: volteada ? 'rotateY(180deg)' : 'none' }}
                   >
                     <span className={`${cara} bg-white dark:bg-slate-800`} style={{ backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }}>
-                      <span className="mb-3 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200">{actual?.tipo}</span>
+                      <span className="mb-3 flex flex-wrap justify-center gap-2">
+                        <span className="rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-200">{actual?.tipo}</span>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-bold text-slate-500 dark:bg-slate-700 dark:text-slate-300">Caja {actual ? cajaDe(actual) : 1}</span>
+                        {actual?.mazo_tema && <span className="rounded-full bg-violet-100 px-2.5 py-0.5 text-xs font-bold text-violet-700 dark:bg-violet-500/20 dark:text-violet-200">{actual.mazo_tema}</span>}
+                      </span>
                       <span className="text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">{actual?.frente}</span>
                       <span className="mt-4 text-xs text-slate-400">Toca o pulsa Espacio para voltear</span>
                     </span>
@@ -180,7 +227,16 @@ export default function Flashcards({ mazo, onCerrar, onRegenerar, regenerando, o
                   </span>
                 </button>
 
-                <div className="mt-5 grid grid-cols-[auto_1fr_1fr_auto] gap-2">
+                {/* Fuera del botón de volteo: un enlace no puede ir dentro de un botón. */}
+                <p className="mt-2 h-5 text-center text-sm">
+                  {volteada && enlaceActual && (
+                    <Link to={enlaceActual} className="font-semibold text-emerald-700 hover:underline dark:text-emerald-300">
+                      📄 {textoEnlaceApunte(actual)}
+                    </Link>
+                  )}
+                </p>
+
+                <div className="mt-3 grid grid-cols-[auto_1fr_1fr_auto] gap-2">
                   <button type="button" onClick={() => mover(-1)} className="cursor-pointer rounded-xl border border-slate-300 px-3 text-slate-600 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800" aria-label="Anterior">←</button>
                   <button type="button" onClick={() => responder(false)} className="cursor-pointer rounded-xl bg-amber-100 py-3 font-bold text-amber-800 hover:bg-amber-200 dark:bg-amber-500/20 dark:text-amber-200">🔁 Repasar <kbd className="ml-1 hidden text-xs opacity-60 sm:inline">2</kbd></button>
                   <button type="button" onClick={() => responder(true)} className="cursor-pointer rounded-xl bg-emerald-100 py-3 font-bold text-emerald-800 hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200">✅ Lo sabía <kbd className="ml-1 hidden text-xs opacity-60 sm:inline">1</kbd></button>
@@ -192,22 +248,24 @@ export default function Flashcards({ mazo, onCerrar, onRegenerar, regenerando, o
           ) : (
             <ul className="space-y-3">
               {mazo.tarjetas.map((t) => (
-                <TarjetaEditable key={t.id} tarjeta={t} onGuardar={onEditar} onEliminar={onEliminar} />
+                <TarjetaEditable key={t.id} tarjeta={{ ...t, caja: cajaDe(t) }} editable={editable} onGuardar={onEditar} onEliminar={onEliminar} />
               ))}
             </ul>
           )}
         </div>
 
         <footer className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 px-5 py-3 dark:border-slate-700">
-          <button
-            type="button"
-            onClick={onRegenerar}
-            disabled={regenerando}
-            className="cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
-            title="Genera un mazo nuevo con todo lo investigado (reemplaza el actual)"
-          >
-            {regenerando ? 'Generando…' : '↻ Regenerar mazo'}
-          </button>
+          {onRegenerar && mazo.es_autor !== false ? (
+            <button
+              type="button"
+              onClick={onRegenerar}
+              disabled={regenerando}
+              className="cursor-pointer rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:bg-slate-200 disabled:cursor-not-allowed disabled:opacity-50 dark:text-slate-300 dark:hover:bg-slate-800"
+              title="Genera un mazo nuevo (reemplaza el actual y su progreso)"
+            >
+              {regenerando ? 'Generando…' : '↻ Regenerar mazo'}
+            </button>
+          ) : <span />}
           <button
             type="button"
             onClick={() => exportarAnki(mazo)}

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
 import toast from 'react-hot-toast';
-import { TutorAPI, mensajeErrorTutor } from '../services/api';
+import { TutorAPI, EstudioAPI, mensajeErrorTutor } from '../services/api';
 import FormularioTema from '../components/tutor/FormularioTema';
 import { descargarApuntes } from '../components/tutor/utilidades';
 import SesionEstudio, { IndicadorCarga } from '../components/tutor/SesionEstudio';
@@ -28,6 +28,7 @@ export default function TutorIA() {
   const [mostrarMazo, setMostrarMazo] = useState(false);
   const [generando, setGenerando] = useState(false);
   const [listaAbierta, setListaAbierta] = useState(false);
+  const [pendientesHoy, setPendientesHoy] = useState(0);
 
   const ocupado = Boolean(pendiente || creando);
 
@@ -42,7 +43,12 @@ export default function TutorIA() {
     }
   }, []);
 
-  useEffect(() => { cargarSesiones(); }, [cargarSesiones]);
+  // Tarjetas que tocan hoy en todos los mazos (repetición espaciada).
+  const cargarPendientes = useCallback(() => {
+    EstudioAPI.conteoHoy().then(({ data }) => setPendientesHoy(data.total)).catch(() => {});
+  }, []);
+
+  useEffect(() => { cargarSesiones(); cargarPendientes(); }, [cargarSesiones, cargarPendientes]);
 
   // Cambio de sesión por URL.
   useEffect(() => {
@@ -111,11 +117,14 @@ export default function TutorIA() {
     const id = sesion.id;
     setGenerando(true);
     try {
-      const { data } = await TutorAPI.generarFlashcards(id);
+      const { data: nuevo } = await TutorAPI.generarFlashcards(id);
+      // Se vuelve a leer para traer cajas y permisos del mismo modo que al abrirlo.
+      const { data } = await TutorAPI.getMazo(nuevo.id);
       setMazo(data);
       setMostrarMazo(true);
       setSesion((s) => (s && s.id === id ? { ...s, mazo_id: data.id } : s));
       cargarSesiones();
+      cargarPendientes();
       toast.success(`${data.tarjetas.length} flashcards listas`);
     } catch (err) {
       toast.error(mensajeErrorTutor(err), { duration: 6000 });
@@ -127,7 +136,7 @@ export default function TutorIA() {
   const abrirFlashcards = async () => {
     if (!sesion) return;
     if (!sesion.mazo_id) { generarMazo(); return; }
-    if (mazo?.id === sesion.mazo_id) { setMostrarMazo(true); return; }
+    // Siempre se relee: las cajas cambian con cada repaso.
     try {
       const { data } = await TutorAPI.getMazo(sesion.mazo_id);
       setMazo(data);
@@ -135,6 +144,15 @@ export default function TutorIA() {
     } catch (err) {
       toast.error(mensajeErrorTutor(err));
     }
+  };
+
+  const registrarRepaso = useCallback((tarjetaId, resultado) => {
+    EstudioAPI.repaso(tarjetaId, resultado).catch((err) => toast.error(mensajeErrorTutor(err)));
+  }, []);
+
+  const cerrarMazo = () => {
+    setMostrarMazo(false);
+    cargarPendientes();
   };
 
   const editarTarjeta = async (id, cambios) => {
@@ -164,6 +182,17 @@ export default function TutorIA() {
         className="ev-focusable mb-2 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-4 py-2.5 font-semibold text-white shadow-sm transition hover:shadow-md"
       >
         ＋ Nuevo tema
+      </Link>
+      <Link
+        to="/tutor/mazos"
+        className="ev-focusable mb-2 flex items-center justify-between gap-2 rounded-xl border border-violet-200 bg-violet-50 px-4 py-2.5 font-semibold text-violet-800 transition hover:bg-violet-100 dark:border-violet-500/30 dark:bg-violet-500/10 dark:text-violet-200 dark:hover:bg-violet-500/20"
+      >
+        <span>🃏 Mis mazos</span>
+        {pendientesHoy > 0 && (
+          <span className="rounded-full bg-amber-400 px-2 py-0.5 text-xs font-black text-blue-950" title="Tarjetas para repasar hoy">
+            Repasar hoy ({pendientesHoy})
+          </span>
+        )}
       </Link>
       {cargandoLista ? (
         <p className="px-2 text-sm text-slate-400">Cargando…</p>
@@ -233,7 +262,8 @@ export default function TutorIA() {
           <Flashcards
             key={mazo.id}
             mazo={mazo}
-            onCerrar={() => setMostrarMazo(false)}
+            onCerrar={cerrarMazo}
+            onRepaso={registrarRepaso}
             onRegenerar={generarMazo}
             regenerando={generando}
             onEditar={editarTarjeta}

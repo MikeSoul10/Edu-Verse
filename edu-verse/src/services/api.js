@@ -48,6 +48,20 @@ export const TutorAPI = {
   eliminarTarjeta: (id) => api.delete(`/api/flashcards/${id}`),
 };
 
+// Estudio (fase 3): mazos propios y compartidos, repaso espaciado y
+// flashcards desde apuntes.
+export const EstudioAPI = {
+  getMazos: (params) => api.get('/api/mazos', { params }),
+  eliminarMazo: (id) => api.delete(`/api/mazos/${id}`),
+  repaso: (tarjetaId, resultado) => api.post(`/api/flashcards/${tarjetaId}/repaso`, { resultado }),
+  repasosHoy: () => api.get('/api/repasos/hoy'),
+  conteoHoy: () => api.get('/api/repasos/hoy', { params: { conteo: 1 } }),
+  compartir: (mazoId, equipoId) => api.post(`/api/mazos/${mazoId}/compartir`, { equipo_id: equipoId }),
+  dejarDeCompartir: (mazoId, equipoId) => api.delete(`/api/mazos/${mazoId}/compartir/${equipoId}`),
+  flashcardsDeApunte: (apunteId, rango = {}) =>
+    api.post(`/api/apuntes/${apunteId}/flashcards`, rango, { timeout: TIMEOUT_IA }),
+};
+
 // Mensaje de error legible para cualquier fallo del Tutor IA.
 export const mensajeErrorTutor = (err) => {
   if (err?.code === 'ECONNABORTED') return 'La IA tardó demasiado en responder. Intenta de nuevo.';

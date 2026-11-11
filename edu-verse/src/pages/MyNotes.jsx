@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext';
 import { ApuntesAPI } from '../services/api';
 import { tonoDesdeMateria } from '../utils/formatters';
 import Icono from '../components/ui/Icono';
+import EstadoIndexado from '../components/EstadoIndexado';
 
 const MyNotes = () => {
   const { user } = useAuth();
@@ -164,6 +165,11 @@ const MyNotes = () => {
               </div>
             </div>
           ) : (
+            <>
+            <p className="mb-3 text-xs text-slate-500 dark:text-slate-400">
+              El Tutor IA lee el texto de tus apuntes para citarlos. Funciona bien con PDF digitales y texto impreso;
+              la letra manuscrita casi no se reconoce.
+            </p>
             <ul className="space-y-3">
               {misApuntes.map((apunte, i) => {
                 const t = tonoDesdeMateria(apunte.materia);
@@ -186,6 +192,9 @@ const MyNotes = () => {
                       {apunte.descripcion && (
                         <p className="mt-1 line-clamp-1 text-sm text-slate-500 dark:text-slate-400">{apunte.descripcion}</p>
                       )}
+                      <div className="mt-1.5">
+                        <EstadoIndexado estado={apunte.estado_indexado} error={apunte.error_indexado} />
+                      </div>
                     </div>
 
                     <div className="flex shrink-0 items-center gap-2">
@@ -211,6 +220,7 @@ const MyNotes = () => {
                 );
               })}
             </ul>
+            </>
           )}
         </section>
       </div>
