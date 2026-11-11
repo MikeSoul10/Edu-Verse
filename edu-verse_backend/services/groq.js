@@ -143,15 +143,38 @@ async function revisarModelos() {
 // conBusqueda = false para el modelo de respaldo: si el prompt le pide
 // investigar, intenta llamar a una herramienta que no tiene y Groq responde
 // 400 ("Tool choice is none, but model called a tool").
-function systemPrompt({ tema, nivel, conBusqueda = true }) {
+//
+// conApuntes = true cuando la IA tiene la función buscar_apuntes.
+// fragmentos = apuntes ya buscados por el backend (para el respaldo, que no
+// puede usar herramientas): se inyectan en el prompt.
+const REGLA_CITA_APUNTE =
+  '- Cita los apuntes con un enlace Markdown cuyo destino sea EXACTAMENTE el campo "cita" del fragmento: [Título del apunte](edu-verse://apunte/<id>?pagina=<n>). Nunca inventes ids ni páginas.';
+
+function systemPrompt({ tema, nivel, conBusqueda = true, conApuntes = false, fragmentos = [] }) {
   const fuentes = conBusqueda
     ? [
         '- Investiga en la web antes de responder y apoya cada afirmación importante con su fuente.',
         '- Cita las fuentes con enlaces Markdown en línea: [nombre del sitio](https://url-exacta). Usa la URL real de la página consultada.',
       ]
     : [
-        '- NO tienes herramientas ni acceso a internet en esta respuesta: no intentes buscar ni llamar funciones. Responde solo con tu conocimiento y no inventes enlaces.',
+        '- NO tienes herramientas ni acceso a internet en esta respuesta: no intentes buscar ni llamar funciones. Responde solo con tu conocimiento y no inventes enlaces web.',
       ];
+  if (conBusqueda && conApuntes) {
+    fuentes.push(
+      '- Tienes la función buscar_apuntes para consultar la biblioteca de apuntes de clase de Edu-Verse. Úsala PRIMERO cuando la pregunta sea de un tema de clase.',
+      '- Prioriza la información de los apuntes de la biblioteca cuando sea relevante y complétala con la web.',
+      REGLA_CITA_APUNTE
+    );
+  }
+  if (fragmentos.length) {
+    fuentes.push(
+      '- Abajo tienes fragmentos de apuntes de la biblioteca de Edu-Verse. Si son relevantes, priorízalos.',
+      REGLA_CITA_APUNTE,
+      '',
+      'Fragmentos de apuntes:',
+      JSON.stringify(fragmentos)
+    );
+  }
   return [
     'Eres el Tutor IA de Edu-Verse, una plataforma para estudiantes de la Universidad de Guadalajara.',
     `El estudiante está estudiando: "${tema}". Nivel: ${NIVELES[nivel] || NIVELES.intermedio}.`,
@@ -220,8 +243,15 @@ function dominio(url) {
 }
 
 // Limpia marcas internas, separa subtemas y convierte enlaces Markdown en
-// citas numeradas [n] con su lista de fuentes.
-function procesarRespuesta(mensaje) {
+// citas numeradas [n] con su lista de fuentes (web y apuntes).
+//
+// apuntes: Map apunte_id -> { titulo, pagina } con los apuntes que
+// buscar_apuntes devolvió en ESTA respuesta. Un enlace edu-verse:// a un
+// apunte que no está ahí (inventado o fuera de lo consultado) se descarta:
+// así la IA no puede citar apuntes que el usuario no puede ver.
+const RE_APUNTE = /^edu-verse:\/\/apunte\/(\d+)(?:\?pagina=(\d+))?/i;
+
+function procesarRespuesta(mensaje, { apuntes = new Map() } = {}) {
   let texto = (mensaje?.content || '').replace(/【[^】]*】/g, '').trim();
 
   let subtemas = [];
@@ -237,27 +267,59 @@ function procesarRespuesta(mensaje) {
 
   const fuentes = [];
   const indice = new Map();
-  const numero = (url, titulo) => {
-    const limpia = url.replace(/[.,;]+$/, '');
-    if (!indice.has(limpia)) {
-      fuentes.push({ url: limpia, titulo: titulo || dominio(limpia), tipo: 'web' });
-      indice.set(limpia, fuentes.length);
+  const registrar = (clave, fuente) => {
+    if (!indice.has(clave)) {
+      fuentes.push(fuente);
+      indice.set(clave, fuentes.length);
     }
-    return indice.get(limpia);
+    return indice.get(clave);
+  };
+  const numeroWeb = (url, titulo) => {
+    const limpia = url.replace(/[.,;]+$/, '');
+    return registrar(limpia, { url: limpia, titulo: titulo || dominio(limpia), tipo: 'web' });
+  };
+  const fuenteApunte = (id, titulo, pagina) => ({
+    tipo: 'apunte',
+    apunte_id: id,
+    titulo,              // el título sale de la BD, no de la IA
+    pagina: pagina ?? null,
+    url: `/apunte/${id}${pagina ? `?pagina=${pagina}` : ''}`,
+  });
+  // Devuelve null si el apunte no fue consultado en esta respuesta.
+  const numeroApunte = (url) => {
+    const m = url.match(RE_APUNTE);
+    const id = m && Number(m[1]);
+    const info = id && apuntes.get(id);
+    if (!info) return null;
+    const pagina = m[2] ? Number(m[2]) : null;
+    return registrar(`apunte:${id}:${pagina ?? ''}`, fuenteApunte(id, info.titulo, pagina));
   };
 
-  // [texto](https://...) -> [n]. Se conserva el texto del enlace cuando es
-  // parte de la oración (no solo el nombre del sitio).
-  texto = texto.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_, etiqueta, url) => {
-    const n = numero(url, etiqueta);
+  // [texto](https://...) o [texto](edu-verse://apunte/...) -> [n], numerando
+  // web y apuntes en el orden en que aparecen. Se conserva el texto del enlace
+  // cuando es parte de la oración (no solo el nombre del sitio).
+  texto = texto.replace(/\[([^\]]+)\]\(((?:https?|edu-verse):\/\/[^\s)]+)\)/gi, (_, etiqueta, url) => {
+    const limpia = etiqueta.trim();
+    if (/^edu-verse:/i.test(url)) {
+      const n = numeroApunte(url);
+      if (n === null) return etiqueta;
+      return /^(apunte|apuntes|fuente)$/i.test(limpia) ? `[${n}]` : `${etiqueta} [${n}]`;
+    }
+    const n = numeroWeb(url, etiqueta);
     // Una sola palabra ("Wikipedia", "khanacademy.org", "1") es el nombre del
     // sitio: se reemplaza por el número. Una frase se conserva.
-    const esNombreDeSitio = !/\s/.test(etiqueta.trim()) || /^fuente\b/i.test(etiqueta.trim());
+    const esNombreDeSitio = !/\s/.test(limpia) || /^fuente\b/i.test(limpia);
     return esNombreDeSitio ? `[${n}]` : `${etiqueta} [${n}]`;
   });
+  // URLs edu-verse:// sueltas (sin formato de enlace).
+  texto = texto.replace(/\(?edu-verse:\/\/apunte\/\d+(?:\?pagina=\d+)?\)?/gi, (url) => {
+    const n = numeroApunte(url.replace(/^\(|\)$/g, ''));
+    return n === null ? '' : `[${n}]`;
+  });
 
-  // Si la IA no citó nada, al menos se listan las páginas que consultó.
+  // Si la IA no citó nada, al menos se listan los apuntes y páginas que consultó.
   if (fuentes.length === 0) {
+    for (const [id, info] of apuntes) fuentes.push(fuenteApunte(id, info.titulo, info.pagina));
     resultadosBusqueda(mensaje).slice(0, 8).forEach((f) => fuentes.push(f));
   }
 
@@ -295,19 +357,95 @@ function validarTarjetas(datos) {
 // búsqueda web en vez de caer al respaldo. Tope para no pasar los ~100 s.
 const ESPERA_MAXIMA_429_S = 25;
 
-async function responderPregunta({ tema, nivel, historial, primera }) {
+const MAX_RONDAS_HERRAMIENTAS = 3;
+
+const HERRAMIENTA_APUNTES = {
+  type: 'function',
+  function: {
+    name: 'buscar_apuntes',
+    description: 'Busca en la biblioteca de apuntes de Edu-Verse (apuntes de clase de los estudiantes). Úsala primero cuando la pregunta sea de un tema de clase.',
+    parameters: {
+      type: 'object',
+      properties: { consulta: { type: 'string', description: 'Palabras clave en español' } },
+      required: ['consulta'],
+    },
+  },
+};
+
+// Ejecuta buscar_apuntes con la función que inyecta la ruta, ya ligada al
+// usuario autenticado: la IA solo controla el texto de la consulta.
+async function ejecutarBuscarApuntes(argumentos, buscarApuntes, apuntes) {
+  let consulta = '';
+  try {
+    consulta = JSON.parse(argumentos || '{}')?.consulta;
+  } catch { /* argumentos mal formados */ }
+  consulta = String(consulta || '').slice(0, 300);
+  if (!consulta.trim()) return { error: 'Falta el parámetro "consulta".' };
+  try {
+    const resultados = await buscarApuntes(consulta);
+    for (const f of resultados) {
+      if (!apuntes.has(f.apunte_id)) apuntes.set(f.apunte_id, { titulo: f.titulo, pagina: f.pagina });
+    }
+    return resultados.length
+      ? { resultados }
+      : { resultados: [], mensaje: 'No hay apuntes sobre eso en la biblioteca. Usa la búsqueda web.' };
+  } catch (err) {
+    console.error('❌ buscar_apuntes:', err.message);
+    return { error: 'La biblioteca no está disponible en este momento. Usa la búsqueda web.' };
+  }
+}
+
+// historial: [{ role, content }] ya ordenado (máx. 10) incluyendo la pregunta nueva.
+// buscarApuntes(consulta) es opcional; si viene, la IA puede consultar la
+// biblioteca además de la web.
+async function responderPregunta({ tema, nivel, historial, primera, buscarApuntes = null }) {
   const base = { temperature: 0.4, max_completion_tokens: 6000, reasoning_effort: 'medium' };
+
+  // Ciclo de herramientas: browser_search lo ejecuta Groq; buscar_apuntes lo
+  // ejecuta este backend y se le devuelve el resultado. Máximo 3 rondas;
+  // después se pide la respuesta final sin herramientas.
   const llamarPrincipal = async () => {
-    const datos = await llamarGroq({
-      ...base,
-      model: config.modelo,
-      messages: [{ role: 'system', content: systemPrompt({ tema, nivel }) }, ...historial],
-      tools: [{ type: 'browser_search' }],
-      tool_choice: primera ? 'required' : 'auto',
-    });
-    const mensaje = datos?.choices?.[0]?.message;
-    if (!mensaje?.content) throw new ErrorIA('La IA devolvió una respuesta vacía.', { codigo: 'vacia' });
-    return { ...procesarRespuesta(mensaje), sin_busqueda: false };
+    const mensajes = [
+      { role: 'system', content: systemPrompt({ tema, nivel, conApuntes: Boolean(buscarApuntes) }) },
+      ...historial,
+    ];
+    const herramientas = [{ type: 'browser_search' }, ...(buscarApuntes ? [HERRAMIENTA_APUNTES] : [])];
+    const ejecutadas = [];
+    const apuntes = new Map();
+
+    for (let ronda = 0; ronda <= MAX_RONDAS_HERRAMIENTAS; ronda++) {
+      const ultima = ronda === MAX_RONDAS_HERRAMIENTAS;
+      const cuerpo = { ...base, model: config.modelo, messages: mensajes };
+      if (ultima) {
+        mensajes.push({ role: 'system', content: 'Ya no puedes usar más herramientas. Responde ahora con la información que reuniste.' });
+      } else {
+        cuerpo.tools = herramientas;
+        cuerpo.tool_choice = primera && ronda === 0 ? 'required' : 'auto';
+      }
+
+      const datos = await llamarGroq(cuerpo);
+      const mensaje = datos?.choices?.[0]?.message;
+      ejecutadas.push(...(mensaje?.executed_tools || []));
+      const llamadas = (mensaje?.tool_calls || []).filter((c) => c.type === 'function');
+
+      if (llamadas.length && !ultima) {
+        mensajes.push({ role: 'assistant', content: mensaje.content || '', tool_calls: llamadas });
+        for (const llamada of llamadas) {
+          const resultado = llamada.function?.name === 'buscar_apuntes' && buscarApuntes
+            ? await ejecutarBuscarApuntes(llamada.function.arguments, buscarApuntes, apuntes)
+            : { error: 'Herramienta no disponible.' };
+          mensajes.push({ role: 'tool', tool_call_id: llamada.id, content: JSON.stringify(resultado) });
+        }
+        continue;
+      }
+
+      if (!mensaje?.content) throw new ErrorIA('La IA devolvió una respuesta vacía.', { codigo: 'vacia' });
+      return {
+        ...procesarRespuesta({ content: mensaje.content, executed_tools: ejecutadas }, { apuntes }),
+        sin_busqueda: false,
+      };
+    }
+    throw new ErrorIA('La IA no terminó de responder.', { codigo: 'vacia' });
   };
 
   const inicio = Date.now();
@@ -332,14 +470,24 @@ async function responderPregunta({ tema, nivel, historial, primera }) {
     }
   }
 
+  // El respaldo no puede usar herramientas: el backend busca en los apuntes
+  // con la pregunta del usuario e inyecta los fragmentos en el prompt.
+  const apuntes = new Map();
+  let fragmentos = [];
+  if (buscarApuntes) {
+    const pregunta = historial[historial.length - 1]?.content || '';
+    const r = await ejecutarBuscarApuntes(JSON.stringify({ consulta: `${tema} ${pregunta}` }), buscarApuntes, apuntes);
+    fragmentos = r.resultados || [];
+  }
+
   const datos = await llamarGroq({
     ...base,
     model: config.respaldo,
-    messages: [{ role: 'system', content: systemPrompt({ tema, nivel, conBusqueda: false }) }, ...historial],
+    messages: [{ role: 'system', content: systemPrompt({ tema, nivel, conBusqueda: false, fragmentos }) }, ...historial],
   });
   const mensaje = datos?.choices?.[0]?.message;
   if (!mensaje?.content) throw new ErrorIA('La IA devolvió una respuesta vacía.', { codigo: 'vacia' });
-  const procesada = procesarRespuesta(mensaje);
+  const procesada = procesarRespuesta(mensaje, { apuntes });
   procesada.contenido =
     '> ⚠️ *Esta respuesta se generó **sin búsqueda web** (el modelo principal no estaba disponible). Verifica los datos importantes.*\n\n' +
     procesada.contenido;
@@ -382,6 +530,7 @@ module.exports = {
   revisarModelos,
   systemPrompt,
   promptFlashcards,
+  HERRAMIENTA_APUNTES,
   procesarRespuesta,
   resultadosBusqueda,
   validarTarjetas,

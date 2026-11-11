@@ -328,6 +328,7 @@ const Upload = () => {
 
             <p className="text-center text-xs font-medium text-slate-400 dark:text-slate-400">
               Al publicar, el apunte queda visible para toda la comunidad de Edu-Verse.
+              El Tutor IA podrá consultarlo y citarlo (funciona mejor con texto impreso o digital que con letra manuscrita).
             </p>
           </div>
         </form>

@@ -52,6 +52,30 @@ services:
       postgres:
         condition: service_healthy
 
+  # Worker del Tutor IA (indexado de apuntes). Se reinicia solo al editar su código.
+  worker:
+    build:
+      context: ./edu-verse_backend
+      target: development
+    restart: unless-stopped
+    environment:
+      NODE_ENV: development
+      DB_USER: postgres
+      DB_HOST: postgres
+      DB_NAME: ${DB_NAME:-Edu-verseDB}
+      DB_PASSWORD: ${DB_PASSWORD:-postgres}
+      DB_PORT: 5432
+    volumes:
+      - uploads:/app/uploads
+      - ./edu-verse_backend:/app
+      - /app/node_modules
+    command: ["npx", "nodemon", "--legacy-watch", "--watch", "worker", "--watch", "services", "worker/indexador.js"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      backend:
+        condition: service_started
+
   frontend:
     build:
       context: ./edu-verse

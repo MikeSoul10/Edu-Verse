@@ -51,7 +51,11 @@ export function sesionAMarkdown(sesion) {
       partes.push(m.contenido, '');
       if (m.fuentes?.length) {
         partes.push('**Fuentes:**', '');
-        m.fuentes.forEach((f, i) => partes.push(`${i + 1}. [${f.titulo || f.url}](${f.url})`));
+        m.fuentes.forEach((f, i) => partes.push(
+          f.tipo === 'apunte'
+            ? `${i + 1}. 📚 ${f.titulo}${f.pagina ? ` (pág. ${f.pagina})` : ''} — apunte de Edu-Verse`
+            : `${i + 1}. [${f.titulo || f.url}](${f.url})`
+        ));
         partes.push('');
       }
     }

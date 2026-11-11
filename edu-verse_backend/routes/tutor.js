@@ -6,7 +6,9 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../db');
 const verificarToken = require('../middleware/auth');
+const verificarAdmin = require('../middleware/admin');
 const limiteTutor = require('../middleware/limiteTutor');
+const { buscarApuntes } = require('../services/busquedaApuntes');
 const { ErrorIA, NIVELES, responderPregunta, generarFlashcards } = require('../services/groq');
 
 const MAX_HISTORIAL = 10;
@@ -44,6 +46,10 @@ function manejarError(res, err, contexto) {
   console.error(`❌ Tutor IA (${contexto}):`, err.message);
   return res.status(500).json({ mensaje: 'Error en el servidor del Tutor IA.' });
 }
+
+// buscar_apuntes ligado al usuario autenticado: el id sale del token y nunca
+// de lo que mande la IA.
+const buscadorDe = (usuarioId) => (consulta) => buscarApuntes({ consulta, usuarioId, limite: 5 });
 
 async function sesionDelUsuario(sesionId, usuarioId, cliente = pool) {
   const r = await cliente.query(
@@ -119,6 +125,7 @@ router.post('/tutor/sesiones', limiteTutor, async (req, res) => {
   try {
     respuesta = await responderPregunta({
       tema, nivel, primera: true, historial: [{ role: 'user', content: contenido }],
+      buscarApuntes: buscadorDe(req.usuario.id),
     });
   } catch (err) {
     return manejarError(res, err, 'crear sesión');
@@ -188,6 +195,7 @@ router.post('/tutor/sesiones/:id/mensajes', limiteTutor, async (req, res) => {
       nivel: sesion.nivel,
       primera: historial.length === 0,
       historial: [...historial, { role: 'user', content: contenido }],
+      buscarApuntes: buscadorDe(req.usuario.id),
     });
 
     const cliente = await pool.connect();
@@ -364,6 +372,44 @@ router.delete('/flashcards/:id', async (req, res) => {
     res.json({ mensaje: 'Tarjeta eliminada.' });
   } catch (err) {
     manejarError(res, err, 'borrar tarjeta');
+  }
+});
+
+// --- indexado de apuntes (administradores) --------------------------------
+
+// Resumen del estado del indexado de la biblioteca.
+router.get('/admin/indexado', verificarAdmin, async (req, res) => {
+  try {
+    const r = await pool.query(
+      `SELECT estado_indexado AS estado, COUNT(*)::int AS total FROM apuntes GROUP BY estado_indexado`
+    );
+    const errores = await pool.query(
+      `SELECT apunte_id, titulo, error_indexado FROM apuntes WHERE estado_indexado = 'error' ORDER BY apunte_id`
+    );
+    res.json({ estados: Object.fromEntries(r.rows.map((f) => [f.estado, f.total])), errores: errores.rows });
+  } catch (err) {
+    manejarError(res, err, 'estado del indexado');
+  }
+});
+
+// Devuelve a la cola los apuntes que quedaron en 'error'. Con { apunte_id }
+// reintenta solo ese.
+router.post('/admin/indexado/reintentar', verificarAdmin, async (req, res) => {
+  const id = req.body?.apunte_id === undefined ? null : idValido(req.body.apunte_id);
+  if (req.body?.apunte_id !== undefined && !id) return res.status(400).json({ mensaje: 'apunte_id inválido.' });
+  try {
+    const r = await pool.query(
+      `UPDATE apuntes SET estado_indexado = 'pendiente', error_indexado = NULL
+        WHERE estado_indexado = 'error' AND ($1::int IS NULL OR apunte_id = $1)`,
+      [id]
+    );
+    await pool.query(
+      'INSERT INTO admin_logs (admin_id, accion, detalle) VALUES ($1, $2, $3)',
+      [req.usuario.id, 'reindexar_apuntes', id ? `Reintentó indexar el apunte ID ${id}` : `Reintentó indexar ${r.rowCount} apunte(s) con error`]
+    ).catch(() => {});
+    res.json({ mensaje: `${r.rowCount} apunte(s) vuelven a la cola de indexado.`, reintentados: r.rowCount });
+  } catch (err) {
+    manejarError(res, err, 'reintentar indexado');
   }
 });
 

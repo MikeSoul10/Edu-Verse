@@ -5,13 +5,17 @@
   "main": "index.js",
   "scripts": {
     "test": "node --test",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "worker": "node worker/indexador.js",
+    "indexar:todos": "node scripts/indexarTodos.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@tesseract.js-data/eng": "1.0.0",
+    "@tesseract.js-data/spa": "1.0.0",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
@@ -20,8 +24,10 @@
     "helmet": "^8.3.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.1.1",
+    "pdfjs-dist": "5.4.296",
     "pg": "^8.20.0",
-    "socket.io": "^4.8.3"
+    "socket.io": "^4.8.3",
+    "tesseract.js": "6.0.1"
   },
   "devDependencies": {
     "nodemon": "^3.1.14"

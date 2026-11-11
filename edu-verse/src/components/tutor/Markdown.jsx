@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 
 /* Renderizador de Markdown mínimo para las respuestas del Tutor IA.
    Construye elementos de React (nunca HTML crudo), así que el texto de la IA
@@ -36,7 +37,18 @@ function renderInline(texto, ctx, clave = 'i') {
       const num = Number(m[4]);
       const fuente = ctx.fuentes?.[num - 1];
       salida.push(
-        fuente ? (
+        fuente?.tipo === 'apunte' ? (
+          // Apunte de la biblioteca: navegación interna a su página.
+          <sup key={k} className="mx-0.5">
+            <Link
+              to={fuente.url}
+              title={`${fuente.titulo}${fuente.pagina ? ` · pág. ${fuente.pagina}` : ''}`}
+              className="rounded bg-emerald-100 px-1 text-[0.7rem] font-bold text-emerald-800 no-underline hover:bg-emerald-200 dark:bg-emerald-500/20 dark:text-emerald-200"
+            >
+              {num}
+            </Link>
+          </sup>
+        ) : fuente ? (
           <sup key={k} className="mx-0.5">
             <a
               href={fuente.url}

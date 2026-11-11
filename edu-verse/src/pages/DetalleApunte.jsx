@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config';
@@ -11,6 +11,9 @@ const CLAVE_ULTIMO = 'eduverse_ultimo_apunte';
 const DetalleApunte = () => {
   const { user } = useAuth();
   const { id } = useParams();
+  // El Tutor IA enlaza a /apunte/:id?pagina=n para abrir la página citada.
+  const [parametros] = useSearchParams();
+  const paginaCitada = Number.parseInt(parametros.get('pagina'), 10) || null;
   const navigate = useNavigate();
   const [apunte, setApunte] = useState(null);
   const [rating, setRating] = useState(0);
@@ -170,7 +173,7 @@ const DetalleApunte = () => {
 
             <div className="mt-6 flex flex-wrap gap-3 ev-enter ev-d-4">
               <a
-                href={`${API_URL}${apunte.archivo_url}`}
+                href={`${API_URL}${apunte.archivo_url}${paginaCitada && /\.pdf$/i.test(apunte.archivo_url) ? `#page=${paginaCitada}` : ''}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="ev-btn ev-shimmer ev-shimmer-claro inline-flex items-center gap-2 rounded-2xl bg-white text-blue-700 px-6 sm:px-8 py-3.5 text-lg font-bold shadow-md"
@@ -179,7 +182,7 @@ const DetalleApunte = () => {
                   <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" strokeLinejoin="round" />
                   <path d="M14 3v5h5" strokeLinejoin="round" />
                 </svg>
-                Abrir PDF
+                {paginaCitada && /\.pdf$/i.test(apunte.archivo_url) ? `Abrir PDF en la pág. ${paginaCitada}` : 'Abrir PDF'}
               </a>
             </div>
           </div>
