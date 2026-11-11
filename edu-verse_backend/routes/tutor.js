@@ -316,64 +316,8 @@ router.post('/tutor/sesiones/:id/flashcards', limiteTutor, async (req, res) => {
   }
 });
 
-// Mazo con sus tarjetas
-router.get('/mazos/:id', async (req, res) => {
-  const id = idValido(req.params.id);
-  if (!id) return res.status(404).json({ mensaje: 'Mazo no encontrado.' });
-  try {
-    const m = await pool.query('SELECT * FROM mazos WHERE mazo_id = $1 AND usuario_id = $2', [id, req.usuario.id]);
-    if (!m.rows[0]) return res.status(404).json({ mensaje: 'Mazo no encontrado.' });
-    const t = await pool.query('SELECT * FROM flashcards WHERE mazo_id = $1 ORDER BY orden, flashcard_id', [id]);
-    const mazo = m.rows[0];
-    res.json({
-      id: mazo.mazo_id, tema: mazo.tema, sesion_id: mazo.sesion_id, origen: mazo.origen,
-      creado: mazo.creado, tarjetas: t.rows.map(formatoTarjeta),
-    });
-  } catch (err) {
-    manejarError(res, err, 'ver mazo');
-  }
-});
-
-// Editar frente/reverso de una tarjeta
-router.patch('/flashcards/:id', async (req, res) => {
-  const id = idValido(req.params.id);
-  if (!id) return res.status(404).json({ mensaje: 'Tarjeta no encontrada.' });
-  const frente = req.body?.frente === undefined ? null : texto(req.body.frente, 300);
-  const reverso = req.body?.reverso === undefined ? null : texto(req.body.reverso, 1000);
-  if (frente === '' || reverso === '') return res.status(400).json({ mensaje: 'La tarjeta no puede quedar vacía.' });
-  if (frente === null && reverso === null) return res.status(400).json({ mensaje: 'Nada que actualizar.' });
-
-  try {
-    const r = await pool.query(
-      `UPDATE flashcards f SET frente = COALESCE($1, f.frente), reverso = COALESCE($2, f.reverso)
-       FROM mazos m
-       WHERE f.flashcard_id = $3 AND f.mazo_id = m.mazo_id AND m.usuario_id = $4
-       RETURNING f.*`,
-      [frente, reverso, id, req.usuario.id]
-    );
-    if (!r.rows[0]) return res.status(404).json({ mensaje: 'Tarjeta no encontrada.' });
-    res.json(formatoTarjeta(r.rows[0]));
-  } catch (err) {
-    manejarError(res, err, 'editar tarjeta');
-  }
-});
-
-// Borrar tarjeta
-router.delete('/flashcards/:id', async (req, res) => {
-  const id = idValido(req.params.id);
-  if (!id) return res.status(404).json({ mensaje: 'Tarjeta no encontrada.' });
-  try {
-    const r = await pool.query(
-      `DELETE FROM flashcards f USING mazos m
-       WHERE f.flashcard_id = $1 AND f.mazo_id = m.mazo_id AND m.usuario_id = $2`,
-      [id, req.usuario.id]
-    );
-    if (r.rowCount === 0) return res.status(404).json({ mensaje: 'Tarjeta no encontrada.' });
-    res.json({ mensaje: 'Tarjeta eliminada.' });
-  } catch (err) {
-    manejarError(res, err, 'borrar tarjeta');
-  }
-});
+// Los mazos, tarjetas y repasos viven en routes/estudio.js (fase 3: acceso
+// compartido con equipos y repaso espaciado).
 
 // --- indexado de apuntes (administradores) --------------------------------
 

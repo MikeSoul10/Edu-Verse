@@ -35,27 +35,85 @@ function consultaWebsearch(consulta) {
   return terminos.join(' or ');
 }
 
-async function buscarApuntes({ consulta, usuarioId, limite = 5 }) {
-  const q = consultaWebsearch(consulta);
-  if (!q || !usuarioId) return [];
+// Candidatos por método antes de fusionar.
+const CANDIDATOS = 20;
+const K_RRF = 60;
 
-  const r = await db().query(
-    `SELECT f.fragmento_id, f.texto, f.pagina, a.apunte_id, a.titulo, a.materia,
-            ts_rank(f.busqueda, q) AS relevancia
+// FROM + WHERE comunes a las dos búsquedas: el MISMO filtro de permisos y
+// estado para texto y vector. $2 es siempre el usuario autenticado.
+const BASE_ACCESO = `
        FROM apunte_fragmentos f
        JOIN apuntes a  ON a.apunte_id = f.apunte_id
-       JOIN usuarios u ON u.usuario_id = a.usuario_id,
-            websearch_to_tsquery('spanish', public.f_unaccent($1)) q
-      WHERE f.busqueda @@ q
-        AND a.estado_indexado = 'listo'
+       JOIN usuarios u ON u.usuario_id = a.usuario_id`;
+const FILTRO_ACCESO = `
+        a.estado_indexado = 'listo'
         AND (${condicionAcceso('a', '$2')})
-        AND $2::int IS NOT NULL
-      ORDER BY relevancia DESC, f.fragmento_id
-      LIMIT $3`,
-    [q, usuarioId, Math.min(Math.max(1, limite), 10)]
-  );
+        AND $2::int IS NOT NULL`;
 
-  return r.rows.map((f) => ({
+async function porTexto(q, usuarioId) {
+  if (!q) return [];
+  const r = await db().query(
+    `SELECT f.fragmento_id, f.texto, f.pagina, a.apunte_id, a.titulo, a.materia
+       ${BASE_ACCESO},
+            websearch_to_tsquery('spanish', public.f_unaccent($1)) q
+      WHERE f.busqueda @@ q AND ${FILTRO_ACCESO}
+      ORDER BY ts_rank(f.busqueda, q) DESC, f.fragmento_id
+      LIMIT $3`,
+    [q, usuarioId, CANDIDATOS]
+  );
+  return r.rows;
+}
+
+async function porVector(consulta, usuarioId) {
+  const { vectorDisponible, embeberConsulta, aVectorSql } = require('./embeddings');
+  if (!(await vectorDisponible())) return [];
+  const vector = aVectorSql(await embeberConsulta(consulta));
+  if (!vector) return [];
+  const r = await db().query(
+    `SELECT f.fragmento_id, f.texto, f.pagina, a.apunte_id, a.titulo, a.materia
+       ${BASE_ACCESO}
+      WHERE f.embedding IS NOT NULL AND ${FILTRO_ACCESO}
+      ORDER BY f.embedding <=> $1::vector
+      LIMIT $3`,
+    [vector, usuarioId, CANDIDATOS]
+  );
+  return r.rows;
+}
+
+// Reciprocal Rank Fusion: puntaje = Σ 1 / (60 + posición) sobre cada lista
+// donde aparece el fragmento. Premia lo que sale alto en ambas.
+function fusionarRRF(listas, limite) {
+  const puntajes = new Map();
+  for (const lista of listas) {
+    lista.forEach((fila, i) => {
+      const previo = puntajes.get(fila.fragmento_id) || { fila, puntaje: 0 };
+      previo.puntaje += 1 / (K_RRF + i + 1);
+      puntajes.set(fila.fragmento_id, previo);
+    });
+  }
+  return [...puntajes.values()]
+    .sort((x, y) => y.puntaje - x.puntaje || x.fila.fragmento_id - y.fila.fragmento_id)
+    .slice(0, limite)
+    .map((x) => x.fila);
+}
+
+// Búsqueda híbrida: top 20 por texto (ts_rank) + top 20 por significado
+// (distancia coseno), fusionados con RRF. Si no hay pgvector o modelo de
+// embeddings, queda solo la parte de texto.
+async function buscarApuntes({ consulta, usuarioId, limite = 5 }) {
+  const texto = String(consulta || '').trim().slice(0, 300);
+  if (!texto || !usuarioId) return [];
+
+  const [filasTexto, filasVector] = await Promise.all([
+    porTexto(consultaWebsearch(texto), usuarioId),
+    porVector(texto, usuarioId).catch((err) => {
+      console.error('⚠️  Búsqueda semántica no disponible:', err.message);
+      return [];
+    }),
+  ]);
+  const filas = fusionarRRF([filasTexto, filasVector], Math.min(Math.max(1, limite), 10));
+
+  return filas.map((f) => ({
     apunte_id: f.apunte_id,
     titulo: f.titulo,
     materia: f.materia,
@@ -65,4 +123,4 @@ async function buscarApuntes({ consulta, usuarioId, limite = 5 }) {
   }));
 }
 
-module.exports = { buscarApuntes, consultaWebsearch, condicionAcceso };
+module.exports = { buscarApuntes, consultaWebsearch, condicionAcceso, fusionarRRF, FILTRO_ACCESO };

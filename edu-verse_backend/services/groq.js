@@ -189,15 +189,23 @@ function systemPrompt({ tema, nivel, conBusqueda = true, conApuntes = false, fra
   ].join('\n');
 }
 
-function promptFlashcards({ tema, nivel, material }) {
+// conPaginas = true para flashcards desde un apunte: el material viene
+// marcado con "[pág. n]" y cada tarjeta debe indicar de qué página sale.
+function promptFlashcards({ tema, nivel, material, conPaginas = false }) {
+  const forma = conPaginas
+    ? '{"tarjetas":[{"frente":"pregunta o concepto","reverso":"respuesta breve y precisa","tipo":"concepto|definicion|pregunta|ejemplo","pagina":3}]}'
+    : '{"tarjetas":[{"frente":"pregunta o concepto","reverso":"respuesta breve y precisa","tipo":"concepto|definicion|pregunta|ejemplo"}]}';
   return [
     {
       role: 'system',
       content: [
         'Eres un generador de flashcards de estudio. Responde SOLO con JSON válido con esta forma:',
-        '{"tarjetas":[{"frente":"pregunta o concepto","reverso":"respuesta breve y precisa","tipo":"concepto|definicion|pregunta|ejemplo"}]}',
+        forma,
         'Reglas: entre 8 y 20 tarjetas, en español, sin repetir ideas, frente corto (máx. 140 caracteres),',
         'reverso autocontenido (máx. 400 caracteres), basadas ÚNICAMENTE en el material proporcionado.',
+        ...(conPaginas
+          ? ['El material está marcado con [pág. n]: en "pagina" pon el número de la página de donde sale la información de cada tarjeta (número entero).']
+          : []),
       ].join(' '),
     },
     {
@@ -327,7 +335,9 @@ function procesarRespuesta(mensaje, { apuntes = new Map() } = {}) {
 }
 
 // Limpia, deduplica y acota las tarjetas que devuelve la IA.
-function validarTarjetas(datos) {
+// paginasValidas (Set) : si viene, conserva "pagina" solo si está en el set
+// (la IA no puede inventar páginas que no estaban en el material).
+function validarTarjetas(datos, { paginasValidas = null } = {}) {
   const lista = Array.isArray(datos) ? datos : datos?.tarjetas || datos?.flashcards || [];
   if (!Array.isArray(lista)) return [];
 
@@ -342,7 +352,12 @@ function validarTarjetas(datos) {
     const clave = frente.toLowerCase();
     if (vistos.has(clave)) continue;
     vistos.add(clave);
-    tarjetas.push({ frente, reverso, tipo: limpiar(t?.tipo, 30).toLowerCase() || 'concepto' });
+    const tarjeta = { frente, reverso, tipo: limpiar(t?.tipo, 30).toLowerCase() || 'concepto' };
+    if (paginasValidas) {
+      const pagina = Number.parseInt(t?.pagina, 10);
+      tarjeta.pagina = paginasValidas.has(pagina) ? pagina : null;
+    }
+    tarjetas.push(tarjeta);
     if (tarjetas.length === 20) break;
   }
   return tarjetas.length >= 3 ? tarjetas : [];
@@ -496,7 +511,7 @@ async function responderPregunta({ tema, nivel, historial, primera, buscarApunte
 
 // 2 intentos con el modelo principal y 1 con el de respaldo, en modo JSON y
 // sin búsqueda web.
-async function generarFlashcards({ tema, nivel, material }) {
+async function generarFlashcards({ tema, nivel, material, paginasValidas = null }) {
   const intentos = [config.modelo, config.modelo, config.respaldo].filter(Boolean);
   let ultimoError = null;
 
@@ -504,14 +519,14 @@ async function generarFlashcards({ tema, nivel, material }) {
     try {
       const datos = await llamarGroq({
         model: modelo,
-        messages: promptFlashcards({ tema, nivel, material }),
+        messages: promptFlashcards({ tema, nivel, material, conPaginas: Boolean(paginasValidas) }),
         response_format: { type: 'json_object' },
         temperature: 0.4,
         max_completion_tokens: 6000,
         reasoning_effort: 'medium',
       });
       const texto = datos?.choices?.[0]?.message?.content || '';
-      const tarjetas = validarTarjetas(JSON.parse(texto));
+      const tarjetas = validarTarjetas(JSON.parse(texto), { paginasValidas });
       if (tarjetas.length) return tarjetas;
       ultimoError = new ErrorIA('La IA no generó suficientes tarjetas válidas.', { codigo: 'tarjetas' });
     } catch (err) {

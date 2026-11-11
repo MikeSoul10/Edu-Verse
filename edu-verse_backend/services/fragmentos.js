@@ -19,29 +19,24 @@ function limpiarTexto(texto) {
 }
 
 // paginas: [{ pagina, texto, metodo }] -> [{ pagina, orden, texto, metodo }]
-// Ventanas de ~800 palabras con ~100 de solapamiento. Cada fragmento guarda
-// la página donde empieza (para citar "pág. n") y el método de su primera
-// palabra.
+// Ventanas de ~800 palabras con ~100 de solapamiento DENTRO de cada página:
+// un fragmento nunca mezcla páginas, así la cita "pág. n" es exacta y el
+// embedding no promedia temas distintos (un PDF de páginas cortas quedaba en
+// un solo fragmento con todo su contenido marcado como pág. 1).
 function fragmentar(paginas, { tamano = PALABRAS_POR_FRAGMENTO, solapamiento = SOLAPAMIENTO } = {}) {
-  const palabras = [];
-  for (const p of paginas) {
-    for (const w of limpiarTexto(p.texto).split(' ')) {
-      if (w) palabras.push({ w, pagina: p.pagina ?? null, metodo: p.metodo });
-    }
-  }
-  if (palabras.length === 0) return [];
-
   const paso = Math.max(1, tamano - solapamiento);
   const fragmentos = [];
-  for (let inicio = 0; inicio < palabras.length; inicio += paso) {
-    const trozo = palabras.slice(inicio, inicio + tamano);
-    fragmentos.push({
-      pagina: trozo[0].pagina,
-      orden: fragmentos.length,
-      texto: trozo.map((x) => x.w).join(' '),
-      metodo: trozo[0].metodo,
-    });
-    if (inicio + tamano >= palabras.length) break;
+  for (const p of paginas) {
+    const palabras = limpiarTexto(p.texto).split(' ').filter(Boolean);
+    for (let inicio = 0; inicio < palabras.length; inicio += paso) {
+      fragmentos.push({
+        pagina: p.pagina ?? null,
+        orden: fragmentos.length,
+        texto: palabras.slice(inicio, inicio + tamano).join(' '),
+        metodo: p.metodo,
+      });
+      if (inicio + tamano >= palabras.length) break;
+    }
   }
   return fragmentos;
 }

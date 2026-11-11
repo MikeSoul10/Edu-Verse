@@ -17,23 +17,19 @@ test('limpiarTexto une palabras cortadas con guion y colapsa espacios', () => {
   assert.equal(limpiarTexto('Guion real - aquí'), 'Guion real - aquí');
 });
 
-test('fragmentar usa ventanas de 800 palabras con 100 de solapamiento y guarda la página', () => {
-  const pagina1 = Array.from({ length: 700 }, (_, i) => `a${i}`).join(' ');
-  const pagina2 = Array.from({ length: 700 }, (_, i) => `b${i}`).join(' ');
+test('fragmentar usa ventanas de 800 palabras con 100 de solapamiento sin mezclar páginas', () => {
+  const palabras = (prefijo, n) => Array.from({ length: n }, (_, i) => `${prefijo}${i}`).join(' ');
   const f = fragmentar([
-    { pagina: 1, texto: pagina1, metodo: 'pdf_texto' },
-    { pagina: 2, texto: pagina2, metodo: 'ocr' },
+    { pagina: 1, texto: palabras('a', 1000), metodo: 'pdf_texto' },
+    { pagina: 2, texto: palabras('b', 50), metodo: 'ocr' },
   ]);
-  assert.equal(f.length, 2);
+  assert.deepEqual(f.map((x) => [x.pagina, x.orden, x.metodo]), [[1, 0, 'pdf_texto'], [1, 1, 'pdf_texto'], [2, 2, 'ocr']]);
   assert.equal(f[0].texto.split(' ').length, 800);
-  assert.equal(f[0].pagina, 1);
-  // El segundo empieza en la palabra 700 (paso = 800 - 100), que ya es la
-  // primera de la página 2.
-  assert.equal(f[1].texto.split(' ')[0], 'b0');
-  assert.equal(f[1].pagina, 2);
-  assert.deepEqual(f.map((x) => x.orden), [0, 1]);
   // Solapamiento: las últimas 100 palabras del primero inician el segundo.
   assert.deepEqual(f[0].texto.split(' ').slice(700), f[1].texto.split(' ').slice(0, 100));
+  assert.equal(f[1].texto.split(' ').at(-1), 'a999');
+  // La página 2 (corta) es su propio fragmento: nunca se mezcla con la 1.
+  assert.equal(f[2].texto, palabras('b', 50));
 });
 
 test('fragmentar ignora páginas vacías y devuelve [] sin texto', () => {
@@ -132,4 +128,48 @@ test('el ciclo de herramientas se corta tras 3 rondas y pide respuesta sin herra
   } finally {
     sim.restaurar();
   }
+});
+
+// --- fase 3 -----------------------------------------------------------------------
+const { fusionarRRF } = require('../services/busquedaApuntes');
+
+test('fusionarRRF premia lo que aparece alto en texto Y en vector', () => {
+  const f = (id) => ({ fragmento_id: id });
+  const texto = [f(1), f(2), f(3)];
+  const vector = [f(3), f(4), f(1)];
+  const r = fusionarRRF([texto, vector], 3).map((x) => x.fragmento_id);
+  // 1: 1/61 + 1/63 ; 3: 1/63 + 1/61 (empate, desempata el id) ; luego 2 y 4.
+  assert.deepEqual(r, [1, 3, 2]);
+  assert.deepEqual(fusionarRRF([[], vector], 2).map((x) => x.fragmento_id), [3, 4]);
+});
+
+test('validarTarjetas solo conserva páginas que estaban en el material', () => {
+  const datos = { tarjetas: [
+    { frente: 'Pregunta uno', reverso: 'r', pagina: 2 },
+    { frente: 'Pregunta dos', reverso: 'r', pagina: 99 },
+    { frente: 'Pregunta tres', reverso: 'r', pagina: '3' },
+  ] };
+  const t = groq.validarTarjetas(datos, { paginasValidas: new Set([1, 2, 3]) });
+  assert.deepEqual(t.map((x) => x.pagina), [2, null, 3]);
+  // Sin paginasValidas (flashcards del tutor) no se agrega "pagina".
+  assert.equal('pagina' in groq.validarTarjetas(datos)[0], false);
+});
+
+test('estudio: intervalos Leitner, fechas y material sin solapamiento', () => {
+  // estudio.js carga la BD de forma perezosa vía pool solo al consultar.
+  const { INTERVALOS, sumarDias, armarMaterial } = require('../routes/estudio');
+  assert.deepEqual(INTERVALOS, { 1: 1, 2: 3, 3: 7, 4: 14, 5: 30 });
+  assert.equal(sumarDias('2026-12-30', 3), '2027-01-02');
+  assert.equal(sumarDias('2028-02-28', 1), '2028-02-29');
+
+  const palabras = (desde, n) => Array.from({ length: n }, (_, i) => `w${desde + i}`).join(' ');
+  const material = armarMaterial([
+    { orden: 0, pagina: 1, texto: palabras(0, 800) },
+    { orden: 1, pagina: 1, texto: palabras(700, 800) },   // misma página: 100 repetidas
+    { orden: 2, pagina: 2, texto: palabras(5000, 10) },   // página nueva: nada repetido
+  ]);
+  const [p1, p2, p3] = material.split('\n\n');
+  assert.ok(p1.startsWith('[pág. 1] w0 '));
+  assert.ok(p2.startsWith('[pág. 1] w800 '));            // sin el solapamiento
+  assert.ok(p3.startsWith('[pág. 2] w5000 '));           // completa
 });

@@ -7,13 +7,15 @@
     "test": "node --test",
     "dev": "nodemon index.js",
     "worker": "node worker/indexador.js",
-    "indexar:todos": "node scripts/indexarTodos.js"
+    "indexar:todos": "node scripts/indexarTodos.js",
+    "embeddings:rellenar": "node scripts/rellenarEmbeddings.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@huggingface/transformers": "4.3.1",
     "@tesseract.js-data/eng": "1.0.0",
     "@tesseract.js-data/spa": "1.0.0",
     "bcrypt": "^6.0.0",

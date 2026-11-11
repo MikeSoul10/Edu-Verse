@@ -5,7 +5,9 @@ name: edu-verse
 
 services:
   postgres:
-    image: postgres:16-alpine
+    # pgvector/pgvector:pg16 = PostgreSQL 16 + extensión vector (búsqueda
+    # semántica del Tutor IA). Misma versión mayor: los datos se conservan.
+    image: pgvector/pgvector:pg16
     restart: unless-stopped
     environment:
       POSTGRES_USER: postgres
@@ -43,6 +45,7 @@ services:
       TUTOR_LIMITE_POR_MINUTO: ${TUTOR_LIMITE_POR_MINUTO:-10}
     volumes:
       - uploads:/app/uploads
+      - modelos:/modelos
     # Solo accesible desde el propio host (para depurar); el tráfico público
     # entra por Nginx en el servicio frontend.
     ports:
@@ -76,6 +79,7 @@ services:
     volumes:
       # Lee los mismos archivos que sube el backend.
       - uploads:/app/uploads:ro
+      - modelos:/modelos
     depends_on:
       postgres:
         condition: service_healthy
@@ -99,3 +103,5 @@ services:
 volumes:
   pgdata:
   uploads:
+  # Caché del modelo de embeddings (~120 MB): se descarga una sola vez.
+  modelos:

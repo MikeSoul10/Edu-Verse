@@ -12,6 +12,7 @@ const pool = require('../db');
 const { rutaDesdeUrl } = require('../utils/files');
 const { extraerTexto, reiniciarOcr } = require('../services/extraccion');
 const { fragmentar } = require('../services/fragmentos');
+const { embeberPasajes, aVectorSql, vectorDisponible, rellenarPendientes } = require('../services/embeddings');
 
 const INTERVALO_MS = 5_000;
 const LIMITE_POR_APUNTE_MS = 3 * 60_000;
@@ -85,23 +86,38 @@ async function procesar(apunte) {
     throw err;
   }
 
-  const paginas = await conLimiteDeTiempo(extraerTexto(ruta, { log: (m) => log(id, m) }), LIMITE_POR_APUNTE_MS);
-  const fragmentos = fragmentar(paginas);
-  if (fragmentos.length === 0) {
-    const err = new Error('Sin texto');
-    err.code = 'SIN_TEXTO';
-    throw err;
-  }
+  // Extracción + embeddings dentro del mismo límite de tiempo.
+  const { fragmentos, vectores } = await conLimiteDeTiempo((async () => {
+    const paginas = await extraerTexto(ruta, { log: (m) => log(id, m) });
+    const frags = fragmentar(paginas);
+    if (frags.length === 0) {
+      const err = new Error('Sin texto');
+      err.code = 'SIN_TEXTO';
+      throw err;
+    }
+    // Sin pgvector o sin modelo, el fragmento queda sin embedding (búsqueda
+    // solo por texto) y se rellena después.
+    const vecs = (await vectorDisponible()) ? await embeberPasajes(frags.map((f) => f.texto)) : null;
+    if (vecs) log(id, `embeddings calculados (${vecs.length})`);
+    return { fragmentos: frags, vectores: vecs };
+  })(), LIMITE_POR_APUNTE_MS);
 
   const cliente = await pool.connect();
   try {
     await cliente.query('BEGIN');
     await cliente.query('DELETE FROM apunte_fragmentos WHERE apunte_id = $1', [id]);
-    for (const f of fragmentos) {
-      await cliente.query(
-        'INSERT INTO apunte_fragmentos (apunte_id, pagina, orden, texto, metodo) VALUES ($1, $2, $3, $4, $5)',
-        [id, f.pagina, f.orden, f.texto, f.metodo]
-      );
+    for (const [i, f] of fragmentos.entries()) {
+      if (vectores) {
+        await cliente.query(
+          'INSERT INTO apunte_fragmentos (apunte_id, pagina, orden, texto, metodo, embedding) VALUES ($1, $2, $3, $4, $5, $6::vector)',
+          [id, f.pagina, f.orden, f.texto, f.metodo, aVectorSql(vectores[i])]
+        );
+      } else {
+        await cliente.query(
+          'INSERT INTO apunte_fragmentos (apunte_id, pagina, orden, texto, metodo) VALUES ($1, $2, $3, $4, $5)',
+          [id, f.pagina, f.orden, f.texto, f.metodo]
+        );
+      }
     }
     // Solo se marca 'listo' si nadie lo devolvió a la cola mientras tanto.
     await cliente.query(
@@ -143,6 +159,12 @@ async function ciclo() {
       if (apunte) {
         await procesar(apunte);
         continue; // hay cola: sigue sin esperar
+      }
+      // Sin cola: rellena embeddings de fragmentos antiguos, de a poco.
+      const rellenados = await rellenarPendientes(16);
+      if (rellenados) {
+        log(null, `embeddings rellenados: ${rellenados}`);
+        continue;
       }
     } catch (err) {
       if (apunte) {

@@ -4,6 +4,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import { API_URL } from '../config';
 import { useAuth } from '../context/AuthContext';
+import FlashcardsApunte from '../components/tutor/FlashcardsApunte';
 import { tonoDesdeMateria } from '../utils/formatters';
 
 const CLAVE_ULTIMO = 'eduverse_ultimo_apunte';
@@ -184,6 +185,8 @@ const DetalleApunte = () => {
                 </svg>
                 {paginaCitada && /\.pdf$/i.test(apunte.archivo_url) ? `Abrir PDF en la pág. ${paginaCitada}` : 'Abrir PDF'}
               </a>
+              {/* Tutor IA (fase 3): flashcards generadas desde este apunte. */}
+              {user && <FlashcardsApunte apunte={apunte} />}
             </div>
           </div>
         </header>
