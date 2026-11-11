@@ -115,10 +115,14 @@ app.use('/uploads', express.static('uploads', {
 const equiposRoutes = require('./routes/equipos');
 const tareasRoutes = require('./routes/tareas');
 const chatRoutes = require('./routes/chat');
+const tutorRoutes = require('./routes/tutor');
 
 app.use('/equipos', equiposRoutes);
 app.use('/tareas', tareasRoutes);
 app.use('/chat', chatRoutes);
+// Tutor IA: /api/tutor/*, /api/mazos/*, /api/flashcards/*
+app.use('/api', tutorRoutes);
+
 // --- SUBIDA DE ARCHIVOS ---
 // El mimetype lo declara el cliente y es falsificable, así que un archivo se
 // acepta solo si coinciden TRES cosas: mimetype, extensión y firma real de los
@@ -453,8 +457,13 @@ app.get('/apuntes/buscar', async (req, res) => {
 
 // --- 7. ENCENDIDO ---
 const PORT = process.env.PORT || 4000;
+// Las respuestas del Tutor IA con búsqueda web tardan 30–60 s: el servidor
+// no debe cortar antes de 2 min.
+server.requestTimeout = 120000;
 server.listen(PORT, () => {
   console.log(`🚀 Servidor de Edu-Verse corriendo en el puerto ${PORT}`);
+  require('./services/migraciones').aplicarMigraciones()
+    .then(() => require('./services/groq').revisarModelos());
 });
 
 // --- NUEVA RUTA PARA DETALLE DE APUNTE ---
