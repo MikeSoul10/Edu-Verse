@@ -11,16 +11,18 @@ API REST que expone todos los servicios de Edu-Verse. Cada endpoint paso a paso.
 ### 1.1 Configuración inicial
 1. Importa `express`, `http` (para crear el servidor), `socket.io`, `cors`, `bcrypt`, `multer`, `jsonwebtoken` y `dotenv`.
 2. Crea la app de Express y un servidor HTTP aparte (`http.createServer(app)`), necesario para montar Socket.IO sobre el mismo puerto.
-3. Inicializa `JWT_SECRET` desde `process.env.JWT_SECRET` (con fallback `supersecretkey_eduverse_2026`).
+3. Carga `JWT_SECRET` desde `config.js`. Es obligatorio y no tiene fallback: si falta, el proceso aborta al arrancar. El login (firma) y `middleware/auth.js` + Socket.IO (verificación) importan el mismo valor.
 
 ### 1.2 Middleware globales
 | Orden | Middleware | Función |
 |-------|------------|---------|
-| 1 | `cors()` | Permite peticiones desde cualquier origen |
-| 2 | `express.json()` | Parsea cuerpos JSON |
-| 3 | `express.static('uploads/')` | Sirve los archivos subidos (debe ir **antes** de las rutas) |
-| 4 | `verificarToken` | Middleware de autenticación (importado de `middleware/auth.js`) |
-| 5 | `sanitize` | Utilidad de escape HTML (importado de `middleware/sanitize.js`) |
+| 1 | `helmet()` | Cabeceras defensivas (`nosniff`, CORP, etc.) |
+| 2 | `cors()` | Permite peticiones desde cualquier origen |
+| 3 | `express.json({ limit: '1mb' })` | Parsea cuerpos JSON |
+| 4 | `express.static('uploads/')` | Sirve los archivos subidos (debe ir **antes** de las rutas) |
+| 5 | `rateLimit` | Límite de intentos en login (10/15 min) y registro (20/hora); no es global |
+| 6 | `verificarToken` | Middleware de autenticación en rutas protegidas (importado de `middleware/auth.js`) |
+| 7 | `sanitize` | Utilidad de normalización de texto plano (importado de `middleware/sanitize.js`) |
 
 ### 1.3 Rutas montadas
 ```js
@@ -40,6 +42,11 @@ Dos instancias separadas con límites y filtros de tipo:
 
 Ambas renombran el archivo con `Date.now() + '-' + nombreOriginal`.
 
+Además:
+- `validarFirma` comprueba los primeros bytes (PDF/PNG/JPG) y borra el archivo si no coinciden con la extensión.
+- `verificarCuotaApuntes` limita el total de apuntes por usuario a **100 MB** (`UPLOAD_QUOTA_MB` configurable). Si se supera, borra el archivo recién subido y responde `413`.
+- Al eliminar apuntes, usuarios o cambiar la foto de perfil se borran los archivos del disco mediante `utils/files.js` (con protección contra path traversal).
+
 ---
 
 ## 2. Socket.IO (tiempo real)
@@ -48,15 +55,11 @@ Se inicializa sobre el servidor HTTP y maneja las salas por equipo:
 
 | Evento entrante | Acción |
 |-----------------|--------|
-| `connection` | Log del `socket.id` |
-| `unirse-equipo` | `socket.join('equipo-{id}')` |
+| `connection` | Autentica el handshake, une el socket a `usuario-{id}` |
+| `unirse-equipo` | Verifica membresía en BD y hace `socket.join('equipo-{id}')` |
 | `salir-equipo` | `socket.leave('equipo-{id}')` |
-| `nueva-tarea` | Emite `tarea-creada` a la sala del equipo |
-| `mover-tarea` | Emite `tarea-movida` a la sala del equipo |
-| `editar-tarea` | Emite `tarea-editada` a la sala del equipo |
-| `eliminar-tarea` | Emite `tarea-eliminada` a la sala del equipo |
-| `mensaje-chat` | Emite `nuevo-mensaje` a la sala del equipo |
-| `disconnect` | Log de desconexión |
+
+Los eventos de tareas, chat y miembros los emiten **solo las rutas REST** después de escribir en la base; el servidor ya no retransmite eventos enviados por clientes.
 
 ---
 
@@ -74,14 +77,15 @@ Se inicializa sobre el servidor HTTP y maneja las salas por equipo:
 
 ### Flujo paso a paso — `POST /auth/login`
 1. Verifica si el email está en `baneados` → `403` si lo está.
-2. Busca el usuario por email.
-3. Compara contraseña con `bcrypt.compare`.
-4. **Crea token** con payload `{ id, nombre, rol }`, expiración `24h`.
-5. Devuelve `{ mensaje, token, usuario: { id, nombre, foto_url, rol } }`.
+2. Busca el usuario por email (comparación `lower(email)`).
+3. Si `password_hash` es `NULL` (cuenta creada con Google), responde `401` en vez de llamar a `bcrypt.compare` y provocar un `500`.
+4. Compara contraseña con `bcrypt.compare`; si no coincide, `401`.
+5. **Crea token** con payload `{ id, nombre, rol }`, expiración `24h`.
+6. Devuelve `{ mensaje, token, usuario: { id, nombre, foto_url, rol } }`.
 
 ### 4. Rutas de perfil
 - `GET /auth/perfil/:id` → devuelve `nombre`, `email`, `foto_url`.
-- `PUT /auth/perfil/update/:id` → **requiere token**, valida que `req.usuario.id === id`, exige dominio `@alumnos.udg.mx`.
+- `PUT /auth/perfil/update/:id` → **requiere token**, valida que `req.usuario.id === id`, normaliza el email a minúsculas, exige dominio `@alumnos.udg.mx`, comprueba baneo y duplicados (`lower(email)`) y responde `400 "El correo ya existe"` tanto en la precomprobación como si la carrera termina en `23505`.
 
 ---
 
@@ -112,7 +116,7 @@ Se inicializa sobre el servidor HTTP y maneja las salas por equipo:
 ## 7. Comunidad
 
 - `GET /comentarios/:apunte_id` → lista comentarios con nombre del autor, `ORDER BY fecha_creacion DESC`.
-- `POST /comentarios` → **requiere token**, aplica `sanitize(texto)` antes de insertar (prevención XSS).
+- `POST /comentarios` → **requiere token**, aplica `sanitize(texto)` antes de insertar (elimina caracteres de control; React escapa el HTML al renderizar).
 - `POST /valoraciones` → **requiere token**, `INSERT ... ON CONFLICT (apunte_id, usuario_id) DO UPDATE` → un usuario solo puede dar una valoración por apunte, puede cambiarla.
 
 ---
@@ -125,11 +129,11 @@ Todas las rutas exigen **token + rol `admin`** (doble middleware `verificarToken
 |--------|------|---------|
 | `GET` | `/admin/stats` | `Promise.all` con 9 `COUNT` + 3 queries de 7 días (`apuntesPorDia`, `usuariosPorDia`, `equiposPorDia`) |
 | `GET` | `/admin/usuarios` | Lista todos los usuarios con rol |
-| `DELETE` | `/admin/usuarios/:id` | **Transacción** (`BEGIN`/`COMMIT`/`ROLLBACK`): borra mensajes → tareas → comentarios → apuntes → equipos → usuario, y registra en `admin_logs`. No permite autodescuento |
+| `DELETE` | `/admin/usuarios/:id` | **Transacción** (`BEGIN`/`COMMIT`/`ROLLBACK`): borra mensajes → tareas → comentarios → apuntes → equipos → usuario, y registra en `admin_logs`. Tras el COMMIT borra del disco sus apuntes y su foto. No permite autodescuento |
 | `POST` | `/admin/ban` | **Transacción**: inserta/actualiza `baneados` + log. No permite auto-baneo |
 | `GET` | `/admin/baneados` | Lista baneados con nombre del admin que baneó |
 | `DELETE` | `/admin/baneados/:email` | Desbanea + log |
-| `DELETE` | `/admin/apuntes/:id` | Elimina apunte + log |
+| `DELETE` | `/admin/apuntes/:id` | Elimina apunte + su archivo del disco + log |
 | `DELETE` | `/admin/comentarios/:id` | Elimina comentario + log |
 | `DELETE` | `/admin/tareas/:id` | Elimina tarea + log |
 | `DELETE` | `/admin/equipos/:id` | Elimina equipo + log |
@@ -158,12 +162,14 @@ Todas las rutas exigen **token + rol `admin`** (doble middleware `verificarToken
 - `POST /equipos/unirse` → valida código, valida que no sea ya miembro, inserta como `miembro`.
 - `GET /equipos/mis-equipos/:usuario_id` → `JOIN miembros_equipo` para traer equipos con rol.
 - `GET /equipos/:equipo_id/miembros` → lista miembros con nombre, foto y rol.
+- `POST /equipos/:equipo_id/salir` → abandona la membresía (usuario del token, no del body). Si sale el admin, se promueve al siguiente miembro; si era el último, el equipo se elimina.
+- `DELETE /equipos/:equipo_id/miembros/:usuario_id` → expulsa a otro miembro; solo el admin del equipo y nunca a sí mismo.
 - `GET /equipos/:equipo_id` → detalle del equipo.
 
 ### `routes/tareas.js`
 - `POST /tareas/crear` → inserta con sanitización; prioridad por defecto `verde`.
 - `GET /tareas/equipo/:equipo_id` → lista con nombre del asignado (`LEFT JOIN`).
-- `PUT /tareas/:id` → actualización parcial usando `COALESCE($, columna)`.
+- `PUT /tareas/:id` → actualización parcial: solo agrega al `SET` los campos presentes en el body. Omitir `asignado_a` conserva al asignado; enviarlo en `null`/`''` lo desasigna; `fecha_entrega` y `descripcion` aceptan vacío para limpiarse.
 - `PUT /tareas/:id/mover` → cambio de estado (kanban drag-and-drop).
 - `DELETE /tareas/:id` → elimina.
 
@@ -179,7 +185,7 @@ Todas las rutas exigen **token + rol `admin`** (doble middleware `verificarToken
 |---------|---------|--------|
 | `auth.js` | `verificarToken` | Lee header `Authorization: Bearer <token>`, verifica con `jwt.verify`, adjunta `req.usuario` |
 | `admin.js` | `verificarAdmin` | Comprueba `req.usuario.rol === 'admin'`, si no → `403` |
-| `sanitize.js` | `sanitize` | Escapa `& < > " '` para prevenir XSS |
+| `sanitize.js` | `sanitize` | Elimina caracteres de control no imprimibles. **No escapa HTML**: la base guarda texto plano y React lo codifica al renderizar |
 | `profanity.js` | `filtrarTexto`, `contieneInsulto`, `normalizar`, `PALABRAS_BLOQUEADAS` | Normaliza (NFD, quita tildes, mapa leet, colapsa repeticiones), detecta palabras bloqueadas con límites de palabra, enmascara conservando primera letra |
 
 ---
@@ -208,7 +214,7 @@ Validaciones:
 
 Flujo:
 1. Normaliza y filtra `texto` con `filtrarTexto` (leet, tildes, repeticiones, límites de palabra).
-2. Escapa HTML con `sanitize`.
+2. Normaliza caracteres de control con `sanitize` (no escapa HTML; React lo hace al renderizar).
 3. Inserta en `mensajes_chat`.
 4. Si hubo censura, registra en `moderacion_logs` (usuario, equipo, palabras, cantidad).
 5. Emite `nuevo-mensaje` por Socket.IO a la sala `equipo-${equipo_id}` con el mensaje ya filtrado.
@@ -245,4 +251,5 @@ node index.js        # producción
 npx nodemon index.js # desarrollo
 ```
 
-Servidor: `http://localhost:4000` · Docker mapea `4001 → 4000`.
+Servidor local: `http://localhost:4000`. En producción, Docker publica el backend
+solo en `127.0.0.1:4001` y el tráfico público entra por Nginx (`:8080`).

@@ -944,7 +944,7 @@ Dos reglas que se respetan en todo el proyecto:
   queda claro en modo oscuro sin que nada lo avise. Ya se corrigieron los dos
   casos que existían (`.ev-field:focus` y `.ev-donut-hueco`).
 | `src/App.css` | Solo `@import "tailwindcss"` |
-| `nginx.conf` | SPA fallback + proxy de `/uploads/` al backend (producción) |
+| `nginx.conf` | Producción: SPA fallback + proxy de todas las rutas de API (`/auth`, `/apuntes`, ..., `/admin`), `/uploads/` y `/socket.io/` con WebSocket. `client_max_body_size 12m` para subidas de 10 MB |
 
 ### Assets en `public/`
 - `logo-eduverse.png`, `mascota-eduverse.png`, `favicon.svg`, `icons.svg`.
@@ -963,4 +963,6 @@ npm run lint     # ESLint
 npm run preview  # vista previa del build
 ```
 
-Docker: `npm run dev -- --host 0.0.0.0` en el puerto 5173.
+Docker desarrollo: `npm run dev -- --host 0.0.0.0` en el puerto 5173
+(`docker-compose.dev.yml`). Docker producción: build estático servido por Nginx
+en el puerto 80 del contenedor (`docker-compose.yml`, publicado en `:8080`).
