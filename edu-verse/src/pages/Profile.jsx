@@ -366,7 +366,7 @@ const Profile = () => {
               { to: '/biblioteca', label: 'Biblioteca', desc: 'Apuntes y materiales', img: '/Iconos/libros.png' },
               { to: '/gestor-equipos', label: 'Gestor de equipos', desc: 'Tareas y tableros', img: '/Iconos/grupo2.png' },
               // Mismo tratamiento que en Home: sin link, atenuado y con badge.
-              { to: null, label: 'Tutor IA', desc: 'Resuelve dudas y crea resúmenes', img: '/Iconos/mascota_robot.png', proximamente: true },
+              { to: '/tutor', label: 'Tutor IA', desc: 'Resuelve dudas y crea resúmenes', img: '/Iconos/mascota_robot.png'},
             ].map((m) => {
               const cuerpo = (
                 <>
